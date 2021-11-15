@@ -1,24 +1,13 @@
 import numpy as np
 from core import utils
+import pandas as pd
 
-"""
-Options:
 
-1. Have it return a new point, not a direction
-    > This means it will need a direction perturbation parameter
-2. Have it return a raw direction
-3. Have it convert the direction
-    > Input points will always have 0/1 encoding
-    > If we generate a direction saying +- 0, return what?
-    > Actually, returning a raw direction makes sense:
-        - tells you how to change continuous variables
-        - tells you how to change binary variables (change from 100% male to 90% male, 10% female)
-        - tells you how to change categorical variables
-            (change from 100% private sector to 0% private sector, 50% local gov, 50% federal gov)
-"""
 #TODO: instead of passing in a preprocessor, this should create one itself using column info.
 class MRM:
-    def __init__(self, alpha=utils.cliff_alpha, alpha_neg=None, ignore_negatives=True, immutable_features=None, preprocessor=None, perturb_dir=utils.constant_priority_dir, weight_function=utils.size_normalization):
+    def __init__(self, alpha=utils.cliff_alpha, alpha_neg=None, ignore_negatives=True, 
+                 immutable_features=None, preprocessor=None, perturb_dir=utils.constant_priority_dir, 
+                 weight_function=utils.size_normalization):
         self.alpha = alpha
         self.alpha_neg = alpha_neg
         self.ignore_negatives = ignore_negatives
@@ -64,8 +53,6 @@ class MRM:
 
         new_point = poi.copy()
         new_point += dir
-        for column in new_point.columns:
-            print(f"{column}: {poi[column].iloc[0]} -> {new_point[column].iloc[0]}")
         if self.preprocessor is not None:
             new_point = self.preprocessor.inverse_transform(new_point)
         if self.immutable_features is not None:
@@ -77,79 +64,67 @@ class MRM:
 
 
 class MRMIterator:
-  def __init__(self, mrm, max_iterations=100, perturb_dir=utils.constant_priority_dir, early_stopping=None):
-    self.mrm = mrm
-    self.perturb_dir = perturb_dir
-    if perturb_dir is None:
-      self.perturb_dir = lambda dir: dir
-    self.max_iterations=max_iterations
-    self.dimensions = None
-    self.early_stopping = early_stopping
-    if self.early_stopping is None:
-      self.early_stopping = lambda _: False
+    def __init__(self, mrm, max_iterations=100, early_stopping=None):
+        self.mrm = mrm
+        self.max_iterations=max_iterations
+        self.dimensions = None
+        self.early_stopping = early_stopping
+        if self.early_stopping is None:
+            self.early_stopping = lambda _: False
 
-  def fit(self, X, Y):
-    self.mrm.fit(X, Y)
-    self.dimensions = X.shape[1]
+    def fit(self, dataset):
+        self.mrm.fit(dataset)
+        self.dimensions = dataset.shape[1] - 1 # subtract one for the label dimension
 
-  def iterate(self, poi):
-    curr_poi = poi
-    poi_path = np.empty(shape=(self.max_iterations, self.dimensions))
-    i = 0
-    while i < self.max_iterations:
-      poi_path[i] = curr_poi
-      dir = self.mrm.transform(curr_poi)
-      dir = self.perturb_dir(dir)
-      curr_poi = curr_poi + dir
-      i += 1
-      if self.early_stopping(curr_poi):
-        return poi_path[:i]
-    return poi_path[:i]
+    def iterate(self, poi):
+        curr_poi = poi
+        poi_path = pd.DataFrame(columns=poi.columns)
+        i = 0
+        while i < self.max_iterations:
+            poi_path = poi_path.append(curr_poi, ignore_index=True)
+            curr_poi = self.mrm.transform(curr_poi)
+            i += 1
+            if self.early_stopping(curr_poi):
+                return poi_path[:i]
+        return poi_path
 
-  def filtered_dataset_size(self):
-    return self.mrm.filtered_dataset_size()
+    def filtered_dataset_size(self):
+        return self.mrm.filtered_dataset_size()
 
 
 class MRMCIterator(MRMIterator):
-  def __init__(self, clusterer, k_dirs, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    self.cluster_centers_ = None
-    self.cluster_assignments_ = None
-    self.clusterer = clusterer
-    self.k_dirs = k_dirs
-    self.X = None
-    self.Y = None
-    self.cluster_datasets = None
-    self.filtered_dataset_sizes = None
+    def __init__(self, k_dirs, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cluster_assignments = None
+        self.k_dirs = k_dirs
+        self.X = None
+        self.Y = None
+        self.cluster_datasets = None
+        self.cluster_sizes = None
 
-  def fit(self, X, Y, recalculate_clusters=False):
-    if recalculate_clusters:
-      self.clusterer.fit(X[Y == 1])
-    self.cluster_assignments_ = self.clusterer.predict(X[Y == 1])
-    self.cluster_centers_ = self.clusterer.cluster_centers_
-    self.X = X
-    self.Y = Y
+    def fit(self, dataset, cluster_assignments):
+        self.cluster_assignments = cluster_assignments
+        if dataset[dataset.Y == 1].shape[0] < self.k_dirs:
+            raise Exception(f"The dataset is too small for the number of clusters.")
+        self.cluster_datasets = []
+        self.cluster_sizes = []
+        for k in range(self.k_dirs):
+            pos_data = dataset[dataset.Y == 1][cluster_assignments == k]
+            neg_data = dataset[dataset.Y == -1]
+            cluster_data = pd.concat([pos_data, neg_data])
+            self.cluster_datasets.append(cluster_data)
+            self.cluster_sizes.append(pos_data.shape[0])
 
-    self.cluster_datasets = []
-    self.filtered_dataset_sizes = np.zeros(self.k_dirs)
-    for i in range(self.k_dirs):
-      X_cluster = X[Y == 1][self.cluster_assignments_ == i]
-      Y_cluster = Y[Y == 1][self.cluster_assignments_ == i]
-      X_full = np.concatenate([X[Y == -1], X_cluster])
-      Y_full = np.concatenate([Y[Y == -1], Y_cluster])
-      self.cluster_datasets.append((X_full, Y_full))
-      super().fit(X_full, Y_full)
-      self.filtered_dataset_sizes[i] = super().filtered_dataset_size()
-    
-  def iterate(self, poi):
-    paths = []
-    for X, Y in self.cluster_datasets:
-      super().fit(X, Y)
-      poi_path = poi[None,:]
-      if super().filtered_dataset_size() > 0:
-        poi_path = super().iterate(poi)
-      paths.append(poi_path)
-    return paths
-
-  def filtered_dataset_size(self):
-    return self.filtered_dataset_sizes
+    def iterate(self, poi):
+        paths = []
+        for cluster in range(self.k_dirs):
+            cluster_data = self.cluster_datasets[cluster]
+            super().fit(cluster_data)
+            poi_path = poi.reset_index()
+            if self.cluster_sizes[cluster] > 0:
+                poi_path = super().iterate(poi)
+            paths.append(poi_path)
+        return paths
+        
+    def get_cluster_sizes(self):
+        return self.cluster_sizes
