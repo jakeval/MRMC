@@ -2,15 +2,29 @@
 from core.mrmc import MRM, MRMCIterator
 from core import utils
 from data import data_adapter as da
+from models import random_forest
 from visualize.two_d_plots import Display2DPaths
-from matplotlib import pyplot as plt
 
+from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.cluster import KMeans
 
 print("Load the dataset...")
 adult_train, adult_test, preprocessor = da.load_adult_income_dataset()
 print("Shape before processing: ", adult_train.shape)
+
+X = np.array(preprocessor.transform(adult_train.drop('Y', axis=1)))
+Y = np.array(adult_train['Y'])
+
+X_test = np.array(preprocessor.transform(adult_test.drop('Y', axis=1)))
+Y_test = np.array(adult_test['Y'])
+
+print("Train a model...")
+model, accuracy = random_forest.train_model(X, Y, X_test, Y_test)
+
+model_scores = model.predict_proba(X)
+adult_train = da.filter_from_model(adult_train, model_scores)
+print("Shape after accuracy filtering: ", adult_train.shape)
 
 # Filtering for Immutability...
 print("Select a random POI...")
@@ -23,7 +37,7 @@ if do_filtering:
     feature_tolerances = {'age': 5}
     print(poi[immutable_features])
 
-filtered_adult = da.filter_from_poi(adult_train, poi, immutable_features, feature_tolerances) # always retains columns
+filtered_adult = da.filter_from_poi(adult_train, poi, immutable_features, feature_tolerances)
 print("Shape after immutability filtering: ", filtered_adult.shape)
 print("Positive examples after immutability filtering: ", filtered_adult[filtered_adult.Y == 1].shape)
 

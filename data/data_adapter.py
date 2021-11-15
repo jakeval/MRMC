@@ -27,4 +27,10 @@ def filter_from_poi(dataset, poi, immutable_features=None, feature_tolerances=No
                 mask = df[feature] == feature_value
             df = df.loc[mask, :]
     return df
-  
+
+
+def filter_from_model(dataset, model_scores, certainty_cutoff=0.7):
+    Y_indices = dataset.Y.mask(dataset.Y == -1, 0).to_numpy().astype('int32') # 0-1 representation
+    correct_proba = np.where(Y_indices, model_scores[:,1], model_scores[:,0]) # the probability of the correct label
+    high_certainty_idx = correct_proba >= certainty_cutoff
+    return dataset[high_certainty_idx]
