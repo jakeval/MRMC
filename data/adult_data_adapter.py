@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import OrdinalEncoder
 import os
 
 
@@ -14,21 +14,21 @@ class AdultPreprocessor:
         self.continuous_features = continuous_features
 
         self.sc_dict = None
-        self.le_dict = None
+        self.oe_dict = None
         self.ohe_dict = None
 
     def fit(self, dataset):
         self.sc_dict = {}
-        self.le_dict = {}
+        self.oe_dict = {}
         self.ohe_dict = {}
         for feature in self.continuous_features:
             sc = StandardScaler()
             sc.fit(dataset[[feature]])
             self.sc_dict[feature] = sc
-        for feature in self.ordinal_features:
-            le = LabelEncoder()
-            le.fit(dataset[feature])
-            self.le_dict[feature] = le
+        for feature, ordering in self.ordinal_features.items():
+            oe = OrdinalEncoder(categories=[ordering])
+            oe.fit(dataset[[feature]])
+            self.oe_dict[feature] = oe
         for feature in self.categorical_features:
             ohe = OneHotEncoder()
             ohe.fit(dataset[[feature]])
@@ -42,7 +42,7 @@ class AdultPreprocessor:
                 df[feature] = self.sc_dict[feature].transform(df[[feature]])
         for feature in self.ordinal_features:
             if feature in df.columns:
-                df[feature] = self.le_dict[feature].transform(df[feature])
+                df[feature] = self.oe_dict[feature].transform(df[[feature]])
         for feature in self.categorical_features:
             if feature in df.columns:
                 ohe = self.ohe_dict[feature]
@@ -64,7 +64,7 @@ class AdultPreprocessor:
         for feature in self.ordinal_features:
             if feature in df.columns:
                 df[feature] = df[feature].round().astype('int32')
-                df[feature] = self.le_dict[feature].inverse_transform(df[feature])
+                df[feature] = self.oe_dict[feature].inverse_transform(df[[feature]])
         for feature in self.categorical_features:
             ohe = self.ohe_dict[feature]
             feature_columns = ohe.get_feature_names_out([feature])
@@ -72,6 +72,27 @@ class AdultPreprocessor:
                 df[feature] = ohe.inverse_transform(df[feature_columns])
                 df = df.drop(feature_columns, axis=1)
         return df
+
+    def get_feature_names_out(self, features):
+        features_out = []
+        for feature in features:
+            if feature in self.categorical_features:
+                features_out += list(self.ohe_dict[feature].get_feature_names_out([feature]))
+            else:
+                features_out.append(feature)
+        return features_out
+
+
+def random_category(df, cols):
+    if np.random.random() > 0.8:
+        p = df[cols].to_numpy()
+        for row in range(p.shape[0]):
+            if (p[row] < 0).any():
+                print(p[row])
+            chosen_category = np.random.choice(cols, p=p[row])
+            df.iloc[row, df.columns.isin(cols)] = 0.
+            df.iloc[row, df.columns == chosen_category] = 1.
+    return df
 
 
 # TODO: support loading from online directly
@@ -88,7 +109,22 @@ def load_data(data_dir='../data/adult'):
     category_features = ['workclass', 'occupation', 'race']
     ordinal_features = ['sex', 'marital-status', 'education']
     continuous_features = ['age', 'capital-gain', 'capital-loss', 'hours-per-week']
+    ordinal_features = {
+        'sex': ['Female', 'Male'],
+        'marital-status': ['Single', 'Married'],
+        'education': get_education_ordering(data_df)
+    }
+    data_df = data_df.drop('education-num', axis=1)
+    test_df = test_df.drop('education-num', axis=1)
     return data_df, test_df, AdultPreprocessor(category_features, ordinal_features, continuous_features).fit(data_df)
+
+
+def get_education_ordering(df):
+    category_ordering = []
+    for ed_num in np.sort(df['education-num'].unique()):
+        ed_category = df[df['education-num'] == ed_num]['education'].unique()[0]
+        category_ordering.append(ed_category)
+    return category_ordering
 
 
 # TODO: actually check for previously reformatted data
@@ -140,7 +176,7 @@ def load_and_process_data(data_dir, filename):
     with open(os.path.join(data_dir, filename)) as f:
         df = pd.read_csv(f)
 
-    df = df.drop(columns=['education-num', 'fnlwgt', 'native-country', 'relationship'])
+    df = df.drop(columns=['fnlwgt', 'native-country', 'relationship'])
     df = df.drop_duplicates()
 
     for c in df.columns:

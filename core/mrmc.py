@@ -6,39 +6,29 @@ import pandas as pd
 #TODO: instead of passing in a preprocessor, this should create one itself using column info.
 class MRM:
     def __init__(self, alpha=utils.cliff_alpha, alpha_neg=None, ignore_negatives=True, 
-                 immutable_features=None, preprocessor=None, perturb_dir=utils.constant_priority_dir, 
-                 weight_function=utils.size_normalization):
+                 perturb_dir=utils.priority_dir, weight_function=utils.centroid_normalization,
+                 immutable_column_names=None):
         self.alpha = alpha
         self.alpha_neg = alpha_neg
         self.ignore_negatives = ignore_negatives
         self.weight_function = weight_function
-        if weight_function is None:
-            self.weight_function = lambda dir, X: dir
+        self.immutable_column_names = immutable_column_names
         self.X = None
         self.Y = None
-        self.preprocessor = preprocessor
-        self.immutable_features = immutable_features
         self.perturb_dir = perturb_dir
 
-    def fit(self, dataset):
-        df = dataset.copy()
+    def fit(self, X, Y):
         if self.ignore_negatives:
-            df = df[df.Y == 1]
-        self.X = df.drop("Y", axis=1)
-        self.Y = df.Y
-        if self.immutable_features is not None:
-            self.X = self.X.drop(self.immutable_features, axis=1)
-        if self.preprocessor is not None:
-            self.X = self.preprocessor.transform(self.X)
+            X = X[Y == 1]
+            Y = Y[Y == 1]
+        if self.immutable_column_names is not None:
+            X = X.drop(self.immutable_column_names, axis=1)
+        self.X = X
+        self.Y = Y
 
     def transform(self, poi):
-        columns_to_restore = None
-        if self.immutable_features is not None:
-            columns_to_restore = poi[self.immutable_features]
-            poi = poi.drop(self.immutable_features, axis=1)
-        if self.preprocessor is not None:
-            poi = self.preprocessor.transform(poi)
-
+        if self.immutable_column_names is not None:
+            poi = poi.drop(self.immutable_column_names, axis=1)
         indicator = (self.Y == 1) * 2 - 1
         diff = self.X - poi.to_numpy()
         dist = np.sqrt(np.power(diff, 2).sum(axis=1))
@@ -47,45 +37,66 @@ class MRM:
             alpha_val = np.where(indicator == 1, alpha_val, self.alpha_neg(dist))
         dir = diff.T@(alpha_val * indicator)
         if self.weight_function is not None:
-            dir = self.weight_function(dir, self.X)
+            dir = self.weight_function(dir, poi.to_numpy()[0], self.X.to_numpy())
         if self.perturb_dir is not None:
             dir = self.perturb_dir(dir)
+        
+        dir = pd.DataFrame(columns=dir.index, data=[dir])
 
-        new_point = poi.copy()
-        new_point += dir
-        if self.preprocessor is not None:
-            new_point = self.preprocessor.inverse_transform(new_point)
-        if self.immutable_features is not None:
-            new_point[self.immutable_features] = columns_to_restore
-        return new_point
+        if self.immutable_column_names is not None:
+            dir[self.immutable_column_names] = 0.0
+        return dir
 
     def filtered_dataset_size(self):
         return self.X[self.Y == 1].shape[0]
 
 
 class MRMIterator:
-    def __init__(self, mrm, max_iterations=100, early_stopping=None):
+    def __init__(self, mrm, preprocessor, max_iterations=100, early_stopping=None, validate=True):
         self.mrm = mrm
         self.max_iterations=max_iterations
-        self.dimensions = None
+        # self.dimensions = None
         self.early_stopping = early_stopping
+        self.preprocessor = preprocessor
         if self.early_stopping is None:
             self.early_stopping = lambda _: False
+        self.validate = validate
 
     def fit(self, dataset):
-        self.mrm.fit(dataset)
-        self.dimensions = dataset.shape[1] - 1 # subtract one for the label dimension
+        X = dataset.drop('Y', axis=1)
+        Y = dataset.Y
+        X = self.preprocessor.transform(X)
+        self.mrm.fit(X, Y)
+        # self.dimensions = dataset.shape[1] - 1 # subtract one for the label dimension
 
     def iterate(self, poi):
-        curr_poi = poi
-        poi_path = pd.DataFrame(columns=poi.columns)
+        # print("-"*10, "Start Iteration", "-"*10)
+        curr_poi = self.preprocessor.transform(poi).reset_index(drop=True)
+        path_columns = curr_poi.columns
+        if self.validate:
+            path_columns = poi.columns
+        poi_path = pd.DataFrame(columns=path_columns, dtype='float64')
         i = 0
+
+        occ_columns = self.preprocessor.get_feature_names_out(['occupation'])
+
         while i < self.max_iterations:
-            poi_path = poi_path.append(curr_poi, ignore_index=True)
-            curr_poi = self.mrm.transform(curr_poi)
+            new_point = curr_poi
+            original = None
+            if self.validate:
+                new_point = self.preprocessor.inverse_transform(new_point)
+                # print(new_point['occupation'].values)
+                curr_poi = self.preprocessor.transform(new_point)
+            original = curr_poi[occ_columns].idxmax(axis=1)
+            poi_path = poi_path.append(new_point, ignore_index=True)
             i += 1
             if self.early_stopping(curr_poi):
                 return poi_path[:i]
+            dir = self.mrm.transform(curr_poi)
+            #print(dir[occ_columns])
+            #print("max:", dir[occ_columns].max())
+            #print("original: ", dir[original])
+            curr_poi += dir
         return poi_path
 
     def filtered_dataset_size(self):
@@ -120,7 +131,7 @@ class MRMCIterator(MRMIterator):
         for cluster in range(self.k_dirs):
             cluster_data = self.cluster_datasets[cluster]
             super().fit(cluster_data)
-            poi_path = poi.reset_index()
+            poi_path = poi.reset_index(drop=True)
             if self.cluster_sizes[cluster] > 0:
                 poi_path = super().iterate(poi)
             paths.append(poi_path)

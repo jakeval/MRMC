@@ -27,7 +27,7 @@ class Display2DPaths:
         return self
 
     def heatmap(self):
-        heatmap_plot = lambda ax: ax.hexbin(self.X[:,0], self.X[:,1], C=self.Y, gridsize=60, bins=None)
+        heatmap_plot = lambda ax: ax.hexbin(self.X[:,0], self.X[:,1], C=self.Y, gridsize=60, bins=None, alpha=0.6)
         fig, ax = self._plot_in_2d(heatmap_plot)
 
         cb = fig.colorbar(cm.ScalarMappable(), ax=ax)
