@@ -52,10 +52,9 @@ class MRM:
 
 
 class MRMIterator:
-    def __init__(self, mrm, preprocessor, max_iterations=100, early_stopping=None, validate=True):
+    def __init__(self, mrm, preprocessor, max_iterations=100, early_stopping=None, validate=False):
         self.mrm = mrm
         self.max_iterations=max_iterations
-        # self.dimensions = None
         self.early_stopping = early_stopping
         self.preprocessor = preprocessor
         if self.early_stopping is None:
@@ -67,36 +66,24 @@ class MRMIterator:
         Y = dataset.Y
         X = self.preprocessor.transform(X)
         self.mrm.fit(X, Y)
-        # self.dimensions = dataset.shape[1] - 1 # subtract one for the label dimension
 
     def iterate(self, poi):
-        # print("-"*10, "Start Iteration", "-"*10)
         curr_poi = self.preprocessor.transform(poi).reset_index(drop=True)
-        path_columns = curr_poi.columns
-        if self.validate:
-            path_columns = poi.columns
-        poi_path = pd.DataFrame(columns=path_columns, dtype='float64')
+        poi_path = curr_poi.copy()
+        if not self.mrm.X[self.mrm.Y == 1].shape[0] > 0:
+            return poi_path
+
         i = 0
-
-        occ_columns = self.preprocessor.get_feature_names_out(['occupation'])
-
         while i < self.max_iterations:
-            new_point = curr_poi
-            original = None
-            if self.validate:
-                new_point = self.preprocessor.inverse_transform(new_point)
-                # print(new_point['occupation'].values)
-                curr_poi = self.preprocessor.transform(new_point)
-            original = curr_poi[occ_columns].idxmax(axis=1)
-            poi_path = poi_path.append(new_point, ignore_index=True)
-            i += 1
-            if self.early_stopping(curr_poi):
-                return poi_path[:i]
             dir = self.mrm.transform(curr_poi)
-            #print(dir[occ_columns])
-            #print("max:", dir[occ_columns].max())
-            #print("original: ", dir[original])
             curr_poi += dir
+            if self.validate:
+                new_point = self.preprocessor.inverse_transform(curr_poi)
+                curr_poi = self.preprocessor.transform(new_point)
+            poi_path = poi_path.append(curr_poi, ignore_index=True)
+            if self.early_stopping(curr_poi):
+                return poi_path
+            i += 1
         return poi_path
 
     def filtered_dataset_size(self):
@@ -131,9 +118,7 @@ class MRMCIterator(MRMIterator):
         for cluster in range(self.k_dirs):
             cluster_data = self.cluster_datasets[cluster]
             super().fit(cluster_data)
-            poi_path = poi.reset_index(drop=True)
-            if self.cluster_sizes[cluster] > 0:
-                poi_path = super().iterate(poi)
+            poi_path = super().iterate(poi)
             paths.append(poi_path)
         return paths
         

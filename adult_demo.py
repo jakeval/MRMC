@@ -80,9 +80,6 @@ if run_mrm:
         print("Step size: ", dist)
         print(newpoint)
 
-        #for column in processed_poi.columns:
-        #    print(f"{column}: {processed_poi[column].iloc[0]} -> {newpoint[column].iloc[0]}")
-
 do_validated = True
 do_unvalidated = True
 
@@ -110,11 +107,11 @@ if do_validated:
 
     paths_processed = []
     for i, path in enumerate(paths):
-        paths_processed.append(preprocessor.transform(path).to_numpy())
-        final_point = path.iloc[-1]
+        paths_processed.append(path.to_numpy())
+        final_point = preprocessor.inverse_transform(path.iloc[-1:])
         print("-"*30)
         print(f"Path {i}")
-        for column in path.columns:
+        for column in poi.columns:
             print(f"{column}: {poi[column].iloc[0]} -> {final_point[column]}")
 
     display = Display2DPaths(X_full, Y_full, title="UCI Adult Income Demo")
