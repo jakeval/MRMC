@@ -25,17 +25,19 @@ model_scores = model.predict_proba(X)
 adult_train = da.filter_from_model(adult_train, model_scores)
 print("Shape after accuracy filtering: ", adult_train.shape)
 
-N = 10
+N = 5
 k_dirs = 4
 max_iterations = 30
-immutable_features = None # ['age', 'sex', 'race']
-feature_tolerances = None # {'age': 5}
-immutable_column_names = None # preprocessor.get_feature_names_out(['age', 'sex', 'race'])
+immutable_features = ['age', 'sex', 'race']
+feature_tolerances = {'age': 5}
+immutable_column_names = preprocessor.get_feature_names_out(['age', 'sex', 'race'])
 experiment_immutable_column_names = preprocessor.get_feature_names_out(['age', 'sex', 'race'])
-validate = False
+sparsity_limit = 5
+validate = True
 early_stopping = lambda point: utils.model_early_stopping(model, point)
 weight_function = lambda dir, poi, X: utils.centroid_normalization(dir, poi, X, alpha=0.7)
-mrm = MRM(immutable_column_names=immutable_column_names, weight_function=weight_function)
+perturb_dir = None if sparsity_limit is None else lambda dir: utils.priority_dir(dir, k=sparsity_limit)
+mrm = MRM(immutable_column_names=immutable_column_names, weight_function=weight_function, perturb_dir=perturb_dir)
 mrmc = MRMCIterator(k_dirs, mrm, preprocessor, max_iterations, early_stopping=early_stopping, validate=validate)
 
 positive_probability_key = 'Positive Probability'
@@ -48,6 +50,7 @@ path_statistics = {
     'Immutable Violations': lambda paths: path_stats.check_immutability(experiment_immutable_column_names, paths),
     'Sparsity': path_stats.check_sparsity,
     'Path Invalidity': lambda paths: path_stats.check_validity_distance(preprocessor, paths),
+    'Diversity': path_stats.check_diversity
 }
 cluster_statistics = {
     'Cluster Size': path_stats.check_cluster_size,
@@ -62,7 +65,7 @@ stats, aggregated_stats, nonzero_ratio = test.run_test()
 print(aggregated_stats)
 print(nonzero_ratio)
 
-one_stats = None
+one_stats = True
 while one_stats is None:
     one_stats, paths, clusters = test.run_trial()
 

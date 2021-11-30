@@ -93,3 +93,21 @@ def check_sparsity(paths):
             nonzero = (diff != 0).sum()
             path_sparsity[path_idx] = nonzero
     return path_sparsity
+
+
+def check_diversity(paths):
+    points = np.empty((len(paths), paths[0].shape[1]))
+    for i in range(len(paths)):
+        points[i] = paths[i].iloc[-1].to_numpy()
+
+    dist = lambda p1, p2: np.sqrt((p1-p2)@(p1-p2))
+    K = np.empty((points.shape[0], points.shape[0]))
+    for i in range(points.shape[0]):
+        for j in range(i, points.shape[0]):
+            d = dist(points[i], points[j])
+            K[i,j] = 1/(1 + d)
+            K[j,i] = 1/(1 + d)
+            if i == j:
+                K[i,j] += np.random.normal(0,0.0001)
+    diversity = np.linalg.det(K)
+    return np.full(len(paths), diversity)
