@@ -60,4 +60,4 @@ stats, aggregated_stats, nonzero_ratio = test.run_test()
 
 print("Done")
 
-aggregated_stats.to_pickle(f'./ratio_{nonzero_ratio}.pkl')
+aggregated_stats.to_pickle(f'/home/jasonvallada/ratio_{nonzero_ratio}.pkl')
