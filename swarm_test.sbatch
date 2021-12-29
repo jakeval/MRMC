@@ -18,4 +18,4 @@ module load shared python/3.8.11
 
 source /home/jasonvallada/MRMC/.env/bin/activate
 
-python /home/jasonvallada/swarm_test.py
+python /home/jasonvallada/MRMC/swarm_test.py
