@@ -8,27 +8,20 @@ import os
 
 
 class AdultPreprocessor:
-    def __init__(self, categorical_features, ordinal_features, continuous_features):
+    def __init__(self, categorical_features, continuous_features):
         self.categorical_features = categorical_features
-        self.ordinal_features = ordinal_features
         self.continuous_features = continuous_features
 
         self.sc_dict = None
-        self.oe_dict = None
         self.ohe_dict = None
 
     def fit(self, dataset):
         self.sc_dict = {}
-        self.oe_dict = {}
         self.ohe_dict = {}
         for feature in self.continuous_features:
             sc = StandardScaler()
             sc.fit(dataset[[feature]])
             self.sc_dict[feature] = sc
-        for feature, ordering in self.ordinal_features.items():
-            oe = OrdinalEncoder(categories=[ordering])
-            oe.fit(dataset[[feature]])
-            self.oe_dict[feature] = oe
         for feature in self.categorical_features:
             ohe = OneHotEncoder()
             ohe.fit(dataset[[feature]])
@@ -40,9 +33,6 @@ class AdultPreprocessor:
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.sc_dict[feature].transform(df[[feature]])
-        for feature in self.ordinal_features:
-            if feature in df.columns:
-                df[feature] = self.oe_dict[feature].transform(df[[feature]])
         for feature in self.categorical_features:
             if feature in df.columns:
                 ohe = self.ohe_dict[feature]
@@ -61,10 +51,6 @@ class AdultPreprocessor:
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.sc_dict[feature].inverse_transform(df[[feature]])
-        for feature in self.ordinal_features:
-            if feature in df.columns:
-                df[feature] = df[feature].round().astype('int32')
-                df[feature] = self.oe_dict[feature].inverse_transform(df[[feature]])
         for feature in self.categorical_features:
             ohe = self.ohe_dict[feature]
             feature_columns = ohe.get_feature_names_out([feature])
@@ -83,18 +69,6 @@ class AdultPreprocessor:
         return features_out
 
 
-def random_category(df, cols):
-    if np.random.random() > 0.8:
-        p = df[cols].to_numpy()
-        for row in range(p.shape[0]):
-            if (p[row] < 0).any():
-                print(p[row])
-            chosen_category = np.random.choice(cols, p=p[row])
-            df.iloc[row, df.columns.isin(cols)] = 0.
-            df.iloc[row, df.columns == chosen_category] = 1.
-    return df
-
-
 # TODO: support loading from online directly
 def load_data(data_dir='../data/adult'):
     train_filename = 'adult.data'
@@ -106,8 +80,7 @@ def load_data(data_dir='../data/adult'):
     
     data_df, test_df = load_and_process_data(data_dir, train_filename), load_and_process_data(data_dir, test_filename)
     
-    category_features = ['workclass', 'occupation', 'race']
-    ordinal_features = ['sex', 'marital-status', 'education']
+    category_features = ['workclass', 'occupation', 'race', 'sex', 'marital-status', 'education']
     continuous_features = ['age', 'capital-gain', 'capital-loss', 'hours-per-week']
     ordinal_features = {
         'sex': ['Female', 'Male'],
@@ -116,7 +89,7 @@ def load_data(data_dir='../data/adult'):
     }
     data_df = data_df.drop('education-num', axis=1)
     test_df = test_df.drop('education-num', axis=1)
-    return data_df, test_df, AdultPreprocessor(category_features, ordinal_features, continuous_features).fit(data_df)
+    return data_df, test_df, AdultPreprocessor(category_features, continuous_features).fit(data_df)
 
 
 def get_education_ordering(df):

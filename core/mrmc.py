@@ -3,7 +3,6 @@ from core import utils
 import pandas as pd
 
 
-#TODO: instead of passing in a preprocessor, this should create one itself using column info.
 class MRM:
     def __init__(self, alpha=utils.cliff_alpha, alpha_neg=None, ignore_negatives=True, 
                  perturb_dir=utils.priority_dir, weight_function=utils.centroid_normalization,
