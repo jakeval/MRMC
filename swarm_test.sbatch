@@ -3,7 +3,7 @@
 #SBATCH --job-name=jasonvallada_test
 #SBATCH --output=result-%A_%a.out
 #SBATCH --error=result-%A_%a.err
-#SBATCH --time=0-00:04
+#SBATCH --time=0-00:10
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
