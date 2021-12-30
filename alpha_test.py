@@ -164,7 +164,7 @@ def run_experiment():
     print("Open a client...")
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': '/mnt/nfs/scratch1/jasonvallada'})
-    client = Client(threads_per_worker=1, n_workers=360)
+    client = Client(threads_per_worker=1, n_workers=360, memory_limit='500MB')
 
     all_params = get_params(30)
     num_tests = all_params.shape[0]
