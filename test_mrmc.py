@@ -8,6 +8,10 @@ from core import utils
 from visualize.two_d_plots import Display2DPaths
 from matplotlib import pyplot as plt
 
+"""
+File for testing mrmc on a single parameter setting. It is replaced by alpha_test.py
+"""
+
 print("Load the dataset...")
 adult_train, adult_test, preprocessor = da.load_adult_income_dataset()
 print("Shape before processing: ", adult_train.shape)
@@ -65,7 +69,7 @@ stats, aggregated_stats, nonzero_ratio = test.run_test()
 print(aggregated_stats)
 print(nonzero_ratio)
 
-one_stats = True
+one_stats = None
 while one_stats is None:
     one_stats, paths, clusters = test.run_trial()
 
@@ -73,7 +77,9 @@ while one_stats is None:
 
     for i, path in enumerate(paths):
         print(f"Path {i}:")
-        print(preprocessor.inverse_transform(path))
+        path2 = preprocessor.inverse_transform(path)
+        print(path2.iloc[0])
+        print(path2.iloc[-1])
 
     processed_paths = [np.array(path) for path in paths]
 

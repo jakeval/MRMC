@@ -2,13 +2,16 @@ import numpy as np
 from data import data_adapter as da
 from models import random_forest
 from experiments.test_dice import DiceTestRunner
-from core.mrmc import MRM, MRMCIterator
 from experiments import point_stats
 from sklearn.pipeline import Pipeline
 import dice_ml
-from core import utils
 from visualize.two_d_plots import Display2DPaths
 from matplotlib import pyplot as plt
+
+
+"""
+File for testing DiCE on a single parameter setting. To be replaced with a pattern resembling alpha_test.py
+"""
 
 print("Load the dataset...")
 adult_train, adult_test, preprocessor = da.load_adult_income_dataset()
