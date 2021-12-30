@@ -4,10 +4,10 @@
 #SBATCH --output=result-%A_%a.out
 #SBATCH --error=result-%A_%a.err
 #SBATCH --time=0-00:10
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=15
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=500
+#SBATCH --mem-per-cpu=1000
 #SBATCH --partition=defq
 #SBATCH --mail-user=$USER@umass.edu
 
@@ -18,8 +18,5 @@ export OMP_NUM_THREADS=1
 module load shared python/3.8.11
 
 source /home/jasonvallada/MRMC/.env/bin/activate
-
-echo "got an arg..."
-echo $1
 
 python /home/jasonvallada/MRMC/alpha_test.py $1

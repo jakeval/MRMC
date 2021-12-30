@@ -6,7 +6,8 @@ from core.mrmc import MRM, MRMCIterator, MRMIterator
 from experiments import path_stats
 from core import utils
 import dask
-from dask.distributed import Client, progress
+import dask.dataframe as dd
+#from dask.distributed import Client, progress
 import pandas as pd
 from sklearn.model_selection import ParameterGrid
 import itertools
@@ -14,7 +15,9 @@ import sys
 
 
 def test_launcher(datasets, preprocessors, models, keys, params):
-    print("start test...")
+    print("START TEST")
+    print("params:")
+    print(params)
     p = dict([(key, val) for key, val in zip(keys, params)])
     dataset = datasets[p['dataset']]
     preprocessor = preprocessors[p['dataset']]
@@ -61,10 +64,65 @@ def test_launcher(datasets, preprocessors, models, keys, params):
     return aggregated_stats
 
 
+def test_launcher2(datasets, preprocessors, models, params):
+    print("Start a trial!")
+    aggregated_stats = None
+    for i in params.index:
+        p = params.loc[i,:]
+        dataset = datasets[p['dataset']]
+        preprocessor = preprocessors[p['dataset']]
+        model = models[p['model']]
+        num_trials = p['num_trials']
+        k_dirs = p['k_dirs']
+        max_iterations = p['max_iterations']
+        experiment_immutable_column_names = preprocessor.get_feature_names_out(p['experiment_immutable_features'])
+        validate = p['validate']
+        early_stopping = None
+        if p['early_stopping']:
+            early_stopping = lambda point: utils.model_early_stopping(model, point, cutoff=p['early_stopping_cutoff'])
+        weight_function = None
+        if p['weight_function'] == 'centroid':
+            weight_function = lambda dir, poi, X: utils.centroid_normalization(dir, poi, X, alpha=p['weight_centroid_alpha'])
+        alpha_function = None
+        if p['alpha_function'] == 'volcano':
+            alpha_function = lambda dist: utils.volcano_alpha(dist, cutoff=p['alpha_volcano_cutoff'], degree=p['alpha_volcano_degree'])
+        elif p['alpha_function'] == 'normal':
+            alpha_function = lambda dist: utils.normal_alpha(dist, width=p['alpha_normal_width'])
+
+        mrm = MRM(alpha=alpha_function, weight_function=weight_function, perturb_dir=None)
+        mrmc = MRMCIterator(k_dirs, mrm, preprocessor, max_iterations, early_stopping=early_stopping, validate=validate)
+
+        path_statistics = {
+            'Positive Probability': lambda paths: path_stats.check_positive_probability(model, paths),
+            'Path Invalidity': lambda paths: path_stats.check_validity_distance(preprocessor, paths),
+            'Path Count': path_stats.check_path_count,
+            'Final Point Distance': path_stats.check_final_point_distance,
+            'Path Length': path_stats.check_path_length,
+            'Immutable Violations': lambda paths: path_stats.check_immutability(experiment_immutable_column_names, paths),
+            'Sparsity': path_stats.check_sparsity,
+            'Path Invalidity': lambda paths: path_stats.check_validity_distance(preprocessor, paths),
+            'Diversity': path_stats.check_diversity
+        }
+        cluster_statistics = {
+            'Cluster Size': path_stats.check_cluster_size,
+        }
+
+        test = MrmcTestRunner(num_trials, dataset, preprocessor, mrmc, path_statistics,
+                            cluster_statistics)
+        _, new_stats = test.run_test()
+        new_stats = new_stats.set_axis(axis=0, labels=[i])
+        if aggregated_stats is None:
+            aggregated_stats = new_stats
+        else:
+            aggregated_stats = pd.concat([aggregated_stats, new_stats])
+    print("Finished a trial!")
+    return aggregated_stats
+
+
 def get_params(num_trials):
     simple_params = {
         'num_trials': [num_trials],
-        'k_dirs': [1,2,3,4,5],
+        'k_dirs': [2,3,4,5],
         'max_iterations': [15],
         'validate': [False],
     }
@@ -123,14 +181,15 @@ def get_params(num_trials):
     return params
 
 
-def write_dataframe(params_df, results_dataframe_list, output_file):
-    results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
+def write_dataframe(params_df, results_dataframe, output_file):
+    #results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
+    results_dataframe = results_dataframe
     final_df = pd.concat([params_df, results_dataframe], axis=1)
-    print(final_df)
     final_df.to_pickle(output_file)
 
 
 def run_experiment():
+    args = sys.argv
     print(args)
     output_file = '/home/jasonvallada/test_results.pkl'
 
@@ -149,22 +208,27 @@ def run_experiment():
 
     print("Trained a model...")
 
-    print("Open a client...")
+    # print("Open a client...")
     dask.config.set(scheduler='processes')
-    client = Client(threads_per_worker=1, n_workers=1)
+    # dask.config.set({'temporary-directory': '/mnt/nfs/scratch1/jasonvallada'})
+    # client = Client(threads_per_worker=1, n_workers=1)
 
-    args = sys.argv
     num_tests = 100000
     if len(args) > 1:
-        num_tests = args[1]
+        num_tests = int(args[1])
     print(f"Run {num_tests} tests")
     param_df = get_params(30).iloc[0:num_tests]
-    run_test = lambda params: test_launcher([adult_train], [preprocessor], [model], list(param_df.columns), params)
-    print("Prepare to launch experiment...")
+    param_dd = dd.from_pandas(param_df, npartitions=30)
+    run_test = lambda params: test_launcher2([adult_train], [preprocessor], [model], params)
 
-    futures = client.map(run_test, param_df.values)
-    results = client.gather(futures)
+    meta_params_df = get_params(1).iloc[0:1]
+    meta_output = run_test(meta_params_df)
+    results = param_dd.map_partitions(run_test, meta=meta_output).compute()
+    
+    #futures = client.map(run_test, param_df.values)
+    #results = client.gather(futures)
     write_dataframe(param_df, results, output_file)
+    print("Finished experiment.")
 
 
 if __name__ == '__main__':
