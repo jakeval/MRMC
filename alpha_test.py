@@ -156,6 +156,7 @@ def run_experiment():
     num_tests = 100000
     if len(args) > 1:
         num_tests = args[1]
+    print(f"Run {num_tests} tests")
     param_df = get_params(30).iloc[0:num_tests]
     run_test = lambda params: test_launcher([adult_train], [preprocessor], [model], list(param_df.columns), params)
     print("Prepare to launch experiment...")
