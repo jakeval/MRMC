@@ -5,11 +5,13 @@ from experiments.test_mrmc import MrmcTestRunner
 from core.mrmc import MRM, MRMCIterator, MRMIterator
 from experiments import path_stats
 from core import utils
-from dask.distributed import Client, progress
 import dask
+from dask.distributed import Client, progress
 import pandas as pd
 from sklearn.model_selection import ParameterGrid
 import itertools
+import sys
+
 
 def test_launcher(datasets, preprocessors, models, keys, params):
     print("start test...")
@@ -150,8 +152,11 @@ def run_experiment():
     dask.config.set(scheduler='threads')
     client = Client(threads_per_worker=1, n_workers=1)
 
-
-    param_df = get_params(4).iloc[0:3]
+    args = sys.argv
+    num_tests = 100000
+    if len(args) > 1:
+        num_tests = args[1]
+    param_df = get_params(30).iloc[0:num_tests]
     run_test = lambda params: test_launcher([adult_train], [preprocessor], [model], list(param_df.columns), params)
     print("Prepare to launch experiment...")
 
