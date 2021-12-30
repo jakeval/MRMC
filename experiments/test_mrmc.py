@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 
+import itertools
+
 
 class MrmcTestRunner:
     def __init__(self, N, dataset, preprocessor, mrmc, path_statistics, cluster_statistics, immutable_features=None, feature_tolerances=None):
@@ -48,24 +50,17 @@ class MrmcTestRunner:
         return stat_dict
 
     def run_test(self):
-        # stats_dict_list = []
         stats_dict = dict([(stat_key, np.empty(self.k_dirs*self.N)) for stat_key in self.statistics_keys])
         for n in range(self.N):
-            print(f"n={n}")
+            #print(f"n={n}")
             i = n*self.k_dirs
             j = (n+1)*self.k_dirs
-            print(i, j)
             stats, _, _ = self.run_trial()
             for key in self.statistics_keys:
                 stats_dict[key][i:j] = stats[key]
-            #if stats is not None:
-            #    stats_dict_list.append(stats)
-        #stats_dict = self.reformat_stats(stats_dict_list)
         stats = pd.DataFrame(stats_dict)
         aggregated_statistics = self.aggregate_stats(stats)
-        nonzero_ratio = aggregated_statistics.loc['count',:][0] / (self.N*self.k_dirs)
-
-        return stats_dict, aggregated_statistics, nonzero_ratio
+        return stats, aggregated_statistics
 
     def get_clusters(self, dataset, n_clusters):
         X = np.array(self.preprocessor.transform(dataset.drop('Y', axis=1)))
@@ -77,6 +72,15 @@ class MrmcTestRunner:
 
     def aggregate_stats(self, statistics):
         non_null_stats = statistics[~statistics.isnull()]
-        aggregated_stats = non_null_stats.describe()
-        aggregated_stats.loc['median', :] = non_null_stats.median()
+        non_null_ratio = non_null_stats.shape[0] / statistics.shape[0]
+        meta_stats = ['mean', 'median', 'min', 'max', 'std']
+        described_stats = non_null_stats.describe()
+        described_stats.loc['median',:] = non_null_stats.median()
+        aggregated_columns = [f'{metric} ({stat})' for metric, stat in itertools.product(statistics.columns, meta_stats)]
+        aggregated_stats = pd.DataFrame(columns=aggregated_columns, data=np.zeros(shape=(1,len(aggregated_columns))))
+        
+        for metric, stat in itertools.product(statistics.columns, meta_stats):
+            aggregated_stats[f'{metric} ({stat})'] = described_stats.loc[stat, metric]
+
+        aggregated_stats.loc[:,'success_ratio'] = non_null_ratio
         return aggregated_stats

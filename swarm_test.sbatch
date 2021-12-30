@@ -9,6 +9,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=500
 #SBATCH --partition=defq
+#SBATCH --mail-user=$USER@umass.edu
 
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
