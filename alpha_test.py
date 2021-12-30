@@ -129,7 +129,7 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
 
 
 def run_experiment():
-    output_file = './test_results.pkl'
+    output_file = '/home/jasonvallada/test_results.pkl'
 
     adult_train, adult_test, preprocessor = da.load_adult_income_dataset()
 
