@@ -4,7 +4,7 @@ import pandas as pd
 
 
 class MRM:
-    def __init__(self, alpha=utils.cliff_alpha, alpha_neg=None, ignore_negatives=True, 
+    def __init__(self, alpha=utils.volcano_alpha, alpha_neg=None, ignore_negatives=True, 
                  perturb_dir=utils.priority_dir, weight_function=utils.centroid_normalization,
                  immutable_column_names=None):
         self.alpha = alpha
