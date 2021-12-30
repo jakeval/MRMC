@@ -19,4 +19,7 @@ module load shared python/3.8.11
 
 source /home/jasonvallada/MRMC/.env/bin/activate
 
-python /home/jasonvallada/MRMC/alpha_test.py
+echo "got an arg..."
+echo $1
+
+python /home/jasonvallada/MRMC/alpha_test.py $1

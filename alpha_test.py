@@ -131,6 +131,7 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
 
 
 def run_experiment():
+    print(args)
     output_file = '/home/jasonvallada/test_results.pkl'
 
     adult_train, adult_test, preprocessor = da.load_adult_income_dataset()
@@ -149,7 +150,7 @@ def run_experiment():
     print("Trained a model...")
 
     print("Open a client...")
-    dask.config.set(scheduler='threads')
+    dask.config.set(scheduler='processes')
     client = Client(threads_per_worker=1, n_workers=1)
 
     args = sys.argv
