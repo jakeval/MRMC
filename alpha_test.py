@@ -71,7 +71,7 @@ def get_params(num_trials):
     # simple parameters have no conflicts
     simple_params = {
         'num_trials': [num_trials],
-        'k_dirs': [1,2,3,4,5],
+        'k_dirs': [1,2,4],
         'max_iterations': [15],
         'validate': [False],
     }
@@ -110,11 +110,11 @@ def get_params(num_trials):
         {
             'alpha_function': ['volcano'],
             'alpha_volcano_cutoff': [0.2, 0.5, 0.8],
-            'alpha_volcano_degree': [1, 2, 4, 8, 16]
+            'alpha_volcano_degree': [2, 4, 8, 16]
         },
         {
             'alpha_function': ['normal'],
-            'alpha_normal_width': [0.5, 1, 2, 4]
+            'alpha_normal_width': [0.5, 1, 2]
         }
     ]
 
@@ -129,6 +129,8 @@ def get_params(num_trials):
         params.append(d)
     
     params = pd.DataFrame(ParameterGrid(params))
+    print("param count: ")
+    print(params.shape[0])
     return params
 
 
@@ -162,7 +164,7 @@ def run_experiment():
     print("Open a client...")
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': '/mnt/nfs/scratch1/jasonvallada'})
-    client = Client(threads_per_worker=1, n_workers=60)
+    client = Client(threads_per_worker=1, n_workers=360)
 
     all_params = get_params(30)
     num_tests = all_params.shape[0]
