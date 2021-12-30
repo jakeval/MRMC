@@ -40,12 +40,10 @@ def preference_dir(preferences, epsilon, max_step_size, dir):
             return perturbed_dir
     return np.zeros_like(dir)
 
-def volcano_alpha(u, sigma_close, sigma_far, scale, dist):
-    close_val = np.exp(-0.5 * ((dist - u)/sigma_close)**2)
-    far_val = np.exp(-0.5 * ((dist - u)/sigma_far)**2)
-    return scale * np.where(dist < u, close_val, far_val)
+def normal_alpha(dist, width=1):
+    return np.exp(-0.5 * (dist/width)**2)
 
-def cliff_alpha(dist, cutoff=0.5, degree=2):
+def volcano_alpha(dist, cutoff=0.5, degree=2):
     return np.where(dist <= cutoff, 1/cutoff**degree, 1/dist**degree)
 
 def model_early_stopping(model, point, cutoff=0.7):
