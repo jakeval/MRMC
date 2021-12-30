@@ -7,7 +7,7 @@
 #SBATCH --nodes=12
 #SBATCH --ntasks-per-node=30
 #SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=3000
+#SBATCH --mem-per-cpu=12000
 #SBATCH --partition=defq
 #SBATCH --mail-user=$USER@umass.edu
 
