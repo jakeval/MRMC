@@ -6,8 +6,7 @@ from core.mrmc import MRM, MRMCIterator, MRMIterator
 from experiments import path_stats
 from core import utils
 import dask
-import dask.dataframe as dd
-#from dask.distributed import Client, progress
+from dask.distributed import Client, progress
 import pandas as pd
 from sklearn.model_selection import ParameterGrid
 import itertools
@@ -15,9 +14,6 @@ import sys
 
 
 def test_launcher(datasets, preprocessors, models, keys, params):
-    print("START TEST")
-    print("params:")
-    print(params)
     p = dict([(key, val) for key, val in zip(keys, params)])
     dataset = datasets[p['dataset']]
     preprocessor = preprocessors[p['dataset']]
@@ -60,12 +56,11 @@ def test_launcher(datasets, preprocessors, models, keys, params):
     test = MrmcTestRunner(num_trials, dataset, preprocessor, mrmc, path_statistics,
                         cluster_statistics)
     stats, aggregated_stats = test.run_test()
-    print("Finished!")
     return aggregated_stats
 
 
 def test_launcher2(datasets, preprocessors, models, params):
-    print("Start a trial!")
+    print(f"Start a trial! {params.shape[0]}")
     aggregated_stats = None
     for i in params.index:
         p = params.loc[i,:]
@@ -181,8 +176,8 @@ def get_params(num_trials):
     return params
 
 
-def write_dataframe(params_df, results_dataframe, output_file):
-    #results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
+def write_dataframe(params_df, results_dataframe_list, output_file):
+    results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
     results_dataframe = results_dataframe
     final_df = pd.concat([params_df, results_dataframe], axis=1)
     final_df.to_pickle(output_file)
@@ -190,8 +185,8 @@ def write_dataframe(params_df, results_dataframe, output_file):
 
 def run_experiment():
     args = sys.argv
-    print(args)
     output_file = '/home/jasonvallada/test_results.pkl'
+    #output_file = './results.pkl'
 
     adult_train, adult_test, preprocessor = da.load_adult_income_dataset()
 
@@ -208,25 +203,24 @@ def run_experiment():
 
     print("Trained a model...")
 
-    # print("Open a client...")
+    print("Open a client...")
     dask.config.set(scheduler='processes')
-    # dask.config.set({'temporary-directory': '/mnt/nfs/scratch1/jasonvallada'})
-    # client = Client(threads_per_worker=1, n_workers=1)
+    dask.config.set({'temporary-directory': '/mnt/nfs/scratch1/jasonvallada'})
+    client = Client(threads_per_worker=4, n_workers=30)
 
     num_tests = 100000
     if len(args) > 1:
         num_tests = int(args[1])
     print(f"Run {num_tests} tests")
     param_df = get_params(30).iloc[0:num_tests]
-    param_dd = dd.from_pandas(param_df, npartitions=30)
-    run_test = lambda params: test_launcher2([adult_train], [preprocessor], [model], params)
+    run_test = lambda params: test_launcher([adult_train], [preprocessor], [model], list(param_df.columns), params)
 
-    meta_params_df = get_params(1).iloc[0:1]
-    meta_output = run_test(meta_params_df)
-    results = param_dd.map_partitions(run_test, meta=meta_output).compute()
+    #meta_params_df = get_params(1).iloc[0:1]
+    #meta_output = run_test(meta_params_df)
+    #results = param_dd.map_partitions(run_test, meta=meta_output).compute()
     
-    #futures = client.map(run_test, param_df.values)
-    #results = client.gather(futures)
+    futures = client.map(run_test, param_df.values)
+    results = client.gather(futures)
     write_dataframe(param_df, results, output_file)
     print("Finished experiment.")
 
