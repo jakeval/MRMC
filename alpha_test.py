@@ -165,7 +165,7 @@ def run_experiment():
 
     print("Open a client...")
     cluster = SLURMCluster(
-        n_workers=128,
+        processes=128,
         memory='500MB',
         cores=1
     )
