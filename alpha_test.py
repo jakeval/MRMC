@@ -165,13 +165,17 @@ def run_experiment():
 
     print("Open a client...")
     cluster = SLURMCluster(
-        processes=128,
-        memory='500MB',
-        cores=1
+        processes=1,
+        memory='1000MB',
+        queue='defq',
+        cores=1,
+        walltime='00:20:00',
+        log_directory='/home/jasonvallada/MRMC/logs'
     )
+    cluster.scale(72)
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': '/mnt/nfs/scratch1/jasonvallada'})
-    client = Client(cluster) #Client(threads_per_worker=1, n_workers=360, memory_limit='500MB')
+    client = Client(cluster)
 
     all_params = get_params(30)
     num_tests = all_params.shape[0]
