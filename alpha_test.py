@@ -143,6 +143,7 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
 
 
 def run_experiment():
+    print("starting the script...")
     args = sys.argv
     output_file = '/home/jasonvallada/test_results.pkl'
     #output_file = './results.pkl'
@@ -164,7 +165,7 @@ def run_experiment():
 
     print("Open a client...")
     cluster = SLURMCluster(
-        processes=128,
+        n_workers=128,
         memory='500MB',
         cores=1
     )
