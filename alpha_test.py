@@ -20,14 +20,10 @@ SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
 OUTPUT_DIR = '/home/jasonvallada/alpha_output'
 LOG_DIR = '/home/jasonvallada/MRMC/logs'
 
-def test_launcher(keys, params):
+def test_launcher(models, datasets, keys, params):
     p = dict([(key, val) for key, val in zip(keys, params)])
-    dataset, preprocessor = None, None
-    model = model_utils.load_model(p['model'], p['dataset'])
-    if p['dataset'] == 'adult_income':
-        dataset, _, preprocessor = da.load_adult_income_dataset()
-    elif p['dataset'] == 'german_credit':
-        dataset, _, preprocessor = da.load_german_credit_dataset()
+    model = models[(p['model'], p['dataset'])]
+    dataset, preprocessor = datasets[p['dataset']]
 
     X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
     model_scores = model.predict_proba(X)
@@ -190,6 +186,21 @@ def run_experiment():
     args = sys.argv
     output_file = os.path.join(OUTPUT_DIR, 'test_results_3.pkl')
 
+    models = {
+        ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
+        ('svc', 'adult_income'): model_utils.load_model('svc', 'german_credit'),
+        ('random_forest', 'german_credit'): model_utils.load_model('random_forest', 'german_credit'),
+        ('random_forest', 'adult_income'): model_utils.load_model('random_forest', 'adult_income')
+    }
+
+    german_data, _, german_preprocessor = da.load_german_credit_dataset()
+    adult_data, _, adult_preprocessor = da.load_adult_income_dataset()
+
+    datasets = {
+        'german_credit': (german_data, german_preprocessor),
+        'adult_data': (adult_data, adult_preprocessor)
+    }
+
     print("Open a client...")
     cluster = SLURMCluster(
         processes=1,
@@ -210,7 +221,7 @@ def run_experiment():
         num_tests = int(args[1])
     print(f"Run {num_tests} tests")
     param_df = all_params.iloc[0:num_tests]
-    run_test = lambda params: test_launcher(list(param_df.columns), params)
+    run_test = lambda params: test_launcher(models, datasets, list(param_df.columns), params)
     
     futures = client.map(run_test, param_df.values)
     results = client.gather(futures)
