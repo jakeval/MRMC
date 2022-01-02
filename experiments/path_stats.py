@@ -76,8 +76,8 @@ def check_immutability(preprocessor, immutable_features, paths):
     for path_idx, path in enumerate(paths):
         path = preprocessor.inverse_transform(path)
         for i in range(path.shape[0] - 1):
-            diff = path.iloc[i][immutable_features].to_numpy() - path.iloc[i+1][immutable_features].to_numpy()
-            path_immutability[path_idx] += (diff != 0).sum()
+            diff = path.iloc[i][immutable_features].to_numpy() != path.iloc[i+1][immutable_features].to_numpy()
+            path_immutability[path_idx] += diff.sum()
         path_immutability[path_idx] = path_immutability[path_idx]/(path.shape[0] - 1)
     return path_immutability
 

@@ -36,7 +36,7 @@ def test_launcher(keys, params):
     num_trials = p['num_trials']
     k_dirs = p['k_dirs']
     max_iterations = p['max_iterations']
-    experiment_immutable_column_names = preprocessor.get_feature_names_out(p['experiment_immutable_features'])
+    experiment_immutable_feature_names = p['experiment_immutable_features']
     validate = p['validate']
     early_stopping = None
 
@@ -66,7 +66,7 @@ def test_launcher(keys, params):
         'Path Invalidity': lambda paths: path_stats.check_validity_distance(preprocessor, paths),
         'Path Count': path_stats.check_path_count,
         'Path Length': path_stats.check_path_length,
-        'Path Immutable Violations': lambda paths: path_stats.check_immutability(preprocessor, experiment_immutable_column_names, paths),
+        'Path Immutable Violations': lambda paths: path_stats.check_immutability(preprocessor, experiment_immutable_feature_names, paths),
         'Average Path Sparsity': lambda paths: path_stats.check_sparsity(preprocessor, paths),
         'Path Invalidity': lambda paths: path_stats.check_validity(preprocessor, column_names_per_feature, paths),
         'Diversity': path_stats.check_diversity
@@ -75,7 +75,7 @@ def test_launcher(keys, params):
         'Positive Probability': lambda poi, paths: point_stats.check_positive_probability(model, poi, paths),
         'Point Invalidity': lambda poi, points: point_stats.check_validity(preprocessor, column_names_per_feature, poi, points),
         'Final Point Distance': point_stats.check_final_point_distance,
-        'Point Immutable Violations': lambda poi, points: point_stats.check_immutability(preprocessor, experiment_immutable_column_names, poi, points),
+        'Point Immutable Violations': lambda poi, points: point_stats.check_immutability(preprocessor, experiment_immutable_feature_names, poi, points),
         'Point Sparsity': lambda poi, points: point_stats.check_sparsity(preprocessor, poi, points),
     }
     cluster_statistics = {
@@ -104,6 +104,7 @@ def get_params(num_trials):
         'max_iterations': [15],
         'validate': [False],
         'model': ['random_forest', 'svc'],
+        'perturb_dir': [None]
     }
 
     perturb_dir = [
@@ -174,42 +175,7 @@ def get_params(num_trials):
     params = pd.DataFrame(ParameterGrid(params))
     print("param count: ")
     print(params.shape[0])
-    # return params
-
-    return pd.DataFrame([
-        {
-            'dataset': 'adult_income',
-            'model': 'svc',
-            'num_trials': 3,
-            'validate': False,
-            'k_dirs': 4,
-            'max_iterations': 5,
-            'experiment_immutable_features': [],
-            'early_stopping': False,
-            'weight_function': 'centroid',
-            'weight_centroid_alpha': 0.5,
-            'alpha_function': 'volcano',
-            'alpha_volcano_cutoff': 0.5,
-            'alpha_volcano_degree': 2,
-            'perturb_dir': 'random',
-            'perturb_dir_random_scale': 0.1
-        },
-        {
-            'dataset': 'german_credit',
-            'model': 'random_forest',
-            'num_trials': 3,
-            'validate': False,
-            'k_dirs': 4,
-            'max_iterations': 5,
-            'experiment_immutable_features': [],
-            'early_stopping': False,
-            'weight_function': 'centroid',
-            'weight_centroid_alpha': 0.5,
-            'alpha_function': 'volcano',
-            'alpha_volcano_cutoff': 0.5,
-            'alpha_volcano_degree': 2
-        },
-    ])
+    return params
 
 
 def write_dataframe(params_df, results_dataframe_list, output_file):
@@ -230,7 +196,7 @@ def run_experiment():
         memory='1000MB',
         queue='defq',
         cores=1,
-        walltime='02:00:00',
+        walltime='04:00:00',
         log_directory=LOG_DIR
     )
     cluster.scale(72)
