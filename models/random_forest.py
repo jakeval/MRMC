@@ -7,7 +7,7 @@ def get_accuracy(y_pred, y_true):
     incorrect_count = y_pred[y_pred != y_true].shape[0]
     return correct_count / (correct_count + incorrect_count)
 
-def train_model(X, Y, X_test, Y_test):
+def train_model(X, Y, X_test, Y_test, class_weight=None):
     X = np.array(X)
     Y = np.array(Y.astype(np.float))
 
@@ -19,7 +19,7 @@ def train_model(X, Y, X_test, Y_test):
     best_model = None
     best_score = -np.inf
     for n in n_list:
-        rf = RandomForestClassifier(n_estimators=n, min_samples_split=split)
+        rf = RandomForestClassifier(n_estimators=n, min_samples_split=split, class_weight=class_weight)
         rf.fit(X, Y)
         y_pred = rf.predict(X_test)
         accuracy = get_accuracy(y_pred, Y_test)

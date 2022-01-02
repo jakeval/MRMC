@@ -1,27 +1,8 @@
 import numpy as np
 
-def check_positive_probability(model, paths):
-    final_points = np.empty((len(paths), paths[0].shape[1]))
-    for i, path in enumerate(paths):
-        final_points[i] = path.to_numpy()[-1]
-    predictions = model.predict_proba(final_points)
-    return predictions[:,1]
-
 
 def check_path_count(paths):
     return np.array([len(path) for path in paths])
-
-
-def check_final_point_distance(paths):
-    distances = np.empty(len(paths))
-    for i, path in enumerate(paths):
-        path = path.to_numpy()
-        start = path[0]
-        end = path[-1]
-        diff = start - end
-        dist = np.sqrt(diff@diff)
-        distances[i] = dist
-    return distances
 
 
 def check_path_length(paths):
@@ -40,6 +21,10 @@ def check_path_length(paths):
     return lengths
 
 
+def density_metric():
+    pass
+
+
 """
 For each path,
     calculates the average euclidean distance between each point
@@ -52,6 +37,20 @@ def check_validity_distance(preprocessor, paths):
         diff = valid_path - path.to_numpy()
         dist = np.sqrt((diff**2).sum(axis=1)).mean()
         path_validity[path_idx] = dist
+    return path_validity
+
+
+def check_validity(preprocessor, column_names_per_feature, paths):
+    """The average number of features per-point which are not valid.
+    """
+    path_validity = np.empty(len(paths))
+    for path_idx, path in enumerate(paths):
+        valid_path = make_valid(path, preprocessor)
+        diff = (valid_path - path) != 0
+        path_totals = np.zeros(path.shape[0])
+        for column_names in column_names_per_feature:
+            path_totals += diff[column_names].sum(axis=1).to_numpy()
+        path_validity[path_idx] = path_totals.sum() / path_totals.shape[0]
     return path_validity
 
 
@@ -72,26 +71,29 @@ For each path,
     calculates the average euclidean distance between each point
     and its nearest immutable-enforced point
 """
-def check_immutability(immutable_columns, paths):
+def check_immutability(preprocessor, immutable_features, paths):
     path_immutability = np.empty(len(paths))
     for path_idx, path in enumerate(paths):
+        path = preprocessor.inverse_transform(path)
         for i in range(path.shape[0] - 1):
-            diff = path.iloc[i][immutable_columns].to_numpy() - path.iloc[i+1][immutable_columns].to_numpy()
-            dist = np.sqrt(diff@diff)
-            path_immutability[path_idx] = dist
+            diff = path.iloc[i][immutable_features].to_numpy() - path.iloc[i+1][immutable_features].to_numpy()
+            path_immutability[path_idx] += (diff != 0).sum()
+        path_immutability[path_idx] = path_immutability[path_idx]/(path.shape[0] - 1)
     return path_immutability
+
 
 """
 For each path,
     calculates the average number of altered features for each point
 """
-def check_sparsity(paths):
+def check_sparsity(preprocessor, paths):
     path_sparsity = np.empty(len(paths))
     for path_idx, path in enumerate(paths):
+        path = preprocessor.inverse_transform(path)
         for i in range(path.shape[0] - 1):
-            diff = path.iloc[i].to_numpy() - path.iloc[i+1].to_numpy()
-            nonzero = (diff != 0).sum()
-            path_sparsity[path_idx] = nonzero
+            nonzero = (path.iloc[i] != path.iloc[i+1]).sum()
+            path_sparsity[path_idx] += nonzero
+        path_sparsity[path_idx] = path_sparsity[path_idx]/(path.shape[0] - 1)
     return path_sparsity
 
 

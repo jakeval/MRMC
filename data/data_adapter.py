@@ -1,10 +1,15 @@
 import numpy as np
 import pandas as pd
 from data import adult_data_adapter as adult_da
+from data import german_data_adapter as german_da
 
 
 def load_adult_income_dataset(data_dir='../data/adult'):
     return adult_da.load_data(data_dir)
+
+
+def load_german_credit_dataset(data_dir='../data/german'):
+    return german_da.load_data(data_dir)
 
 
 def random_poi(dataset, label=-1, drop_label=True):

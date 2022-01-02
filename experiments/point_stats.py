@@ -2,22 +2,25 @@ import numpy as np
 
 
 def check_positive_probability(model, poi, cf_points):
-    predictions = model.predict_proba(cf_points)
+    predictions = model.predict_proba(cf_points.to_numpy())
     return predictions[:,1]
 
 
-def check_final_point_distance(preprocessor, poi, cf_points):
-    cf_points = preprocessor.transform(cf_points)
-    poi = preprocessor.transform(poi)
+def check_final_point_distance(poi, cf_points):
     diff = cf_points.to_numpy() - poi.to_numpy()
     return np.sqrt((diff**2).sum(axis=1))
 
 
-"""
-The returned points are already valid
-"""
-def check_validity_distance(poi, cf_points):
-    return np.zeros(cf_points.shape[0])
+def check_validity(preprocessor, column_names_per_feature, poi, cf_points):
+    """The number of features per-point which are not valid.
+    """
+    valid_points = preprocessor.inverse_transform(cf_points)
+    valid_points = preprocessor.transform(valid_points)
+    diff = (cf_points - valid_points) != 0
+    total = 0
+    for column_names in column_names_per_feature:
+        total += diff[column_names].any(axis=1)
+    return total
 
 
 """
@@ -26,24 +29,23 @@ For each path,
     and its nearest immutable-enforced point
 """
 def check_immutability(preprocessor, immutable_features, poi, cf_points):
-    cf_points = preprocessor.transform(cf_points)
-    poi = preprocessor.transform(poi)
-    diff = (cf_points[immutable_features].to_numpy() - poi[immutable_features].to_numpy())
-    return np.sqrt((diff**2).sum(axis=1))
+    cf_points = preprocessor.inverse_transform(cf_points)
+    poi = preprocessor.inverse_transform(poi)
+    return (cf_points[immutable_features].to_numpy() != poi[immutable_features].to_numpy()).sum(axis=1)
 
 
 """
 For each path,
-    calculates the average number of altered features for each point
+    calculates the number of altered features for each path
 """
 def check_sparsity(preprocessor, poi, cf_points):
-    cf_points = preprocessor.transform(cf_points)
-    poi = preprocessor.transform(poi)
-    return ((cf_points.to_numpy() - poi.to_numpy()) != 0).sum(axis=1)
+    poi = preprocessor.inverse_transform(poi)
+    cf_points = preprocessor.inverse_transform(cf_points)
+    return (cf_points.to_numpy() != poi.to_numpy()).sum(axis=1)
 
 
 def check_diversity(preprocessor, poi, cf_points):
-    points = preprocessor.transform(cf_points).to_numpy()
+    points = cf_points.to_numpy()
     dist = lambda p1, p2: np.sqrt((p1-p2)@(p1-p2))
     K = np.empty((points.shape[0], points.shape[0]))
     for i in range(points.shape[0]):

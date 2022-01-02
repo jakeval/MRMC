@@ -3,7 +3,7 @@ from data import data_adapter as da
 from models import random_forest
 from experiments.test_mrmc import MrmcTestRunner
 from core.mrmc import MRM, MRMCIterator, MRMIterator
-from experiments import path_stats
+from experiments import path_stats, point_stats
 from core import utils
 import dask
 from dask.distributed import Client
@@ -12,19 +12,38 @@ import pandas as pd
 from sklearn.model_selection import ParameterGrid
 import itertools
 import sys
+from models import model_utils
+import os
 
 
-def test_launcher(datasets, preprocessors, models, keys, params):
+SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
+OUTPUT_DIR = '/home/jasonvallada/alpha_output'
+LOG_DIR = '/home/jasonvallada/MRMC/logs'
+
+def test_launcher(keys, params):
     p = dict([(key, val) for key, val in zip(keys, params)])
-    dataset = datasets[p['dataset']]
-    preprocessor = preprocessors[p['dataset']]
-    model = models[p['model']]
+    dataset, preprocessor = None, None
+    model = model_utils.load_model(p['model'], p['dataset'])
+    if p['dataset'] == 'adult_income':
+        dataset, _, preprocessor = da.load_adult_income_dataset()
+    elif p['dataset'] == 'german_credit':
+        dataset, _, preprocessor = da.load_german_credit_dataset()
+
+    X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
+    model_scores = model.predict_proba(X)
+    dataset = da.filter_from_model(dataset, model_scores)
+
     num_trials = p['num_trials']
     k_dirs = p['k_dirs']
     max_iterations = p['max_iterations']
     experiment_immutable_column_names = preprocessor.get_feature_names_out(p['experiment_immutable_features'])
     validate = p['validate']
     early_stopping = None
+
+    perturb_dir = None
+    if p['perturb_dir'] == 'random':
+        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'])
+
     if p['early_stopping']:
         early_stopping = lambda point: utils.model_early_stopping(model, point, cutoff=p['early_stopping_cutoff'])
     weight_function = None
@@ -39,23 +58,32 @@ def test_launcher(datasets, preprocessors, models, keys, params):
     mrm = MRM(alpha=alpha_function, weight_function=weight_function, perturb_dir=None)
     mrmc = MRMCIterator(k_dirs, mrm, preprocessor, max_iterations, early_stopping=early_stopping, validate=validate)
 
+    column_names_per_feature = [] # list of lists
+    for feature in dataset.columns.difference(['Y']):
+        column_names_per_feature.append(preprocessor.get_feature_names_out([feature]))
+
     path_statistics = {
-        'Positive Probability': lambda paths: path_stats.check_positive_probability(model, paths),
         'Path Invalidity': lambda paths: path_stats.check_validity_distance(preprocessor, paths),
         'Path Count': path_stats.check_path_count,
-        'Final Point Distance': path_stats.check_final_point_distance,
         'Path Length': path_stats.check_path_length,
-        'Immutable Violations': lambda paths: path_stats.check_immutability(experiment_immutable_column_names, paths),
-        'Sparsity': path_stats.check_sparsity,
-        'Path Invalidity': lambda paths: path_stats.check_validity_distance(preprocessor, paths),
+        'Path Immutable Violations': lambda paths: path_stats.check_immutability(preprocessor, experiment_immutable_column_names, paths),
+        'Average Path Sparsity': lambda paths: path_stats.check_sparsity(preprocessor, paths),
+        'Path Invalidity': lambda paths: path_stats.check_validity(preprocessor, column_names_per_feature, paths),
         'Diversity': path_stats.check_diversity
+    }
+    point_statistics = {
+        'Positive Probability': lambda poi, paths: point_stats.check_positive_probability(model, poi, paths),
+        'Point Invalidity': lambda poi, points: point_stats.check_validity(preprocessor, column_names_per_feature, poi, points),
+        'Final Point Distance': point_stats.check_final_point_distance,
+        'Point Immutable Violations': lambda poi, points: point_stats.check_immutability(preprocessor, experiment_immutable_column_names, poi, points),
+        'Point Sparsity': lambda poi, points: point_stats.check_sparsity(preprocessor, poi, points),
     }
     cluster_statistics = {
         'Cluster Size': path_stats.check_cluster_size,
     }
 
     test = MrmcTestRunner(num_trials, dataset, preprocessor, mrmc, path_statistics,
-                        cluster_statistics)
+                        point_statistics, cluster_statistics)
     stats, aggregated_stats = test.run_test()
     return aggregated_stats
 
@@ -75,14 +103,28 @@ def get_params(num_trials):
         'k_dirs': [1,2,4],
         'max_iterations': [15],
         'validate': [False],
+        'model': ['random_forest', 'svc'],
     }
+
+    perturb_dir = [
+        {
+            'perturb_dir': ['random'],
+            'perturb_dir_random_scale': [0.01, 0.1, 1]
+        },
+        {
+            'perturb_dir': [None]
+        }
+    ]
 
     # the 'model' and 'experiment_immutable_features' parameter values depend on the 'dataset' value
     dataset = [
         {
-            'dataset': [0], # adult income
+            'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
-            'model': [0]
+        },
+        {
+            'dataset': ['german_credit'],
+            'experiment_immutable_features': [['age', 'sex']],
         }
     ]
 
@@ -132,7 +174,42 @@ def get_params(num_trials):
     params = pd.DataFrame(ParameterGrid(params))
     print("param count: ")
     print(params.shape[0])
-    return params
+    # return params
+
+    return pd.DataFrame([
+        {
+            'dataset': 'adult_income',
+            'model': 'svc',
+            'num_trials': 3,
+            'validate': False,
+            'k_dirs': 4,
+            'max_iterations': 5,
+            'experiment_immutable_features': [],
+            'early_stopping': False,
+            'weight_function': 'centroid',
+            'weight_centroid_alpha': 0.5,
+            'alpha_function': 'volcano',
+            'alpha_volcano_cutoff': 0.5,
+            'alpha_volcano_degree': 2,
+            'perturb_dir': 'random',
+            'perturb_dir_random_scale': 0.1
+        },
+        {
+            'dataset': 'german_credit',
+            'model': 'random_forest',
+            'num_trials': 3,
+            'validate': False,
+            'k_dirs': 4,
+            'max_iterations': 5,
+            'experiment_immutable_features': [],
+            'early_stopping': False,
+            'weight_function': 'centroid',
+            'weight_centroid_alpha': 0.5,
+            'alpha_function': 'volcano',
+            'alpha_volcano_cutoff': 0.5,
+            'alpha_volcano_degree': 2
+        },
+    ])
 
 
 def write_dataframe(params_df, results_dataframe_list, output_file):
@@ -145,23 +222,7 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
 def run_experiment():
     print("starting the script...")
     args = sys.argv
-    output_file = '/home/jasonvallada/test_results.pkl'
-    #output_file = './results.pkl'
-
-    adult_train, adult_test, preprocessor = da.load_adult_income_dataset()
-
-    X = np.array(preprocessor.transform(adult_train.drop('Y', axis=1)))
-    Y = np.array(adult_train['Y'])
-
-    X_test = np.array(preprocessor.transform(adult_test.drop('Y', axis=1)))
-    Y_test = np.array(adult_test['Y'])
-
-    model, accuracy = random_forest.train_model(X, Y, X_test, Y_test)
-
-    model_scores = model.predict_proba(X)
-    adult_train = da.filter_from_model(adult_train, model_scores)
-
-    print("Trained a model...")
+    output_file = os.path.join(OUTPUT_DIR, 'test_results_3.pkl')
 
     print("Open a client...")
     cluster = SLURMCluster(
@@ -169,12 +230,12 @@ def run_experiment():
         memory='1000MB',
         queue='defq',
         cores=1,
-        walltime='00:20:00',
-        log_directory='/home/jasonvallada/MRMC/logs'
+        walltime='02:00:00',
+        log_directory=LOG_DIR
     )
     cluster.scale(72)
     dask.config.set(scheduler='processes')
-    dask.config.set({'temporary-directory': '/mnt/nfs/scratch1/jasonvallada'})
+    dask.config.set({'temporary-directory': SCRATCH_DIR})
     client = Client(cluster)
 
     all_params = get_params(30)
@@ -183,7 +244,7 @@ def run_experiment():
         num_tests = int(args[1])
     print(f"Run {num_tests} tests")
     param_df = all_params.iloc[0:num_tests]
-    run_test = lambda params: test_launcher([adult_train], [preprocessor], [model], list(param_df.columns), params)
+    run_test = lambda params: test_launcher(list(param_df.columns), params)
     
     futures = client.map(run_test, param_df.values)
     results = client.gather(futures)

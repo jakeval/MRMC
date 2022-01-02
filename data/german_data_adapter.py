@@ -6,7 +6,7 @@ from sklearn.preprocessing import OneHotEncoder
 import os
 
 
-class AdultPreprocessor:
+class GermanPreprocessor:
     def __init__(self, categorical_features, continuous_features):
         self.categorical_features = categorical_features
         self.continuous_features = continuous_features
@@ -69,21 +69,27 @@ class AdultPreprocessor:
 
 
 # TODO: support loading from online directly
-def load_data(data_dir='../data/adult'):
-    train_filename = 'adult.data'
-    test_filename = 'adult.test'
-    if not check_for_reformatted_data(data_dir, train_filename, test_filename):
-        train_filename, test_filename = reformat_data(data_dir, train_filename), reformat_data(data_dir, test_filename, is_test=True)
-    else:
-        train_filename, test_filename = get_reformatted_filename(train_filename), get_reformatted_filename(test_filename)
-    
+def load_data(data_dir='../data/german'):
+    data_filename = 'german.data'
+    train_filename, test_filename = None, None
+    if True:
+        new_filename = reformat_data(data_dir, data_filename)
+        train_filename, test_filename = write_train_test(data_dir, new_filename)
     data_df, test_df = load_and_process_data(data_dir, train_filename), load_and_process_data(data_dir, test_filename)
     
-    category_features = ['workclass', 'occupation', 'race', 'sex', 'marital-status', 'education']
-    continuous_features = ['age', 'capital-gain', 'capital-loss', 'hours-per-week']
-    data_df = data_df.drop('education-num', axis=1)
-    test_df = test_df.drop('education-num', axis=1)
-    return data_df, test_df, AdultPreprocessor(category_features, continuous_features).fit(data_df)
+    continuous_features = ['duration', 'credit-amount', 'installment-rate', 'residence-duration', 'age', 'num-credits', 'num-liable']
+    category_features = data_df.columns.difference(continuous_features).difference(['Y'])
+    return data_df, test_df, GermanPreprocessor(category_features, continuous_features).fit(data_df)
+
+
+def write_train_test(data_dir, file):
+    df = pd.read_csv(os.path.join(data_dir, file))
+    train_df = df.sample(frac=0.8)
+    test_df = df[~df.index.isin(train_df.index)]
+    train_filename, test_filename = f'german.train', f'german.test'
+    train_df.to_csv(os.path.join(data_dir, train_filename), index=False)
+    test_df.to_csv(os.path.join(data_dir, test_filename), index=False)
+    return train_filename, test_filename
 
 
 def get_education_ordering(df):
@@ -103,30 +109,24 @@ def get_reformatted_filename(filename):
     return f"{filename}.reformatted"
 
 
-def reformat_data(data_dir, filename, is_test=False):
+def reformat_data(data_dir, filename):
     reader = None
     new_filename = get_reformatted_filename(filename)
-    column_names = "age,workclass,fnlwgt,education,education-num,marital-status,occupation,relationship,race,sex,capital-gain,capital-loss,hours-per-week,native-country,income".split(',')
+    column_names = "checking-status,duration,credit-history,loan-purpose,credit-amount,savings-account,employment-duration,installment-rate,personal-status,guarantors,residence-duration,property,age,installment-plan,housing,num-credits,job,num-liable,telephone,foreign-worker,Y".split(',')
     with open(os.path.join(data_dir, filename), newline='') as file:
-        reader = csv.reader(file, delimiter=',')
+        reader = csv.reader(file, delimiter=' ')
         with open(os.path.join(data_dir, new_filename), 'w', newline='') as newfile:
             writer = csv.writer(newfile, delimiter=',')
             writer.writerow(column_names)
             for i, row in enumerate(reader):
-                if is_test and i == 0:
-                    continue
                 stripped_row = list(map(lambda s: s.strip(), row))
-                if is_test:
-                    stripped_row = list(map(lambda s: s.rstrip('.'), stripped_row))
                 writer.writerow(stripped_row)
     return new_filename
 
 
 def convert_label(dataframe):
     new_df = dataframe.copy()
-    new_df['Y'] = 1
-    new_df.loc[new_df['income'] == '<=50K', 'Y'] = -1
-    new_df = new_df.drop('income', axis=1)
+    new_df['Y'] = dataframe['Y'].mask(dataframe['Y'] == 2, -1)
     return new_df
 
 
@@ -143,16 +143,11 @@ def load_and_process_data(data_dir, filename):
     with open(os.path.join(data_dir, filename)) as f:
         df = pd.read_csv(f)
 
-    df = df.drop(columns=['fnlwgt', 'native-country', 'relationship'])
-    df = df.drop_duplicates()
-
-    for c in df.columns:
-        df = df.drop(index=df[df[c] == '?'].index)
+    df['sex'] = 'M'
+    df.loc[(df['personal-status'] == 'A92') | (df['personal-status'] == 'A95'), 'sex'] = 'F'
+    df['relationship'] = 'Not Single'
+    df.loc[(df['personal-status'] == 'A93') | (df['personal-status'] == 'A95'), 'relationship'] = 'Single'
+    df = df.drop('personal-status', axis=1)
 
     df = convert_label(df)
-    new_categories_dict = {
-        'Single': ['Never-married', 'Divorced', 'Separated', 'Widowed'],
-        'Married': ['Married-civ-spouse', 'Married-spouse-absent', 'Married-AF-spouse']
-    }
-    df['marital-status'] = recategorize_feature(df['marital-status'], new_categories_dict)
     return df

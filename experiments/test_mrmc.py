@@ -16,11 +16,12 @@ import itertools
 
 
 class MrmcTestRunner:
-    def __init__(self, N, dataset, preprocessor, mrmc, path_statistics, cluster_statistics, immutable_features=None, feature_tolerances=None):
+    def __init__(self, N, dataset, preprocessor, mrmc, path_statistics, point_statistics, cluster_statistics, immutable_features=None, feature_tolerances=None):
         self.path_statistics = path_statistics
+        self.point_statistics = point_statistics
         self.cluster_statistics = cluster_statistics
         self.mrmc = mrmc
-        self.statistics_keys = list(path_statistics.keys()) + list(cluster_statistics.keys())
+        self.statistics_keys = list(path_statistics.keys()) + list(point_statistics.keys()) + list(cluster_statistics.keys())
         self.dataset = dataset
         self.N = N
         self.preprocessor = preprocessor
@@ -39,12 +40,17 @@ class MrmcTestRunner:
         cluster_assignments, km = self.get_clusters(filtered_data, self.k_dirs)
         self.mrmc.fit(filtered_data, cluster_assignments)
         paths = self.mrmc.iterate(poi)
-        return self.collect_statistics(paths, cluster_assignments), paths, km.cluster_centers_
+        return self.collect_statistics(poi, paths, cluster_assignments), paths, km.cluster_centers_
 
-    def collect_statistics(self, paths, cluster_assignments):
+    def collect_statistics(self, poi, paths, cluster_assignments):
         stat_dict = {}
         for statistic, calculate_statistic in self.path_statistics.items():
             stat_dict[statistic] = calculate_statistic(paths)
+        for statistic, calculate_statistic in self.point_statistics.items():
+            points = pd.DataFrame(columns=paths[0].columns, data=np.zeros((len(paths), len(paths[0].columns))))
+            for i in range(len(paths)):
+                points.iloc[i,:] = paths[i].iloc[-1,:]
+            stat_dict[statistic] = calculate_statistic(self.preprocessor.transform(poi), points)
         for statistic, calculate_statistic in self.cluster_statistics.items():
             stat_dict[statistic] = calculate_statistic(cluster_assignments, self.k_dirs)
         return stat_dict

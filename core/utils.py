@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def size_normalization(dir, poi, X):
     return dir / X.shape[0]
 
@@ -12,6 +13,9 @@ def centroid_normalization(dir, poi, X, alpha=0.7):
     centroid_dist = np.sqrt(diff@diff)
     dir = alpha * dir * (centroid_dist / np.sqrt(dir@dir))
     return dir
+
+def random_perturb_dir(scale, dir):
+    return dir + np.random.normal(0, scale, dir.shape)
 
 def perturb_point(scale, x):
     perturbation = np.random.normal(loc=(0,0), scale=scale)
