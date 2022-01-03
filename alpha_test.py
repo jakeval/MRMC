@@ -85,7 +85,7 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     return aggregated_stats
 
 
-def get_params(num_trials, datasets):
+def get_params(num_trials):
     """Create a dataframe of input parameters.
     
     Each row of the dataframe contains a setting over parameters used by test_launcher to launch a test.
@@ -118,12 +118,10 @@ def get_params(num_trials, datasets):
         {
             'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
-            'dataframe': [datasets['adult_income']]
         },
         {
             'dataset': ['german_credit'],
             'experiment_immutable_features': [['age', 'sex']],
-            'dataframe': [datasets['german_credit']]
         }
     ]
 
@@ -226,7 +224,7 @@ def run_experiment():
         'adult_income': adult_preprocessor
     }
 
-    all_params = get_params(30, datasets)
+    all_params = get_params(30)
     num_tests = all_params.shape[0]
     if len(args) > 1:
         num_tests = int(args[1])
