@@ -20,10 +20,11 @@ SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
 OUTPUT_DIR = '/home/jasonvallada/alpha_output'
 LOG_DIR = '/home/jasonvallada/MRMC/logs'
 
-def test_launcher(models, datasets, keys, params):
+def test_launcher(models, preprocessors, keys, params):
     p = dict([(key, val) for key, val in zip(keys, params)])
     model = models[(p['model'], p['dataset'])]
-    dataset, preprocessor = datasets[p['dataset']]
+    dataset = p['dataframe']
+    preprocessor = preprocessors[p['dataset']]
 
     X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
     model_scores = model.predict_proba(X)
@@ -51,7 +52,7 @@ def test_launcher(models, datasets, keys, params):
     elif p['alpha_function'] == 'normal':
         alpha_function = lambda dist: utils.normal_alpha(dist, width=p['alpha_normal_width'])
 
-    mrm = MRM(alpha=alpha_function, weight_function=weight_function, perturb_dir=None)
+    mrm = MRM(alpha=alpha_function, weight_function=weight_function, perturb_dir=perturb_dir)
     mrmc = MRMCIterator(k_dirs, mrm, preprocessor, max_iterations, early_stopping=early_stopping, validate=validate)
 
     column_names_per_feature = [] # list of lists
@@ -84,7 +85,7 @@ def test_launcher(models, datasets, keys, params):
     return aggregated_stats
 
 
-def get_params(num_trials):
+def get_params(num_trials, datasets):
     """Create a dataframe of input parameters.
     
     Each row of the dataframe contains a setting over parameters used by test_launcher to launch a test.
@@ -113,15 +114,16 @@ def get_params(num_trials):
         }
     ]
 
-    # the 'model' and 'experiment_immutable_features' parameter values depend on the 'dataset' value
     dataset = [
         {
             'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
+            'dataframe': [datasets['adult_income']]
         },
         {
             'dataset': ['german_credit'],
             'experiment_immutable_features': [['age', 'sex']],
+            'dataframe': [datasets['german_credit']]
         }
     ]
 
@@ -177,7 +179,7 @@ def get_params(num_trials):
 def write_dataframe(params_df, results_dataframe_list, output_file):
     results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
     results_dataframe = results_dataframe
-    final_df = pd.concat([params_df, results_dataframe], axis=1)
+    final_df = pd.concat([params_df.drop('dataframe', axis=1), results_dataframe], axis=1)
     final_df.to_pickle(output_file)
 
 
@@ -186,42 +188,48 @@ def run_experiment():
     args = sys.argv
     output_file = os.path.join(OUTPUT_DIR, 'test_results_3.pkl')
 
-    models = {
-        ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
-        ('svc', 'adult_income'): model_utils.load_model('svc', 'german_credit'),
-        ('random_forest', 'german_credit'): model_utils.load_model('random_forest', 'german_credit'),
-        ('random_forest', 'adult_income'): model_utils.load_model('random_forest', 'adult_income')
-    }
-
-    german_data, _, german_preprocessor = da.load_german_credit_dataset()
-    adult_data, _, adult_preprocessor = da.load_adult_income_dataset()
-
-    datasets = {
-        'german_credit': (german_data, german_preprocessor),
-        'adult_data': (adult_data, adult_preprocessor)
-    }
-
     print("Open a client...")
     cluster = SLURMCluster(
         processes=1,
         memory='1000MB',
         queue='defq',
         cores=1,
-        walltime='04:00:00',
+        walltime='00:20:00',
         log_directory=LOG_DIR
     )
     cluster.scale(72)
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': SCRATCH_DIR})
     client = Client(cluster)
+    #client = Client(n_workers=1, threads_per_worker=1)
 
-    all_params = get_params(30)
+    models = {
+        ('svc', 'german_credit'): client.scatter(model_utils.load_model('svc', 'german_credit'), broadcast=True),
+        ('svc', 'adult_income'): client.scatter(model_utils.load_model('svc', 'adult_income'), broadcast=True),
+        ('random_forest', 'german_credit'): client.scatter(model_utils.load_model('random_forest', 'german_credit'), broadcast=True),
+        ('random_forest', 'adult_income'): client.scatter(model_utils.load_model('random_forest', 'adult_income'), broadcast=True)
+    }
+
+    german_data, _, german_preprocessor = da.load_german_credit_dataset()
+    adult_data, _, adult_preprocessor = da.load_adult_income_dataset()
+
+    datasets = {
+        'german_credit': german_data,
+        'adult_income': adult_data
+    }
+
+    preprocessors = {
+        'german_credit': german_preprocessor,
+        'adult_income': adult_preprocessor
+    }
+
+    all_params = get_params(30, datasets)
     num_tests = all_params.shape[0]
     if len(args) > 1:
         num_tests = int(args[1])
     print(f"Run {num_tests} tests")
     param_df = all_params.iloc[0:num_tests]
-    run_test = lambda params: test_launcher(models, datasets, list(param_df.columns), params)
+    run_test = lambda params: test_launcher(models, preprocessors, list(param_df.columns), params)
     
     futures = client.map(run_test, param_df.values)
     results = client.gather(futures)
