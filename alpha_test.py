@@ -20,10 +20,10 @@ SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
 OUTPUT_DIR = '/home/jasonvallada/alpha_output'
 LOG_DIR = '/home/jasonvallada/MRMC/logs'
 
-def test_launcher(models, preprocessors, keys, params):
+def test_launcher(models, preprocessors, keys, params, dataset):
     p = dict([(key, val) for key, val in zip(keys, params)])
     model = models[(p['model'], p['dataset'])]
-    dataset = p['dataframe']
+    # dataset = p['dataframe']
     preprocessor = preprocessors[p['dataset']]
 
     X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
@@ -197,21 +197,24 @@ def run_experiment():
         walltime='00:20:00',
         log_directory=LOG_DIR
     )
-    cluster.scale(72)
+    cluster.scale(1)
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': SCRATCH_DIR})
     client = Client(cluster)
     #client = Client(n_workers=1, threads_per_worker=1)
 
     models = {
-        ('svc', 'german_credit'): client.scatter(model_utils.load_model('svc', 'german_credit'), broadcast=True),
-        ('svc', 'adult_income'): client.scatter(model_utils.load_model('svc', 'adult_income'), broadcast=True),
-        ('random_forest', 'german_credit'): client.scatter(model_utils.load_model('random_forest', 'german_credit'), broadcast=True),
-        ('random_forest', 'adult_income'): client.scatter(model_utils.load_model('random_forest', 'adult_income'), broadcast=True)
+        ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
+        ('svc', 'adult_income'): model_utils.load_model('svc', 'adult_income'),
+        ('random_forest', 'german_credit'): model_utils.load_model('random_forest', 'german_credit'),
+        ('random_forest', 'adult_income'): model_utils.load_model('random_forest', 'adult_income'),
     }
 
     german_data, _, german_preprocessor = da.load_german_credit_dataset()
     adult_data, _, adult_preprocessor = da.load_adult_income_dataset()
+
+    german_future = client.scatter([german_data], broadcast=True)[0]
+    adult_future = client.scatter([adult_data], broadcast=True)[0]
 
     datasets = {
         'german_credit': german_data,
@@ -229,9 +232,10 @@ def run_experiment():
         num_tests = int(args[1])
     print(f"Run {num_tests} tests")
     param_df = all_params.iloc[0:num_tests]
-    run_test = lambda params: test_launcher(models, preprocessors, list(param_df.columns), params)
-    
-    futures = client.map(run_test, param_df.values)
+    run_test = lambda params, dataset: test_launcher(models, preprocessors, list(param_df.columns), params, dataset)
+    params = param_df.values
+    dataset_futures = list(map(lambda dataset: german_future if dataset == 'german_credit' else adult_future, param_df.loc[:,'dataset']))
+    futures = client.map(run_test, params, dataset_futures)
     results = client.gather(futures)
     write_dataframe(param_df, results, output_file)
     print("Finished experiment.")
