@@ -40,6 +40,8 @@ class MrmcTestRunner:
         cluster_assignments, km = self.get_clusters(filtered_data, self.k_dirs)
         self.mrmc.fit(filtered_data, cluster_assignments)
         paths = self.mrmc.iterate(poi)
+        if paths is None:
+            return np.full(self.k_dirs, np.nan), None, None
         return self.collect_statistics(poi, paths, cluster_assignments), paths, km.cluster_centers_
 
     def collect_statistics(self, poi, paths, cluster_assignments):

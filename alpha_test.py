@@ -177,7 +177,7 @@ def get_params(num_trials):
 def write_dataframe(params_df, results_dataframe_list, output_file):
     results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
     results_dataframe = results_dataframe
-    final_df = pd.concat([params_df.drop('dataframe', axis=1), results_dataframe], axis=1)
+    final_df = pd.concat([params_df, results_dataframe], axis=1)
     final_df.to_pickle(output_file)
 
 
