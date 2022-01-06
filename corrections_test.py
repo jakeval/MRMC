@@ -16,9 +16,14 @@ from models import model_utils
 import os
 
 
+RUN_LOCALLY = True
 SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
-OUTPUT_DIR = '/home/jasonvallada/privacy_output'
+OUTPUT_DIR = '/home/jasonvallada/corrections_output'
 LOG_DIR = '/home/jasonvallada/MRMC/logs'
+if RUN_LOCALLY:
+    SCRATCH_DIR = '.'
+    OUTPUT_DIR = '.'
+    LOG_DIR = '.'
 
 
 def test_launcher(models, preprocessors, keys, params, dataset):
@@ -34,12 +39,15 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     k_dirs = p['k_dirs']
     max_iterations = p['max_iterations']
     experiment_immutable_feature_names = p['experiment_immutable_features']
+    immutable_column_names = None
+    if p['immutable_features'] is not None:
+        immutable_column_names = preprocessor.get_feature_names_out(p['immutable_features'])
     validate = p['validate']
     early_stopping = None
 
     perturb_dir = None
-    if p['perturb_dir'] == 'private':
-        perturb_dir = lambda dir: utils.privacy_perturb_dir(dir, C=p['perturb_dir_privacy_C'])
+    if p['sparsity']:
+        perturb_dir = lambda dir: utils.priority_dir(dir, k=5)
 
     if p['early_stopping']:
         early_stopping = lambda point: utils.model_early_stopping(model, point, cutoff=p['early_stopping_cutoff'])
@@ -51,10 +59,8 @@ def test_launcher(models, preprocessors, keys, params, dataset):
         alpha_function = lambda dist: utils.volcano_alpha(dist, cutoff=p['alpha_volcano_cutoff'], degree=p['alpha_volcano_degree'])
     elif p['alpha_function'] == 'normal':
         alpha_function = lambda dist: utils.normal_alpha(dist, width=p['alpha_normal_width'])
-    elif p['alpha_function'] == 'private':
-        alpha_function = lambda dist: utils.private_alpha(dist, cutoff=p['alpha_private_cutoff'], degree=p['alpha_private_degree'])
 
-    mrm = MRM(alpha=alpha_function, weight_function=weight_function, perturb_dir=perturb_dir)
+    mrm = MRM(alpha=alpha_function, weight_function=weight_function, perturb_dir=perturb_dir, immutable_column_names=immutable_column_names)
     mrmc = MRMCIterator(k_dirs, mrm, preprocessor, max_iterations, early_stopping=early_stopping, validate=validate)
 
     column_names_per_feature = [] # list of lists
@@ -99,10 +105,11 @@ def get_params(num_trials, dataset_str):
     # simple parameters have no conflicts
     simple_params = {
         'num_trials': [num_trials],
-        'k_dirs': [1],
+        'k_dirs': [4],
         'max_iterations': [15],
-        'validate': [False],
+        'validate': [False, True],
         'early_stopping': [True],
+        'sparsity': [True, False],
         'model': ['svc', 'random_forest'],
         'early_stopping_cutoff': [0.7],
         'weight_function': ['centroid'],
@@ -115,6 +122,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
+            'immutable_features': [['age', 'sex', 'race'], None]
             }
         ]
     elif dataset_str == 'german_credit':
@@ -122,35 +130,19 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['german_credit'],
             'experiment_immutable_features': [['age', 'sex']],
+            'immutable_features': [['age', 'sex'], None]
             }
         ]
 
     alpha_function = [
         {
-            'alpha_function': ['private'],
-            'alpha_private_cutoff': [0.8],
-            'alpha_private_degree': [2],
-            'perturb_dir': ['privacy'],
-            'perturb_dir_privacy_C': [1.5625]
-        },
-        {
-            'alpha_function': ['private'],
-            'alpha_private_cutoff': [0.5],
-            'alpha_private_degree': [2],
-            'perturb_dir': ['privacy'],
-            'perturb_dir_privacy_C': [4]
-        },
-        {
             'alpha_function': ['volcano'],
-            'alpha_volcano_cutoff': [0.8],
-            'alpha_volcano_degree': [2],
-            'perturb_dir': [None],
+            'alpha_volcano_cutoff': [0.2],
+            'alpha_volcano_degree': [4],
         },
         {
-            'alpha_function': ['volcano'],
-            'alpha_volcano_cutoff': [0.5],
-            'alpha_volcano_degree': [2],
-            'perturb_dir': [None],
+            'alpha_function': ['normal'],
+            'alpha_normal_width': [0.5],
         },
     ]
 
@@ -180,22 +172,36 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
 def run_experiment():
     print("starting the script...")
     args = sys.argv
-    output_file = os.path.join(OUTPUT_DIR, 'adult_income.pkl')
+    num_tests = None
+    dataset = None
+    if len(args) < 2:
+        print("Not enough arguments")
+        return
+    if len(args) == 2:
+        dataset = args[1]
+    if len(args) == 3:
+        num_tests = int(args[1])
+        dataset = args[2]
+
+    output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
 
     print("Open a client...")
-    cluster = SLURMCluster(
-        processes=1,
-        memory='2000MB',
-        queue='defq',
-        cores=1,
-        walltime='00:25:00',
-        log_directory=LOG_DIR
-    )
-    cluster.scale(4)
+    client = None
+    if not RUN_LOCALLY:
+        cluster = SLURMCluster(
+            processes=1,
+            memory='2000MB',
+            queue='defq',
+            cores=1,
+            walltime='00:25:00',
+            log_directory=LOG_DIR
+        )
+        cluster.scale(4)
+        client = Client(cluster)
+    else:
+        client = Client(n_workers=1, threads_per_worker=1)
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': SCRATCH_DIR})
-    client = Client(cluster)
-    #client = Client(n_workers=1, threads_per_worker=1)
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
@@ -215,16 +221,6 @@ def run_experiment():
         'adult_income': adult_preprocessor
     }
 
-    num_tests = None
-    dataset = None
-    if len(args) < 2:
-        print("Not enough arguments")
-        return
-    if len(args) == 2:
-        dataset = args[1]
-    if len(args) == 3:
-        num_tests = int(args[1])
-        dataset = args[2]
     all_params = get_params(30, dataset)
     print(all_params.shape)
     if num_tests is None:

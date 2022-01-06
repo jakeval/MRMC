@@ -48,8 +48,8 @@ class Display2DPaths:
             pos = self.X[self.Y == 1]
             neg = self.X[self.Y == -1]
             cp, cn = self.colors
-            ax.scatter(pos[:,0], pos[:,1], alpha=0.6, label="Positive Class", c=cp)
-            ax.scatter(neg[:,0], neg[:,1], alpha=0.6, label="Negative Class", c=cn)
+            ax.scatter(pos[:,0], pos[:,1], alpha=0.6, label="Positive Class", c=cp, s=16)
+            ax.scatter(neg[:,0], neg[:,1], alpha=0.6, label="Negative Class", c=cn, s=16)
 
         return self._plot_in_2d(scatter_plot, ax)
 
