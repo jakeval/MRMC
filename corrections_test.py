@@ -16,7 +16,7 @@ from models import model_utils
 import os
 
 
-RUN_LOCALLY = True
+RUN_LOCALLY = False
 SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
 OUTPUT_DIR = '/home/jasonvallada/corrections_output'
 LOG_DIR = '/home/jasonvallada/MRMC/logs'
@@ -196,7 +196,7 @@ def run_experiment():
             walltime='00:25:00',
             log_directory=LOG_DIR
         )
-        cluster.scale(4)
+        cluster.scale(32)
         client = Client(cluster)
     else:
         client = Client(n_workers=1, threads_per_worker=1)
