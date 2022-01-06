@@ -140,6 +140,19 @@ def get_params(num_trials, dataset_str):
             'perturb_dir': ['privacy'],
             'perturb_dir_privacy_C': [4]
         },
+        {
+            'alpha_function': ['volcano'],
+            'alpha_volcano_cutoff': [0.8],
+            'alpha_volcano_degree': [2],
+            'perturb_dir': [None],
+        },
+        {
+            'alpha_function': ['volcano'],
+            'alpha_volcano_cutoff': [0.5],
+            'alpha_volcano_degree': [2],
+            'perturb_dir': [None],
+        },
+ 
     ]
 
     # the simple and constrained parameters are combined into a list of dictionaries which respect the parameter constraints
@@ -168,7 +181,7 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
 def run_experiment():
     print("starting the script...")
     args = sys.argv
-    output_file = os.path.join(OUTPUT_DIR, 'test_results_3.pkl')
+    output_file = os.path.join(OUTPUT_DIR, 'adult_income.pkl')
 
     print("Open a client...")
     cluster = SLURMCluster(
@@ -179,7 +192,7 @@ def run_experiment():
         walltime='00:25:00',
         log_directory=LOG_DIR
     )
-    cluster.scale(1)
+    cluster.scale(4)
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': SCRATCH_DIR})
     client = Client(cluster)
@@ -215,6 +228,8 @@ def run_experiment():
         dataset = args[2]
     all_params = get_params(30, dataset)
     print(all_params.shape)
+    if num_tests is None:
+        num_tests = all_params.shape[0]
     print(f"Run {num_tests} tests")
     param_df = all_params.iloc[0:num_tests]
     run_test = lambda params, dataset: test_launcher(models, preprocessors, list(param_df.columns), params, dataset)
