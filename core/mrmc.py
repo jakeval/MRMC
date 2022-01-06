@@ -79,7 +79,7 @@ class MRMIterator:
             if self.validate:
                 new_point = self.preprocessor.inverse_transform(curr_poi)
                 curr_poi = self.preprocessor.transform(new_point)
-            if np.is_nan(np.array(curr_poi)).any():
+            if np.isnan(np.array(curr_poi)).any():
                 return None
             poi_path = poi_path.append(curr_poi, ignore_index=True)
             if self.early_stopping(curr_poi):

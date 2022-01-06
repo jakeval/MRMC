@@ -14,6 +14,11 @@ def centroid_normalization(dir, poi, X, alpha=0.7):
     dir = alpha * dir * (centroid_dist / np.sqrt(dir@dir))
     return dir
 
+def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
+    beta = np.sqrt(2*np.log(1.25/delta))
+    stdev = (beta*C**2)/epsilon
+    return dir + np.random.normal(0, stdev, size=dir.shape)
+
 def random_perturb_dir(scale, dir):
     return dir + np.random.normal(0, scale, dir.shape)
 
@@ -49,6 +54,9 @@ def normal_alpha(dist, width=1):
 
 def volcano_alpha(dist, cutoff=0.5, degree=2):
     return np.where(dist <= cutoff, 1/cutoff**degree, 1/dist**degree)
+
+def private_alpha(dist, cutoff=0.5, degree=2):
+    return 1/dist * np.where(dist <= cutoff, 1/cutoff**degree, 1/dist**degree)
 
 def model_early_stopping(model, point, cutoff=0.7):
     _, pos_proba = model.predict_proba(point.to_numpy())[0]

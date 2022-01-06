@@ -42,6 +42,9 @@ class MrmcTestRunner:
         paths = self.mrmc.iterate(poi)
         if paths is None:
             return np.full(self.k_dirs, np.nan), None, None
+        for path in paths:
+            if path is None:
+                return np.full(self.k_dirs, np.nan), None, None
         return self.collect_statistics(poi, paths, cluster_assignments), paths, km.cluster_centers_
 
     def collect_statistics(self, poi, paths, cluster_assignments):
