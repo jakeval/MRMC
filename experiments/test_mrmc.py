@@ -41,10 +41,10 @@ class MrmcTestRunner:
         self.mrmc.fit(filtered_data, cluster_assignments)
         paths = self.mrmc.iterate(poi)
         if paths is None:
-            return np.full(self.k_dirs, np.nan), None, None
+            return self.get_null_results(), None, None
         for path in paths:
             if path is None:
-                return np.full(self.k_dirs, np.nan), None, None
+                return self.get_null_results(), None, None
         return self.collect_statistics(poi, paths, cluster_assignments), paths, km.cluster_centers_
 
     def collect_statistics(self, poi, paths, cluster_assignments):
@@ -59,6 +59,12 @@ class MrmcTestRunner:
         for statistic, calculate_statistic in self.cluster_statistics.items():
             stat_dict[statistic] = calculate_statistic(cluster_assignments, self.k_dirs)
         return stat_dict
+
+    def get_null_results(self):
+        d = {}
+        for key in self.statistics_keys:
+            d[key] = np.full(self.k_dirs, np.nan)
+        return d
 
     def run_test(self):
         stats_dict = dict([(stat_key, np.empty(self.k_dirs*self.N)) for stat_key in self.statistics_keys])

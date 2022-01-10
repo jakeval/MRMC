@@ -41,6 +41,7 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     experiment_immutable_feature_names = p['experiment_immutable_features']
     immutable_column_names = None
     immutable_features = None
+    feature_tolerances = None
     if p['immutable_features'] is not None:
         immutable_column_names = preprocessor.get_feature_names_out(p['immutable_features'])
         immutable_features = p['immutable_features']
