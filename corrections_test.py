@@ -40,8 +40,13 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     max_iterations = p['max_iterations']
     experiment_immutable_feature_names = p['experiment_immutable_features']
     immutable_column_names = None
+    immutable_features = None
     if p['immutable_features'] is not None:
         immutable_column_names = preprocessor.get_feature_names_out(p['immutable_features'])
+        immutable_features = p['immutable_features']
+        feature_tolerances = {
+            'age': 5
+        }
     validate = p['validate']
     early_stopping = None
 
@@ -88,7 +93,7 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     }
 
     test = MrmcTestRunner(num_trials, dataset, preprocessor, mrmc, path_statistics,
-                        point_statistics, cluster_statistics)
+                        point_statistics, cluster_statistics, immutable_features=immutable_features, feature_tolerances=feature_tolerances)
     stats, aggregated_stats = test.run_test()
     return aggregated_stats
 
