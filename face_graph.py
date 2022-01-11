@@ -44,6 +44,7 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
 
     face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
     face.set_graph(preprocessor, data, dataset, bandwidth, dir=dir)
+    face.fit(data, preprocessor, verbose=True)
     paths = face.iterate(0)
     print("Finished! Paths are...")
     print(paths)

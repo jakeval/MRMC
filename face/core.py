@@ -79,10 +79,21 @@ class Face:
             X = X.drop('Y', axis=1)
         X = X.to_numpy()
 
+        bandwidth_str = self.clean_number(bandwidth)
+        distance_str = self.clean_number(self.distance_threshold)
+        graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
+        if os.path.exists(graph_path):
+            print("Load graph from .npz")
+            self.graph = sparse.load_npz(graph_path)
+            print(f"Number of edges: \t{self.graph.getnnz()} / {X.shape[0] * (X.shape[0] - 1)}")
+            print("Finished setting the graph")
+            return
+
         rows_per_block = int(np.floor(block_size / (X.shape[1] * X.shape[0])))
         num_blocks = int(np.ceil(X.shape[0] / rows_per_block))
         print("Rows per block: ", rows_per_block)
         print("Number of blocks: ", num_blocks)
+        graph = None
         for i in range(num_blocks):
             print(f"Process block {i}/{num_blocks}")
             block_start = i*rows_per_block
@@ -114,12 +125,9 @@ class Face:
                 graph = graph_update
             else:
                 graph = sparse.vstack([graph, graph_update])
-            print(f"\t{graph.getnnz()}")
+            print(f"Number of edges: \t{graph.getnnz()} / {X.shape[0] * (X.shape[0] - 1)}")
 
         self.graph = graph
-        bandwidth_str = self.clean_number(bandwidth)
-        distance_str = self.clean_number(self.distance_threshold)
-        graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npy')
         sparse.save_npz(graph_path, self.graph)
         print("Finished setting the graph")
         

@@ -193,7 +193,7 @@ def run_experiment():
     if len(args) == 3:
         num_tests = int(args[1])
         dataset = args[2]
-
+    print("dataset is ", dataset)
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
 
     print("Open a client...")

@@ -1,9 +1,9 @@
 #! /bin/bash
 
-#SBATCH --job-name=jasonvallada_test
+#SBATCH --job-name=alpha-corrections
 #SBATCH --output=result-%A_%a.out
 #SBATCH --error=result-%A_%a.err
-#SBATCH --time=0-00:20
+#SBATCH --time=0-00:25
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
@@ -18,4 +18,4 @@ module load shared python/3.8.11
 
 source /home/jasonvallada/MRMC/.env/bin/activate
 
-python /home/jasonvallada/MRMC/alpha_test.py $1
+python /home/jasonvallada/MRMC/corrections_test.py $1
