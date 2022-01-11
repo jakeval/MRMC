@@ -49,6 +49,9 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
     paths = face.iterate(0)
     print("Finished! Paths are...")
     print(paths)
+    for i, path in enumerate(paths):
+        print(f"Path {i}")
+        print(preprocessor.inverse_transform(path))
 
 
 if __name__ == '__main__':

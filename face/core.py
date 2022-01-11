@@ -163,6 +163,7 @@ class Face:
         print("finding candidates...")
         candidates = np.arange(self.X.shape[0])[self.candidate_mask]
         k = min(self.k_paths, candidates.shape[0])
+        print(f"Found {k} out of {self.k_paths} requested candidates.")
         sorted_indices = np.argpartition(dist_matrix[self.candidate_mask], k-1)[:k]
         cf_idx = candidates[sorted_indices]
 
