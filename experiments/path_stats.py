@@ -6,7 +6,7 @@ def check_path_count(paths):
 
 
 def check_path_length(paths):
-    lengths = np.empty(len(paths))
+    lengths = np.zeros(len(paths))
     for path_idx, path in enumerate(paths):
         path = path.to_numpy()
         path_dist = 0
@@ -31,7 +31,7 @@ For each path,
     and its nearest valid counterpoint
 """
 def check_validity_distance(preprocessor, paths):
-    path_validity = np.empty(len(paths))
+    path_validity = np.zeros(len(paths))
     for path_idx, path in enumerate(paths):
         valid_path = make_valid(path, preprocessor).to_numpy()
         diff = valid_path - path.to_numpy()
@@ -43,7 +43,7 @@ def check_validity_distance(preprocessor, paths):
 def check_validity(preprocessor, column_names_per_feature, paths):
     """The average number of features per-point which are not valid.
     """
-    path_validity = np.empty(len(paths))
+    path_validity = np.zeros(len(paths))
     for path_idx, path in enumerate(paths):
         valid_path = make_valid(path, preprocessor)
         diff = (valid_path - path) != 0
@@ -72,7 +72,7 @@ For each path,
     and its nearest immutable-enforced point
 """
 def check_immutability(preprocessor, immutable_features, paths):
-    path_immutability = np.empty(len(paths))
+    path_immutability = np.zeros(len(paths))
     for path_idx, path in enumerate(paths):
         path = preprocessor.inverse_transform(path)
         for i in range(path.shape[0] - 1):
@@ -87,7 +87,7 @@ For each path,
     calculates the average number of altered features for each point
 """
 def check_sparsity(preprocessor, paths):
-    path_sparsity = np.empty(len(paths))
+    path_sparsity = np.zeros(len(paths))
     for path_idx, path in enumerate(paths):
         path = preprocessor.inverse_transform(path)
         for i in range(path.shape[0] - 1):
