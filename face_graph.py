@@ -34,7 +34,8 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
     confidence_threshold = 0.7
     density_threshold = 0.01
 
-    clf = None
+    model = model_utils.load_model('random_forest', 'adult_income')
+    clf = lambda X: model.predict_proba(X)[:,1]
     conditions_function = None
     if conditions:
         X = preprocessor.transform(data)
