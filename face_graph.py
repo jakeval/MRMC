@@ -74,7 +74,7 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
 
     face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
     num_blocks = face.get_num_blocks(preprocessor, data)
-    generate_graph_block = lambda block_index, dataset: face.generate_graph_block(preprocessor, data, dataset, bandwidth, block_index, dir=dir)
+    generate_graph_block = lambda block_index, data: face.generate_graph_block(preprocessor, data, dataset, bandwidth, block_index, dir=dir)
     futures = client.map(generate_graph_block, range(num_blocks), [data_future] * num_blocks)
     results = client.gather(futures)
     print("Finished gather results.")
