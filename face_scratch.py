@@ -13,7 +13,10 @@ import numpy as np
 from sklearn.cluster import KMeans
 import sys
 
+RUN_LOCALLY = True
 dir = '/home/jasonvallada/MRMC/face_density'
+if RUN_LOCALLY:
+    dir = './face_density'
 
 def score_dataset(bandwidth, dataset):
     print(f"Run with bandwidth {bandwidth} and dataset {dataset}")
@@ -32,7 +35,6 @@ def score_dataset(bandwidth, dataset):
 
     clf = None
 
-    bandwidth = 0.31
     face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold)
     face.set_kde(preprocessor, data, dataset, bandwidth, dir=dir)
     scores = face.density_scores

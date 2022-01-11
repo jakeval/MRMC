@@ -14,6 +14,13 @@ def weight_function(z):
     return 1/z + 1 # -np.log(z)
 
 
+def immutable_conditions(differences, immutable_column_indices):
+    """
+    differences: N x N x D array of differences. differences[i, j, k] = X[i,k] - X[j,k]
+    """
+    return (differences[:,:,np.array(immutable_column_indices)] == 0).all(axis=2)
+
+
 class Face:
     def __init__(self, k_paths, clf, distance_threshold, confidence_threshold,
                  density_threshold, conditions_function=None, 
