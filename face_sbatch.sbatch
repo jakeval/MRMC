@@ -1,18 +1,18 @@
 #! /bin/bash
 
-#SBATCH --job-name=face_kde
+#SBATCH --job-name=face_graph
 #SBATCH --output=result-%A_%a.out
 #SBATCH --error=result-%A_%a.err
-#SBATCH --time=0-00:50
+#SBATCH --time=0-00:40
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=15
+#SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1000
 #SBATCH --partition=defq
 
-export MKL_NUM_THREADS=15
-export OPENBLAS_NUM_THREADS=15
-export OMP_NUM_THREADS=15
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export OMP_NUM_THREADS=1
 
 module load shared python/3.8.11
 

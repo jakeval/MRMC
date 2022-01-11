@@ -8,7 +8,7 @@ from sklearn.neighbors import KernelDensity
 import pandas as pd
 
 import dask
-from dask.distibuted import Client
+from dask.distributed import Client
 from dask_jobqueue import SLURMCluster
 
 from matplotlib import pyplot as plt
