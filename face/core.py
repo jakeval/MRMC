@@ -82,14 +82,16 @@ class Face:
         print("Number of blocks: ", num_blocks)
         return num_blocks
 
-    def generate_graph_block(self, preprocessor, dataset, dataset_str, bandwidth, block_index, block_size=80000000, dir='./face_graphs'):
-        if self.density_scores is None:
-            self.set_kde(preprocessor, dataset, dataset_str, bandwidth, dir=dir)
-
+    def generate_graph_block(self, preprocessor, dataset, bandwidth, block_index, density_scores, block_size=80000000, dir='./face_graphs'):
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
         X = X.to_numpy()
+
+        kde = KernelDensity(bandwidth=bandwidth)
+        kde.fit(X)
+        self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
+        self.density_scores = density_scores
 
         rows_per_block = int(np.floor(block_size / (X.shape[1] * X.shape[0])))
 

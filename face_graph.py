@@ -74,9 +74,14 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
     data_future = client.scatter([data], broadcast=True)[0]
 
     face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
+
+    face.set_kde(preprocessor, data, dataset, bandwidth, dir=dir)
+    density_scores = face.density_scores
+    density_future = client.scatter([density_scores], broadcast=True)[0]
+
     num_blocks = face.get_num_blocks(preprocessor, data, block_size=block_size)
-    generate_graph_block = lambda block_index, data: face.generate_graph_block(preprocessor, data, dataset, bandwidth, block_index, dir=dir, block_size=block_size)
-    futures = client.map(generate_graph_block, range(num_blocks), [data_future] * num_blocks)
+    generate_graph_block = lambda block_index, data, density_scores: face.generate_graph_block(preprocessor, data, bandwidth, block_index, density_scores, dir=dir, block_size=block_size)
+    futures = client.map(generate_graph_block, range(num_blocks), [data_future] * num_blocks, [density_future] * num_blocks)
     results = client.gather(futures)
     print("Finished gather results.")
     face.set_graph_from_blocks(results, preprocessor, data, dataset, bandwidth, dir=dir)
