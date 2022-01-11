@@ -3,7 +3,6 @@ from core.mrmc import MRM, MRMCIterator, MRMIterator
 from core import utils
 from data import data_adapter as da
 from models import model_utils
-from visualize.two_d_plots import Display2DPaths
 from face import core
 from sklearn.neighbors import KernelDensity
 import pandas as pd
