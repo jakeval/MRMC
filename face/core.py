@@ -168,7 +168,7 @@ class Face:
         cf_idx = candidates[sorted_indices]
 
         print("reconstructing paths...")
-        processed_data = self.preprocessor.transform(self.dataset)
+        processed_data = self.preprocessor.transform(self.dataset).drop('Y', axis=1)
         columns = processed_data.columns
         paths = []
         for final_point in cf_idx:
