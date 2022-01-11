@@ -18,4 +18,4 @@ module load shared python/3.8.11
 
 source /home/jasonvallada/MRMC/.env/bin/activate
 
-python /home/jasonvallada/MRMC/face_graph.py $1 $2 $3 $4
+python /home/jasonvallada/MRMC/face_graph.py $1 $2 $3 $4 $5

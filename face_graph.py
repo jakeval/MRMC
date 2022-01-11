@@ -16,7 +16,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 import sys
 
-RUN_LOCALLY = False
+RUN_LOCALLY = True
 dir = '/home/jasonvallada/MRMC/face_graph'
 LOG_DIR = '/home/jasonvallada/MRMC/logs'
 SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
@@ -25,7 +25,7 @@ if RUN_LOCALLY:
     LOG_DIR = '.'
     SCRATCH_DIR = '.'
 
-def score_dataset(bandwidth, dataset, distance_threshold, conditions):
+def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials):
     block_size = 8000000
     print(f"bandwidth {bandwidth} \ndataset {dataset} \ndistance{distance_threshold} \nconditions {conditions}")
     print("Load the dataset...")
@@ -38,7 +38,10 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
     else:
         data, _, preprocessor = da.load_german_credit_dataset()
         immutable_features = ['age', 'sex']
-
+    if num_trials == 0:
+        num_trials = data.shape[0]
+    random_idx = np.random.choice(np.arange(data.shape[0]), num_trials, replace=False)
+    data = data.iloc[random_idx,:]
     k_paths = 4
     confidence_threshold = 0.7
     density_threshold = 0.01
@@ -67,7 +70,7 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
         cluster.scale(16)
         client = Client(cluster)
     else:
-        client = Client(n_workers=1, threads_per_worker=1)
+        client = Client(n_workers=1, threads_per_worker=5)
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': SCRATCH_DIR})
 
@@ -76,8 +79,9 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
     face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
 
     face.set_kde(preprocessor, data, dataset, bandwidth, dir=dir)
-    density_scores = face.density_scores
+    density_scores = face.density_scores[random_idx]
     density_future = client.scatter([density_scores], broadcast=True)[0]
+    face.override_kde(density_scores, bandwidth, data, preprocessor)
 
     num_blocks = face.get_num_blocks(preprocessor, data, block_size=block_size)
     generate_graph_block = lambda block_index, data, density_scores: face.generate_graph_block(preprocessor, data, bandwidth, block_index, density_scores, dir=dir, block_size=block_size)
@@ -99,4 +103,5 @@ if __name__ == '__main__':
     distance = float(args[2])
     conditions = bool(args[3])
     dataset = args[4]
-    score_dataset(bandwidth, dataset, distance, conditions)
+    num_trials = int(args[5])
+    score_dataset(bandwidth, dataset, distance, conditions, num_trials)

@@ -69,6 +69,16 @@ class Face:
             np.save(density_path, self.density_scores)
         print("Finished setting the KDE")
 
+    def override_kde(self, density_scores, bandwidth, dataset, preprocessor):
+        X = preprocessor.transform(dataset)
+        if 'Y' in X.columns:
+            X = X.drop('Y', axis=1)
+        X = X.to_numpy()
+        kde = KernelDensity(bandwidth=bandwidth)
+        kde.fit(X)
+        self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
+        self.density_scores = density_scores
+
     def get_num_blocks(self, preprocessor, dataset, block_size=80000000):
         print("Begin generating graph in blocks.")
         X = preprocessor.transform(dataset)
@@ -87,11 +97,6 @@ class Face:
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
         X = X.to_numpy()
-
-        kde = KernelDensity(bandwidth=bandwidth)
-        kde.fit(X)
-        self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
-        self.density_scores = density_scores
 
         rows_per_block = int(np.floor(block_size / (X.shape[1] * X.shape[0])))
 
@@ -214,7 +219,6 @@ class Face:
         self.dataset = dataset
         self.X = X
         self.preprocessor = preprocessor
-
         self.candidate_mask = (self.clf(self.X) >= self.confidence_threshold) & (self.density_scores >= self.density_threshold)
         if verbose:
             mask = (self.density_scores >= self.density_threshold)
