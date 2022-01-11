@@ -26,6 +26,7 @@ if RUN_LOCALLY:
     SCRATCH_DIR = '.'
 
 def score_dataset(bandwidth, dataset, distance_threshold, conditions):
+    block_size = 8000000
     print(f"bandwidth {bandwidth} \ndataset {dataset} \ndistance{distance_threshold} \nconditions {conditions}")
     print("Load the dataset...")
     data = None
@@ -57,13 +58,13 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
     if not RUN_LOCALLY:
         cluster = SLURMCluster(
             processes=1,
-            memory='1000MB',
+            memory='2000MB',
             queue='defq',
-            cores=5,
+            cores=2,
             walltime='00:40:00',
             log_directory=LOG_DIR
         )
-        cluster.scale(8)
+        cluster.scale(16)
         client = Client(cluster)
     else:
         client = Client(n_workers=1, threads_per_worker=1)
@@ -73,8 +74,8 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
     data_future = client.scatter([data], broadcast=True)[0]
 
     face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
-    num_blocks = face.get_num_blocks(preprocessor, data)
-    generate_graph_block = lambda block_index, data: face.generate_graph_block(preprocessor, data, dataset, bandwidth, block_index, dir=dir)
+    num_blocks = face.get_num_blocks(preprocessor, data, block_size=block_size)
+    generate_graph_block = lambda block_index, data: face.generate_graph_block(preprocessor, data, dataset, bandwidth, block_index, dir=dir, block_size=block_size)
     futures = client.map(generate_graph_block, range(num_blocks), [data_future] * num_blocks)
     results = client.gather(futures)
     print("Finished gather results.")
