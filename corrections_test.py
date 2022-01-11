@@ -42,12 +42,14 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     immutable_column_names = None
     immutable_features = None
     feature_tolerances = None
+    immutable_strict = True
     if p['immutable_features'] is not None:
         immutable_column_names = preprocessor.get_feature_names_out(p['immutable_features'])
         immutable_features = p['immutable_features']
         feature_tolerances = {
             'age': 5
         }
+        immutable_strict = p['immutable_strict']
     validate = p['validate']
     early_stopping = None
 
@@ -94,7 +96,7 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     }
 
     test = MrmcTestRunner(num_trials, dataset, preprocessor, mrmc, path_statistics,
-                        point_statistics, cluster_statistics, immutable_features=immutable_features, feature_tolerances=feature_tolerances)
+                        point_statistics, cluster_statistics, immutable_features=immutable_features, immutable_strict=immutable_strict, feature_tolerances=feature_tolerances)
     stats, aggregated_stats = test.run_test()
     return aggregated_stats
 
@@ -120,6 +122,7 @@ def get_params(num_trials, dataset_str):
         'early_stopping_cutoff': [0.7],
         'weight_function': ['centroid'],
         'weight_centroid_alpha': [0.7],
+        'immutable_strict': [True],
     }
 
     dataset = None
@@ -171,7 +174,7 @@ def get_params(num_trials, dataset_str):
 def write_dataframe(params_df, results_dataframe_list, output_file):
     results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
     results_dataframe = results_dataframe
-    final_df = pd.concat([params_df, results_dataframe], axis=1)
+    final_df = pd.concat([params_df.reset_index(), results_dataframe], axis=1)
     final_df.to_pickle(output_file)
 
 
@@ -193,6 +196,7 @@ def run_experiment():
 
     print("Open a client...")
     client = None
+    num_trials = 30
     if not RUN_LOCALLY:
         cluster = SLURMCluster(
             processes=1,
@@ -205,6 +209,7 @@ def run_experiment():
         cluster.scale(32)
         client = Client(cluster)
     else:
+        num_trials = 2
         client = Client(n_workers=1, threads_per_worker=1)
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': SCRATCH_DIR})
@@ -227,7 +232,7 @@ def run_experiment():
         'adult_income': adult_preprocessor
     }
 
-    all_params = get_params(30, dataset)
+    all_params = get_params(num_trials, dataset)
     print(all_params.shape)
     if num_tests is None:
         num_tests = all_params.shape[0]

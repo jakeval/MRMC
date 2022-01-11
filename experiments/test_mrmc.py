@@ -16,7 +16,7 @@ import itertools
 
 
 class MrmcTestRunner:
-    def __init__(self, N, dataset, preprocessor, mrmc, path_statistics, point_statistics, cluster_statistics, immutable_features=None, feature_tolerances=None):
+    def __init__(self, N, dataset, preprocessor, mrmc, path_statistics, point_statistics, cluster_statistics, immutable_features=None, immutable_strict=True, feature_tolerances=None):
         self.path_statistics = path_statistics
         self.point_statistics = point_statistics
         self.cluster_statistics = cluster_statistics
@@ -28,6 +28,7 @@ class MrmcTestRunner:
         self.k_dirs = mrmc.k_dirs
         self.immutable_features = immutable_features
         self.feature_tolerances = feature_tolerances
+        self.immutable_strict = immutable_strict
 
     def run_trial(self):
         """Returns a dictionary like {stat_key: [path1_stat, path2_stat, ...], stat_key1: [...]}"""
@@ -36,7 +37,10 @@ class MrmcTestRunner:
         if self.immutable_features is not None:
             filtered_data = da.filter_from_poi(self.dataset, poi, immutable_features=self.immutable_features, feature_tolerances=self.feature_tolerances)
         if filtered_data[filtered_data.Y == 1].shape[0] < self.k_dirs:
-            return np.full(self.k_dirs, np.nan), None, None # we can't run a trial with so few data points
+            if self.immutable_strict:
+                return self.get_null_results(), None, None # we can't run a trial with so few data points
+            else:
+                filtered_data = self.dataset
         cluster_assignments, km = self.get_clusters(filtered_data, self.k_dirs)
         self.mrmc.fit(filtered_data, cluster_assignments)
         paths = self.mrmc.iterate(poi)
@@ -88,7 +92,7 @@ class MrmcTestRunner:
         return cluster_assignments, km
 
     def aggregate_stats(self, statistics):
-        non_null_stats = statistics[~statistics.isnull()]
+        non_null_stats = statistics[~statistics.isnull().any(axis=1)]
         non_null_ratio = non_null_stats.shape[0] / statistics.shape[0]
         meta_stats = ['mean', 'median', 'min', 'max', 'std']
         described_stats = non_null_stats.describe()
