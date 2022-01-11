@@ -43,5 +43,5 @@ def score_dataset(bandwidth, dataset):
 if __name__ == '__main__':
     args = sys.argv
     bandwidth = float(args[1])
-    dataset = float(args[2])
+    dataset = args[2]
     score_dataset(bandwidth, dataset)
