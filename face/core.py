@@ -39,6 +39,7 @@ class Face:
         self.k_paths = k_paths
         self.X = None
         self.dataset = None
+        self.preprocessor = None
 
     def load_graph(self, graph_path, density_path):
         self.graph = sparse.load_npz(graph_path)
@@ -138,6 +139,7 @@ class Face:
         X = X.to_numpy()
         self.dataset = dataset
         self.X = X
+        self.preprocessor = preprocessor
 
         self.candidate_mask = (self.clf(self.X) >= self.confidence_threshold) & (self.density_scores >= self.density_threshold)
         if verbose:
@@ -165,6 +167,8 @@ class Face:
         cf_idx = candidates[sorted_indices]
 
         print("reconstructing paths...")
+        processed_data = self.preprocessor.transform(self.dataset)
+        columns = processed_data.columns
         paths = []
         for final_point in cf_idx:
             path = []
@@ -174,7 +178,7 @@ class Face:
             while point != -9999:
                 path.append(self.X[point])
                 point = predecessors[point]
-            pathdf = pd.DataFrame(columns=self.dataset.columns, data=path)
+            pathdf = pd.DataFrame(columns=columns, data=path)
             paths.append(pathdf)
         return paths
 
