@@ -1,0 +1,17 @@
+axes.axisbelow : True       # Draw axis grid lines and ticks below patches (True); above
+                            # patches but below lines ('line'); or above all (False).
+                            # Forces grid lines below figures.
+
+font.size : 8              # Font size in pt.
+
+grid.linewidth : 1.2        # In pt.
+
+legend.framealpha : 1       # Legend patch transparency.
+legend.scatterpoints : 1    # Number of scatter points in legend.
+
+lines.linewidth : 2         # line width in pt.
+
+pgf.texsystem : pdflatex
+font.family : serif
+text.usetex : True
+pgf.rcfonts : False

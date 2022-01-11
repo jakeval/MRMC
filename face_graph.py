@@ -7,6 +7,10 @@ from face import core
 from sklearn.neighbors import KernelDensity
 import pandas as pd
 
+import dask
+from dask.distibuted import Client
+from dask_jobqueue import SLURMCluster
+
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.cluster import KMeans
@@ -14,8 +18,12 @@ import sys
 
 RUN_LOCALLY = False
 dir = '/home/jasonvallada/MRMC/face_graph'
+LOG_DIR = '/home/jasonvallada/MRMC/logs'
+SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
 if RUN_LOCALLY:
     dir = './face_graph'
+    LOG_DIR = '.'
+    SCRATCH_DIR = '.'
 
 def score_dataset(bandwidth, dataset, distance_threshold, conditions):
     print(f"bandwidth {bandwidth} \ndataset {dataset} \ndistance{distance_threshold} \nconditions {conditions}")
@@ -43,12 +51,37 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions):
         immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
         conditions_function = lambda differences: core.immutable_conditions(differences, immutable_column_indices)
 
+
+    print("Open a client...")
+    client = None
+    if not RUN_LOCALLY:
+        cluster = SLURMCluster(
+            processes=1,
+            memory='1000MB',
+            queue='defq',
+            cores=5,
+            walltime='00:40:00',
+            log_directory=LOG_DIR
+        )
+        cluster.scale(8)
+        client = Client(cluster)
+    else:
+        client = Client(n_workers=1, threads_per_worker=1)
+    dask.config.set(scheduler='processes')
+    dask.config.set({'temporary-directory': SCRATCH_DIR})
+
+    data_future = client.scatter([data], broadcast=True)[0]
+
     face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
-    face.set_graph(preprocessor, data, dataset, bandwidth, dir=dir)
+    num_blocks = face.get_num_blocks(preprocessor, data)
+    generate_graph_block = lambda block_index, dataset: face.generate_graph_block(preprocessor, data, dataset, bandwidth, block_index, dir=dir)
+    futures = client.map(generate_graph_block, range(num_blocks), [data_future] * num_blocks)
+    results = client.gather(futures)
+    print("Finished gather results.")
+    face.set_graph_from_blocks(results, preprocessor, data, dataset, bandwidth, dir=dir)
     face.fit(data, preprocessor, verbose=True)
     paths = face.iterate(0)
     print("Finished! Paths are...")
-    print(paths)
     for i, path in enumerate(paths):
         print(f"Path {i}")
         print(preprocessor.inverse_transform(path))

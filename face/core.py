@@ -69,6 +69,78 @@ class Face:
             np.save(density_path, self.density_scores)
         print("Finished setting the KDE")
 
+    def get_num_blocks(self, preprocessor, dataset, block_size=80000000):
+        print("Begin generating graph in blocks.")
+        X = preprocessor.transform(dataset)
+        if 'Y' in X.columns:
+            X = X.drop('Y', axis=1)
+        X = X.to_numpy()
+
+        rows_per_block = int(np.floor(block_size / (X.shape[1] * X.shape[0])))
+        num_blocks = int(np.ceil(X.shape[0] / rows_per_block))
+        print("Rows per block: ", rows_per_block)
+        print("Number of blocks: ", num_blocks)
+        return num_blocks
+
+    def generate_graph_block(self, preprocessor, dataset, dataset_str, bandwidth, block_index, block_size=80000000, dir='./face_graphs'):
+        if self.density_scores is None:
+            self.set_kde(preprocessor, dataset, dataset_str, bandwidth, dir=dir)
+
+        X = preprocessor.transform(dataset)
+        if 'Y' in X.columns:
+            X = X.drop('Y', axis=1)
+        X = X.to_numpy()
+
+        rows_per_block = int(np.floor(block_size / (X.shape[1] * X.shape[0])))
+
+        block_start = block_index*rows_per_block
+        block_end = (block_index+1)*rows_per_block
+        
+        # calculate the (N x N x D) pairwise difference matrix
+        differences = X[block_start:block_end,None] - X
+
+        # calculate the (N x N) conditions mask
+        conditions_mask = np.ones((differences.shape[0], differences.shape[1])).astype(np.bool)
+        if self.conditions_function is not None:
+            conditions_mask = self.conditions_function(differences)
+
+        # calculate the distances matrix
+        distances = np.linalg.norm(differences, axis=2)
+        
+        # calculate the neighbor mask
+        neighbor_mask = ~((distances > self.distance_threshold) | ~conditions_mask) # true wherever there's an edge
+        distances[~neighbor_mask] = 0.0
+
+        # calculate the weighted densities
+        # num_rows = block_end - block_start
+        midpoints = ((X[block_start:block_end,None] + X) / 2)[neighbor_mask]
+        density = np.zeros((distances.shape[0], X.shape[0]))
+        density[neighbor_mask] = self.weight_function(self.density_estimator(midpoints))
+
+        graph_block = sparse.coo_matrix(distances * density)
+        return graph_block
+
+    def set_graph_from_blocks(self, graph_blocks, preprocessor, dataset, dataset_str, bandwidth, dir='./face_graphs'):
+        graph = None
+        for block in graph_blocks:
+            if graph is None:
+                graph = block
+            else:
+                graph = sparse.vstack([graph, block])
+
+        X = preprocessor.transform(dataset)
+        if 'Y' in X.columns:
+            X = X.drop('Y', axis=1)
+        X = X.to_numpy()
+
+        bandwidth_str = self.clean_number(bandwidth)
+        distance_str = self.clean_number(self.distance_threshold)
+        graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
+
+        print(f"Number of edges: \t{graph.getnnz()} / {X.shape[0] * (X.shape[0] - 1)}")
+        self.graph = graph
+        sparse.save_npz(graph_path, self.graph)
+        print("Finished setting the graph")
 
     def set_graph(self, preprocessor, dataset, dataset_str, bandwidth, block_size=80000000, dir='./face_graphs'):
         print("Set the graph")
@@ -166,6 +238,7 @@ class Face:
         print(f"Found {k} out of {self.k_paths} requested candidates.")
         sorted_indices = np.argpartition(dist_matrix[self.candidate_mask], k-1)[:k]
         cf_idx = candidates[sorted_indices]
+        print(f"Candidates have path distances {dist_matrix[cf_idx]}")
 
         print("reconstructing paths...")
         processed_data = self.preprocessor.transform(self.dataset).drop('Y', axis=1)
