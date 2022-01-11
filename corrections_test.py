@@ -25,9 +25,11 @@ if RUN_LOCALLY:
     OUTPUT_DIR = '.'
     LOG_DIR = '.'
 
-
 def test_launcher(models, preprocessors, keys, params, dataset):
     p = dict([(key, val) for key, val in zip(keys, params)])
+    if RUN_LOCALLY:
+        print("Begin Test")
+        print(p)
     model = models[(p['model'], p['dataset'])]
     preprocessor = preprocessors[p['dataset']]
 
@@ -209,7 +211,7 @@ def run_experiment():
         cluster.scale(32)
         client = Client(cluster)
     else:
-        num_trials = 2
+        num_trials = 5
         client = Client(n_workers=1, threads_per_worker=1)
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': SCRATCH_DIR})
