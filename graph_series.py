@@ -61,7 +61,9 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
         conditions_function = lambda differences: core.immutable_conditions(differences, immutable_column_indices, tolerances=tolerances)
 
     face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
-    face.set_graph(preprocessor, data, dataset, bandwidth, bandwidth=bandwidth, dir=dir)
+    face.set_graph(preprocessor, data, dataset, bandwidth, dir=dir)
+    if num_trials != 0:
+        face.set_kde_subset(preprocessor, data, dataset, bandwidth, random_idx, dir=dir)
     face.fit(data, preprocessor, verbose=True)
     paths = face.iterate(0)
     print("Finished! Paths are...")
