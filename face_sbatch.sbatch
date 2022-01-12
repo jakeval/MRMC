@@ -3,7 +3,7 @@
 #SBATCH --job-name=face_graph
 #SBATCH --output=result-%A_%a.out
 #SBATCH --error=result-%A_%a.err
-#SBATCH --time=0-00:40
+#SBATCH --time=0-02:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=2
@@ -18,4 +18,4 @@ module load shared python/3.8.11
 
 source /home/jasonvallada/MRMC/.env/bin/activate
 
-python /home/jasonvallada/MRMC/face_graph.py $1 $2 $3 $4 $5
+python /home/jasonvallada/MRMC/graph_series.py $1 $2 $3 $4 $5
