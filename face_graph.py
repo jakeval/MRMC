@@ -49,7 +49,7 @@ def run_test(block_index,
 
 def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials):
     block_size = 8000000
-    print(f"bandwidth {bandwidth} \ndataset {dataset} \ndistance{distance_threshold} \nconditions {conditions}")
+    print(f"bandwidth {bandwidth} \ndataset {dataset} \ndistance {distance_threshold} \nconditions {conditions}")
     print("Load the dataset...")
     data = None
     preprocessor = None
@@ -66,17 +66,25 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
     data = data.iloc[random_idx,:]
     
     k_paths = 4
-    confidence_threshold = 0.7
+    confidence_threshold = 0.75
     density_threshold = 0.01
 
-    model = model_utils.load_model('random_forest', 'adult_income')
+    model = model_utils.load_model('random_forest', dataset)
     clf = lambda X: model.predict_proba(X)[:,1]
     conditions_function = None
     if conditions:
         X = preprocessor.transform(data)
         immutable_columns = preprocessor.get_feature_names_out(immutable_features)
+        tolerances = None
         immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
-        conditions_function = lambda differences: core.immutable_conditions(differences, immutable_column_indices)
+        if 'age' in immutable_features:
+            age_index = np.arange(X.columns.shape[0])[X.columns == 'age'][0]
+            immutable_column_indices = immutable_column_indices[immutable_column_indices != age_index]
+            transformed_unit = preprocessor.sc_dict['age'].transform([[1]])[0] - preprocessor.sc_dict['age'].transform([[0]])[0]
+            tolerances = {
+                age_index: transformed_unit * 5.5
+            }
+        conditions_function = lambda differences: core.immutable_conditions(differences, immutable_column_indices, tolerances=tolerances)
 
 
     print("Open a client...")
@@ -86,14 +94,14 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
             processes=1,
             memory='2000MB',
             queue='defq',
-            cores=2,
+            cores=1,
             walltime='00:40:00',
             log_directory=LOG_DIR
         )
-        cluster.scale(16)
+        cluster.scale(64)
         client = Client(cluster)
     else:
-        client = Client(n_workers=1, threads_per_worker=5)
+        client = Client(n_workers=1, threads_per_worker=1)
     dask.config.set(scheduler='processes')
     dask.config.set({'temporary-directory': SCRATCH_DIR})
 
@@ -130,7 +138,7 @@ if __name__ == '__main__':
     args = sys.argv
     bandwidth = float(args[1])
     distance = float(args[2])
-    conditions = bool(args[3])
+    conditions = bool(int(args[3]))
     dataset = args[4]
     num_trials = int(args[5])
     score_dataset(bandwidth, dataset, distance, conditions, num_trials)

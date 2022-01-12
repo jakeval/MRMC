@@ -14,11 +14,19 @@ def weight_function(z):
     return 1/z + 1 # -np.log(z)
 
 
-def immutable_conditions(differences, immutable_column_indices):
+def immutable_conditions(differences, immutable_column_indices, tolerances=None):
     """
     differences: N x N x D array of differences. differences[i, j, k] = X[i,k] - X[j,k]
     """
-    return (differences[:,:,np.array(immutable_column_indices)] == 0).all(axis=2)
+    if tolerances is None:
+        return (differences[:,:,np.array(immutable_column_indices)] == 0).all(axis=2)
+    else:
+        strict_mask = (differences[:,:,np.array(immutable_column_indices)] == 0).all(axis=2)
+        masks = [strict_mask]
+        for index, tolerance in tolerances.items():
+            masks.append(np.abs(differences[:,:,index] <= tolerance))
+        masks = np.array(masks)
+        return masks.all(axis=0)
 
 
 class Face:
