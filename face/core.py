@@ -62,24 +62,29 @@ class Face:
         self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
         if os.path.exists(density_path):
             print("Load density scores from .npy")
-            self.density_scores = self.density_scores = np.load(density_path)
+            self.density_scores = np.load(density_path)
         else:
             print("Generate new density scores and save to .npy")
             self.density_scores = self.density_estimator(X)
             np.save(density_path, self.density_scores)
         print("Finished setting the KDE")
 
-    def override_kde(self, density_scores, bandwidth, dataset, preprocessor):
+    def set_kde_subset(self, preprocessor, dataset, dataset_str, bandwidth, idx, dir='./face_graphs'):
+        print("Set the KDE")
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
         X = X.to_numpy()
+
+        bandwidth_str = self.clean_number(bandwidth)
+        density_path = os.path.join(dir, f'{dataset_str}_density_scores_{bandwidth_str}.npy')
         kde = KernelDensity(bandwidth=bandwidth)
         kde.fit(X)
         self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
-        self.density_scores = density_scores
+        print("Load density scores from .npy")
+        self.density_scores = np.load(density_path)[idx]
 
-    def get_num_blocks(self, preprocessor, dataset, block_size=80000000):
+    def get_num_blocks(preprocessor, dataset, block_size=80000000):
         print("Begin generating graph in blocks.")
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
@@ -92,11 +97,17 @@ class Face:
         print("Number of blocks: ", num_blocks)
         return num_blocks
 
-    def generate_graph_block(self, preprocessor, dataset, bandwidth, block_index, density_scores, block_size=80000000, dir='./face_graphs'):
+    def generate_graph_block(self, preprocessor, dataset, 
+                             block_index, bandwidth, 
+                             block_size=80000000, dir='./face_graphs'):
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
         X = X.to_numpy()
+
+        kde = KernelDensity(bandwidth=bandwidth)
+        kde.fit(X)
+        density_estimator = lambda Z: np.exp(kde.score_samples(Z))
 
         rows_per_block = int(np.floor(block_size / (X.shape[1] * X.shape[0])))
 
@@ -122,7 +133,7 @@ class Face:
         # num_rows = block_end - block_start
         midpoints = ((X[block_start:block_end,None] + X) / 2)[neighbor_mask]
         density = np.zeros((distances.shape[0], X.shape[0]))
-        density[neighbor_mask] = self.weight_function(self.density_estimator(midpoints))
+        density[neighbor_mask] = self.weight_function(density_estimator(midpoints))
 
         graph_block = sparse.coo_matrix(distances * density)
         return graph_block
@@ -149,7 +160,7 @@ class Face:
         sparse.save_npz(graph_path, self.graph)
         print("Finished setting the graph")
 
-    def set_graph(self, preprocessor, dataset, dataset_str, bandwidth, block_size=80000000, dir='./face_graphs'):
+    def set_graph(self, preprocessor, dataset, dataset_str, bandwidth, block_size=80000000, dir='./face_graphs', save_results=True):
         print("Set the graph")
         if self.density_scores is None:
             self.set_kde(preprocessor, dataset, dataset_str, bandwidth, dir=dir)
@@ -247,7 +258,11 @@ class Face:
         print(f"Candidates have path distances {dist_matrix[cf_idx]}")
 
         print("reconstructing paths...")
-        processed_data = self.preprocessor.transform(self.dataset).drop('Y', axis=1)
+        processed_data = None
+        if 'Y' in self.dataset.columns:
+            processed_data = self.preprocessor.transform(self.dataset).drop('Y', axis=1)
+        else:
+            processed_data = self.preprocessor.transform(self.dataset)
         columns = processed_data.columns
         paths = []
         for final_point in cf_idx:

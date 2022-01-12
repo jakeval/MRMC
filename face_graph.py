@@ -16,7 +16,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 import sys
 
-RUN_LOCALLY = True
+RUN_LOCALLY = False
 dir = '/home/jasonvallada/MRMC/face_graph'
 LOG_DIR = '/home/jasonvallada/MRMC/logs'
 SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
@@ -24,6 +24,28 @@ if RUN_LOCALLY:
     dir = './face_graph'
     LOG_DIR = '.'
     SCRATCH_DIR = '.'
+
+
+def run_test(block_index,
+             data,
+             preprocessor,
+             k_paths,
+             clf,
+             distance_threshold, 
+             confidence_threshold, 
+             density_threshold, 
+             conditions_function):
+    face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
+    block_size = 8000000
+    block = face.generate_graph_block(
+        preprocessor,
+        data,
+        block_index,
+        bandwidth,
+        dir=dir,
+        block_size=block_size)
+    
+    return block
 
 def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials):
     block_size = 8000000
@@ -42,6 +64,7 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
         num_trials = data.shape[0]
     random_idx = np.random.choice(np.arange(data.shape[0]), num_trials, replace=False)
     data = data.iloc[random_idx,:]
+    
     k_paths = 4
     confidence_threshold = 0.7
     density_threshold = 0.01
@@ -75,20 +98,26 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
     dask.config.set({'temporary-directory': SCRATCH_DIR})
 
     data_future = client.scatter([data], broadcast=True)[0]
+    num_blocks = core.Face.get_num_blocks(preprocessor, data, block_size=block_size)
 
-    face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
+    generate_graph_block = lambda block_index, data: run_test(
+        block_index,
+        data,
+        preprocessor,
+        k_paths,
+        clf,
+        distance_threshold,
+        confidence_threshold,
+        density_threshold,
+        conditions_function)
 
-    face.set_kde(preprocessor, data, dataset, bandwidth, dir=dir)
-    density_scores = face.density_scores[random_idx]
-    density_future = client.scatter([density_scores], broadcast=True)[0]
-    face.override_kde(density_scores, bandwidth, data, preprocessor)
-
-    num_blocks = face.get_num_blocks(preprocessor, data, block_size=block_size)
-    generate_graph_block = lambda block_index, data, density_scores: face.generate_graph_block(preprocessor, data, bandwidth, block_index, density_scores, dir=dir, block_size=block_size)
-    futures = client.map(generate_graph_block, range(num_blocks), [data_future] * num_blocks, [density_future] * num_blocks)
+    futures = client.map(generate_graph_block, range(num_blocks), [data_future] * num_blocks)
     results = client.gather(futures)
+    
+    face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
     print("Finished gather results.")
     face.set_graph_from_blocks(results, preprocessor, data, dataset, bandwidth, dir=dir)
+    face.set_kde_subset(preprocessor, data, dataset, bandwidth, random_idx, dir=dir)
     face.fit(data, preprocessor, verbose=True)
     paths = face.iterate(0)
     print("Finished! Paths are...")
