@@ -1,15 +1,8 @@
-
-from core.mrmc import MRM, MRMCIterator, MRMIterator
-from core import utils
 from data import data_adapter as da
 from models import model_utils
 from face import core
-from sklearn.neighbors import KernelDensity
-import pandas as pd
 
-from matplotlib import pyplot as plt
 import numpy as np
-from sklearn.cluster import KMeans
 import sys
 
 RUN_LOCALLY = False
@@ -22,12 +15,13 @@ if RUN_LOCALLY:
     SCRATCH_DIR = '.'
 
 def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials):
-    block_size = None #80000000
+    block_size = 160000000
     print(f"bandwidth {bandwidth} \ndataset {dataset} \ndistance {distance_threshold} \nconditions {conditions}")
     print("Load the dataset...")
     data = None
     preprocessor = None
     immutable_features = None
+    save_results = False
     if dataset == 'adult_income':
         data, _, preprocessor = da.load_adult_income_dataset()
         immutable_features = ['age', 'sex', 'race']
@@ -36,6 +30,7 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
         immutable_features = ['age', 'sex']
     if num_trials == 0:
         num_trials = data.shape[0]
+        save_results = True
     random_idx = np.random.choice(np.arange(data.shape[0]), num_trials, replace=False)
     data = data.iloc[random_idx,:]
     
@@ -60,10 +55,11 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
             }
         conditions_function = lambda differences: core.immutable_conditions(differences, immutable_column_indices, tolerances=tolerances)
 
+    rtol = 1000
     face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
-    face.set_graph(preprocessor, data, dataset, bandwidth, dir=dir)
-    if num_trials != 0:
-        face.set_kde_subset(preprocessor, data, dataset, bandwidth, random_idx, dir=dir)
+    face.set_graph(preprocessor, data, dataset, bandwidth, block_size=block_size, rtol=rtol, dir=dir, save_results=save_results)
+    #if num_trials != 0:
+    #    face.set_kde_subset(preprocessor, data, dataset, bandwidth, random_idx, dir=dir)
     face.fit(data, preprocessor, verbose=True)
     paths = face.iterate(0)
     print("Finished! Paths are...")

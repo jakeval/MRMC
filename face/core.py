@@ -6,6 +6,9 @@ import os
 from scipy import sparse
 
 
+LINEAR_APPROXIMATION = True
+
+
 def euclidean_distance(X):
     return np.linalg.norm(X[:,None] - X, axis=2)
 
@@ -56,7 +59,7 @@ class Face:
     def clean_number(self, f):
         return ''.join(map(lambda c: '-' if c == '.' else c, f'{f:.3f}'))
 
-    def set_kde(self, preprocessor, dataset, dataset_str, bandwidth, dir='./face_graphs'):
+    def set_kde(self, preprocessor, dataset, dataset_str, bandwidth, rtol=None, dir='./face_graphs', save_results=True):
         print("Set the KDE")
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
@@ -64,8 +67,17 @@ class Face:
         X = X.to_numpy()
 
         bandwidth_str = self.clean_number(bandwidth)
-        density_path = os.path.join(dir, f'{dataset_str}_density_scores_{bandwidth_str}.npy')
-        kde = KernelDensity(bandwidth=bandwidth)
+        density_path = None
+        if rtol is not None:
+            rtol_str = self.clean_number(rtol)
+            density_path = os.path.join(dir, f'{dataset_str}_density_scores_{bandwidth_str}_rtol_{rtol_str}.npy')
+        else:
+            density_path = os.path.join(dir, f'{dataset_str}_density_scores_{bandwidth_str}.npy')
+        kde = None
+        if kde is not None:
+            kde = KernelDensity(bandwidth=bandwidth, rtol=rtol)
+        else:
+            kde = KernelDensity(bandwidth=bandwidth)        
         kde.fit(X)
         self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
         if os.path.exists(density_path):
@@ -74,10 +86,11 @@ class Face:
         else:
             print("Generate new density scores and save to .npy")
             self.density_scores = self.density_estimator(X)
-            np.save(density_path, self.density_scores)
+            if save_results:
+                np.save(density_path, self.density_scores)
         print("Finished setting the KDE")
 
-    def set_kde_subset(self, preprocessor, dataset, dataset_str, bandwidth, idx, dir='./face_graphs'):
+    def set_kde_subset(self, preprocessor, dataset, dataset_str, bandwidth, idx, rtol=None, dir='./face_graphs'):
         print("Set the KDE")
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
@@ -85,8 +98,17 @@ class Face:
         X = X.to_numpy()
 
         bandwidth_str = self.clean_number(bandwidth)
-        density_path = os.path.join(dir, f'{dataset_str}_density_scores_{bandwidth_str}.npy')
-        kde = KernelDensity(bandwidth=bandwidth)
+        density_path = None
+        if rtol is not None:
+            rtol_str = self.clean_number(rtol)
+            density_path = os.path.join(dir, f'{dataset_str}_density_scores_{bandwidth_str}_rtol_{rtol_str}.npy')
+        else:
+            density_path = os.path.join(dir, f'{dataset_str}_density_scores_{bandwidth_str}.npy')
+        kde = None
+        if kde is not None:
+            kde = KernelDensity(bandwidth=bandwidth, rtol=rtol)
+        else:
+            kde = KernelDensity(bandwidth=bandwidth)
         kde.fit(X)
         self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
         print("Load density scores from .npy")
@@ -146,7 +168,7 @@ class Face:
         graph_block = sparse.coo_matrix(distances * density)
         return graph_block
 
-    def set_graph_from_blocks(self, graph_blocks, preprocessor, dataset, dataset_str, bandwidth, dir='./face_graphs'):
+    def set_graph_from_blocks(self, graph_blocks, preprocessor, dataset, dataset_str, bandwidth, rtol=None, dir='./face_graphs'):
         graph = None
         for block in graph_blocks:
             if graph is None:
@@ -161,26 +183,36 @@ class Face:
 
         bandwidth_str = self.clean_number(bandwidth)
         distance_str = self.clean_number(self.distance_threshold)
-        graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
+        graph_path = None
+        if rtol is not None:
+            rtol_str = self.clean_number(rtol)
+            graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_rtol_{rtol_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
+        else:
+            graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
 
         print(f"Number of edges: \t{graph.getnnz()} / {X.shape[0] * (X.shape[0] - 1)}")
         self.graph = graph
         sparse.save_npz(graph_path, self.graph)
         print("Finished setting the graph")
 
-    def set_graph(self, preprocessor, dataset, dataset_str, bandwidth, block_size=80000000, dir='./face_graphs', save_results=True):
+    def set_graph(self, preprocessor, dataset, dataset_str, bandwidth, block_size=80000000, rtol=None, dir='./face_graphs', save_results=True):
         print("Set the graph")
         if self.density_scores is None:
-            self.set_kde(preprocessor, dataset, dataset_str, bandwidth, dir=dir)
+            self.set_kde(preprocessor, dataset, dataset_str, bandwidth, rtol=rtol, dir=dir, save_results=save_results)
 
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
-        X = X.to_numpy()
+        X = X.to_numpy().astype(np.float32)
 
         bandwidth_str = self.clean_number(bandwidth)
         distance_str = self.clean_number(self.distance_threshold)
-        graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
+        graph_path = None
+        if rtol is not None:
+            rtol_str = self.clean_number(rtol)
+            graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_rtol_{rtol_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
+        else:
+            graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
         if os.path.exists(graph_path):
             print("Load graph from .npz")
             self.graph = sparse.load_npz(graph_path)
@@ -215,9 +247,18 @@ class Face:
 
             # calculate the weighted densities
             # num_rows = block_end - block_start
-            midpoints = ((X[block_start:block_end,None] + X) / 2)[neighbor_mask]
-            density = np.zeros((distances.shape[0], X.shape[0]))
-            density[neighbor_mask] = self.weight_function(self.density_estimator(midpoints))
+            density = None
+            if LINEAR_APPROXIMATION:
+                # Instead of using the density of the midpoint of all points, choose the minimum endpoint density
+                idx = np.empty((differences.shape[0], differences.shape[1], 2))
+                idx[:,:,0] = np.arange(differences.shape[1])[None,:].repeat(differences.shape[0], axis=0)
+                idx[:,:,1] = np.arange(differences.shape[0])[:,None].repeat(differences.shape[1], axis=1)
+                density = np.zeros((distances.shape[0], X.shape[0]))
+                density[neighbor_mask] = self.density_scores[idx].min(axis=2)[neighbor_mask]
+            else:
+                midpoints = ((X[block_start:block_end,None] + X) / 2)[neighbor_mask]
+                density = np.zeros((distances.shape[0], X.shape[0]))
+                density[neighbor_mask] = self.weight_function(self.density_estimator(midpoints))
 
             graph_update = sparse.coo_matrix(distances * density)
             if graph is None:
@@ -227,7 +268,8 @@ class Face:
             print(f"Number of edges: \t{graph.getnnz()} / {X.shape[0] * (X.shape[0] - 1)}")
 
         self.graph = graph
-        sparse.save_npz(graph_path, self.graph)
+        if save_results:
+            sparse.save_npz(graph_path, self.graph)
         print("Finished setting the graph")
         
     def fit(self, dataset, preprocessor, verbose=False):
