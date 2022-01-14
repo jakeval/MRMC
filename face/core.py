@@ -52,12 +52,14 @@ class Face:
         self.X = None
         self.dataset = None
         self.preprocessor = None
+        self.original_graph = None
+        self.original_density_scores = None
+        self.recover_originals = False
 
     def clean_number(f):
         return ''.join(map(lambda c: '-' if c == '.' else c, f'{f:.3f}'))
 
     def set_kde(self, preprocessor, dataset, dataset_str, bandwidth, rtol=None, dir='./face_graphs', save_results=True):
-        print("Set the KDE")
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
@@ -78,17 +80,13 @@ class Face:
         kde.fit(X)
         self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
         if os.path.exists(density_path):
-            print("Load density scores from .npy")
             self.density_scores = np.load(density_path)
         else:
-            print("Generate new density scores and save to .npy")
             self.density_scores = self.density_estimator(X)
             if save_results:
                 np.save(density_path, self.density_scores)
-        print("Finished setting the KDE")
 
     def set_kde_subset(self, preprocessor, dataset, dataset_str, bandwidth, idx, rtol=None, dir='./face_graphs'):
-        print("Set the KDE")
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
@@ -108,11 +106,9 @@ class Face:
             kde = KernelDensity(bandwidth=bandwidth)
         kde.fit(X)
         self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
-        print("Load density scores from .npy")
         self.density_scores = np.load(density_path)[idx]
 
     def get_num_blocks(preprocessor, dataset, block_size=80000000):
-        print("Begin generating graph in blocks.")
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
@@ -120,8 +116,6 @@ class Face:
 
         rows_per_block = int(np.floor(block_size / (X.shape[1] * X.shape[0])))
         num_blocks = int(np.ceil(X.shape[0] / rows_per_block))
-        print("Rows per block: ", rows_per_block)
-        print("Number of blocks: ", num_blocks)
         return num_blocks
 
     def generate_graph_block(self, preprocessor, dataset, 
@@ -187,14 +181,10 @@ class Face:
         else:
             graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
 
-        print(f"Number of edges: \t{graph.getnnz()} / {X.shape[0] * (X.shape[0] - 1)}")
         self.graph = graph
         sparse.save_npz(graph_path, self.graph)
-        print("Finished setting the graph")
 
     def set_graph(self, preprocessor, dataset, dataset_str, bandwidth, block_size=80000000, rtol=None, dir='./face_graphs', save_results=True):
-        print("Set the graph")
-        print(self.conditions_function)
         if self.density_scores is None:
             self.set_kde(preprocessor, dataset, dataset_str, bandwidth, rtol=rtol, dir=dir, save_results=save_results)
 
@@ -212,19 +202,13 @@ class Face:
         else:
             graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{self.conditions_function is not None}_distance_{distance_str}_.npz')
         if os.path.exists(graph_path):
-            print("Load graph from .npz")
             self.graph = sparse.load_npz(graph_path)
-            print(f"Number of edges: \t{self.graph.getnnz()} / {X.shape[0] * (X.shape[0] - 1)}")
-            print("Finished setting the graph")
             return
 
         rows_per_block = int(np.floor(block_size / (X.shape[1] * X.shape[0])))
         num_blocks = int(np.ceil(X.shape[0] / rows_per_block))
-        print("Rows per block: ", rows_per_block)
-        print("Number of blocks: ", num_blocks)
         graph = None
         for i in range(num_blocks):
-            print(f"Process block {i}/{num_blocks}")
             block_start = i*rows_per_block
             block_end = (i+1)*rows_per_block
             
@@ -265,12 +249,10 @@ class Face:
                 graph = graph_update
             else:
                 graph = sparse.vstack([graph, graph_update])
-            print(f"Number of edges: \t{graph.getnnz()} / {X.shape[0] * (X.shape[0] - 1)}")
 
         self.graph = graph
         if save_results:
             sparse.save_npz(graph_path, self.graph)
-        print("Finished setting the graph")
 
     def load_graph(dataset, bandwidth, distance_threshold, use_conditions, rtol=None, dir='./face_graphs'):
         bandwidth_str = Face.clean_number(bandwidth)
@@ -305,34 +287,42 @@ class Face:
         self.dataset = dataset
         self.X = X
         self.preprocessor = preprocessor
+        if self.recover_originals:
+            self.density_scores = self.original_density_scores
+            self.graph = self.original_graph
+            self.recover_originals = False
         self.candidate_mask = (self.clf(self.X) >= self.confidence_threshold) & (self.density_scores >= self.density_threshold)
         if verbose:
             mask = (self.density_scores >= self.density_threshold)
             total = mask.shape[0]
             culled = mask.shape[0] - mask[mask].shape[0]
-            print(f"{culled} out of {total} candidates culled for density")
             mask = (self.clf(self.X) >= self.confidence_threshold)
             total = mask.shape[0]
             culled = mask.shape[0] - mask[mask].shape[0]
-            print(f"{culled} out of {total} candidates culled for model confidence")
+
+    def add_age_condition(self, age_tolerance, poi_index):
+        self.recover_originals = True
+        self.original_graph = self.graph
+        self.original_density_scores = self.density_scores
+        poi_age = self.dataset.loc[poi_index, 'age']
+        age_mask = np.abs(self.dataset['age'] - poi_age) <= age_tolerance
+        self.dataset = self.dataset[age_mask]
+        self.X = self.X[age_mask]
+        self.candidate_mask = self.candidate_mask[age_mask]
+        self.graph = self.graph.tocsr()[age_mask][:,age_mask].tocoo()
 
     def iterate(self, poi_index):
         # graph = sparse.csgraph.csgraph_from_dense(self.graph)
-        print("running dijkstra...")
+        poi_index = self.dataset.index.get_loc(poi_index)
         csgraph = self.graph.tocsr()
         # print(csgraph)
         dist_matrix, predecessors = sparse.csgraph.dijkstra(csgraph, indices=poi_index, return_predecessors=True)
-        print("got the answer!")
 
-        print("finding candidates...")
         candidates = np.arange(self.X.shape[0])[self.candidate_mask]
         k = min(self.k_paths, candidates.shape[0])
-        print(f"Found {k} out of {self.k_paths} requested candidates.")
         sorted_indices = np.argpartition(dist_matrix[self.candidate_mask], k-1)[:k]
         cf_idx = candidates[sorted_indices]
-        print(f"Candidates have path distances {dist_matrix[cf_idx]}")
 
-        print("reconstructing paths...")
         processed_data = None
         if 'Y' in self.dataset.columns:
             processed_data = self.preprocessor.transform(self.dataset).drop('Y', axis=1)
