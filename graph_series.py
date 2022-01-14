@@ -42,6 +42,7 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
     clf = lambda X: model.predict_proba(X)[:,1]
     conditions_function = None
     if conditions:
+        print("use conditions...")
         X = preprocessor.transform(data)
         immutable_columns = preprocessor.get_feature_names_out(immutable_features)
         tolerances = None
@@ -49,15 +50,27 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
         if 'age' in immutable_features:
             age_index = np.arange(X.columns.shape[0])[X.columns == 'age'][0]
             immutable_column_indices = immutable_column_indices[immutable_column_indices != age_index]
-            transformed_unit = preprocessor.sc_dict['age'].transform([[1]])[0] - preprocessor.sc_dict['age'].transform([[0]])[0]
+            transformed_unit = preprocessor.sc_dict['age'].transform([[1]])[0,0] - preprocessor.sc_dict['age'].transform([[0]])[0,0]
             tolerances = {
                 age_index: transformed_unit * 5.5
             }
         conditions_function = lambda differences: core.immutable_conditions(differences, immutable_column_indices, tolerances=tolerances)
 
     rtol = 1000
-    face = core.Face(k_paths, clf, distance_threshold, confidence_threshold, density_threshold, conditions_function=conditions_function)
-    face.set_graph(preprocessor, data, dataset, bandwidth, block_size=block_size, rtol=rtol, dir=dir, save_results=save_results)
+    face = core.Face(k_paths,
+                     clf,
+                     distance_threshold,
+                     confidence_threshold,
+                     density_threshold,
+                     conditions_function=conditions_function)
+    face.set_graph(preprocessor,
+                   data,
+                   dataset,
+                   bandwidth,
+                   block_size=block_size,
+                   rtol=rtol,
+                   dir=dir,
+                   save_results=save_results)
     #if num_trials != 0:
     #    face.set_kde_subset(preprocessor, data, dataset, bandwidth, random_idx, dir=dir)
     face.fit(data, preprocessor, verbose=True)
@@ -65,7 +78,7 @@ def score_dataset(bandwidth, dataset, distance_threshold, conditions, num_trials
     print("Finished! Paths are...")
     for i, path in enumerate(paths):
         print(f"Path {i}")
-        print(preprocessor.inverse_transform(path))
+        print(preprocessor.inverse_transform(path)[['age']])
 
 
 if __name__ == '__main__':
