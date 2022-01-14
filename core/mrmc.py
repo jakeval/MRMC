@@ -76,11 +76,11 @@ class MRMIterator:
         while i < self.max_iterations:
             dir = self.mrm.transform(curr_poi)
             curr_poi += dir
+            if np.isnan(np.array(curr_poi)).any():
+                return poi_path
             if self.validate:
                 new_point = self.preprocessor.inverse_transform(curr_poi)
                 curr_poi = self.preprocessor.transform(new_point)
-            if np.isnan(np.array(curr_poi)).any():
-                return None
             poi_path = poi_path.append(curr_poi, ignore_index=True)
             if self.early_stopping(curr_poi):
                 return poi_path

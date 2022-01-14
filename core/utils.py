@@ -1,5 +1,6 @@
 import numpy as np
 
+MIN_DIRECTION = 1e-6
 
 def size_normalization(dir, poi, X):
     return dir / X.shape[0]
@@ -8,6 +9,8 @@ def size_normalization(dir, poi, X):
 Normalizes direction based on the distance to the data centroid
 """
 def centroid_normalization(dir, poi, X, alpha=0.7):
+    if dir@dir <= MIN_DIRECTION: # if the direction is zero or very near it, return the original direction
+        return dir
     centroid = X.mean(axis=0)
     diff = centroid - poi
     centroid_dist = np.sqrt(diff@diff)
