@@ -58,12 +58,13 @@ def test_launcher(models, preprocessors, keys, params, dataset):
 
     perturb_dir = None
     if p['perturb_dir'] == 'random':
-        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_scale'], dir)
+        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir)
     if p['sparsity']:
         if perturb_dir is None:
             perturb_dir = lambda dir: utils.priority_dir(dir, k=5)
         else:
-            perturb_dir = lambda dir: utils.priority_dir(perturb_dir(dir), k=5)
+            original_perturbation = perturb_dir
+            perturb_dir = lambda dir: utils.priority_dir(original_perturbation(dir), k=5)
 
     if p['early_stopping']:
         early_stopping = lambda point: utils.model_early_stopping(model, point, cutoff=p['early_stopping_cutoff'])
@@ -93,7 +94,7 @@ def test_launcher(models, preprocessors, keys, params, dataset):
         'Diversity': path_stats.check_diversity
     }
     point_statistics = {
-        'Positive Probability': lambda poi, paths: point_stats.check_positive_probability(model, poi, paths),
+        'Positive Probability': lambda poi, paths: point_stats.check_positive_probability(model, poi, paths, p['early_stopping_cutoff']),
         'Point Invalidity': lambda poi, points: point_stats.check_validity(preprocessor, column_names_per_feature, poi, points),
         'Final Point Distance': point_stats.check_final_point_distance,
         'Point Immutable Violations': lambda poi, points: point_stats.check_immutability(preprocessor, experiment_immutable_feature_names, poi, points),

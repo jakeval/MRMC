@@ -3,7 +3,7 @@ import numpy as np
 
 def check_positive_probability(model, poi, cf_points, cutoff):
     predictions = model.predict_proba(cf_points.to_numpy())[:,1]
-    return (predictions[:,1] >= cutoff).astype(np.int32)
+    return (predictions >= cutoff).astype(np.int32)
 
 
 def check_final_point_distance(poi, cf_points):
