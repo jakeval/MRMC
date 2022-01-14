@@ -1,9 +1,9 @@
 import numpy as np
 
 
-def check_positive_probability(model, poi, cf_points):
-    predictions = model.predict_proba(cf_points.to_numpy())
-    return predictions[:,1]
+def check_positive_probability(model, poi, cf_points, cutoff):
+    predictions = model.predict_proba(cf_points.to_numpy())[:,1]
+    return (predictions[:,1] >= cutoff).astype(np.int32)
 
 
 def check_final_point_distance(poi, cf_points):
@@ -57,3 +57,4 @@ def check_diversity(preprocessor, poi, cf_points):
                 K[i,j] += np.random.normal(0,0.0001)
     diversity = np.linalg.det(K)
     return np.full(cf_points.shape[0], diversity)
+

@@ -15,6 +15,7 @@ import sys
 from models import model_utils
 import os
 
+np.random.seed(88557)
 
 RUN_LOCALLY = False
 SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
@@ -44,7 +45,7 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     immutable_column_names = None
     immutable_features = None
     feature_tolerances = None
-    immutable_strict = True
+    immutable_strict = False
     if p['immutable_features'] is not None:
         immutable_column_names = preprocessor.get_feature_names_out(p['immutable_features'])
         immutable_features = p['immutable_features']
@@ -56,8 +57,13 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     early_stopping = None
 
     perturb_dir = None
+    if p['perturb_dir'] == 'random':
+        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_scale'], dir)
     if p['sparsity']:
-        perturb_dir = lambda dir: utils.priority_dir(dir, k=5)
+        if perturb_dir is None:
+            perturb_dir = lambda dir: utils.priority_dir(dir, k=5)
+        else:
+            perturb_dir = lambda dir: utils.priority_dir(perturb_dir(dir), k=5)
 
     if p['early_stopping']:
         early_stopping = lambda point: utils.model_early_stopping(model, point, cutoff=p['early_stopping_cutoff'])
@@ -121,10 +127,10 @@ def get_params(num_trials, dataset_str):
         'early_stopping': [True],
         'sparsity': [True, False],
         'model': ['svc', 'random_forest'],
-        'early_stopping_cutoff': [0.7],
+        'early_stopping_cutoff': [0.75],
         'weight_function': ['centroid'],
         'weight_centroid_alpha': [0.7],
-        'immutable_strict': [True],
+        'immutable_strict': [False],
     }
 
     dataset = None
@@ -133,7 +139,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
-            'immutable_features': [['age', 'sex', 'race'], None]
+            'immutable_features': [['age', 'sex', 'race']]
             }
         ]
     elif dataset_str == 'german_credit':
@@ -141,7 +147,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['german_credit'],
             'experiment_immutable_features': [['age', 'sex']],
-            'immutable_features': [['age', 'sex'], None]
+            'immutable_features': [['age', 'sex']]
             }
         ]
 
@@ -157,8 +163,18 @@ def get_params(num_trials, dataset_str):
         },
     ]
 
+    perturb_dir = [
+        {
+            'perturb_dir': ['random'],
+            'perturb_dir_random_scale': [0.1, 1, 10, 100, 1000, 10000]
+        },
+        {
+            'perturb_dir': [None]
+        }
+    ]
+
     # the simple and constrained parameters are combined into a list of dictionaries which respect the parameter constraints
-    constrained_params = [dataset, alpha_function]
+    constrained_params = [dataset, alpha_function, perturb_dir]
     params = []
     for dict_tuple in itertools.product(*constrained_params):
         d = {}
