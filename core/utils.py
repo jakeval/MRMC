@@ -1,6 +1,6 @@
 import numpy as np
 
-MIN_DIRECTION = 1e-16
+MIN_DIRECTION = 1e-32
 
 def size_normalization(dir, poi, X):
     return dir / X.shape[0]
@@ -9,12 +9,12 @@ def size_normalization(dir, poi, X):
 Normalizes direction based on the distance to the data centroid
 """
 def centroid_normalization(dir, poi, X, alpha=0.7):
-    if dir@dir <= MIN_DIRECTION: # if the direction is zero or very near it, return the original direction
+    if dir@dir == 0: # if the direction is zero or very near it, return the original direction
         return dir
     centroid = X.mean(axis=0)
     diff = centroid - poi
     centroid_dist = np.sqrt(diff@diff)
-    dir = alpha * dir * (centroid_dist / np.sqrt(dir@dir))
+    dir = (alpha * dir * centroid_dist) / np.sqrt(dir@dir)
     return dir
 
 def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
