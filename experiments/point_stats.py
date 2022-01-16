@@ -6,6 +6,10 @@ def check_positive_probability(model, poi, cf_points, cutoff):
     return (predictions >= cutoff).astype(np.int32)
 
 
+def check_model_certainty(model, poi, cf_points):
+    return model.predict_proba(cf_points.to_numpy())[:,1]
+
+
 def check_final_point_distance(poi, cf_points):
     diff = cf_points.to_numpy() - poi.to_numpy()
     return np.sqrt((diff**2).sum(axis=1))
