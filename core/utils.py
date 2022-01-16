@@ -1,6 +1,6 @@
 import numpy as np
 
-MIN_DIRECTION = 1e-6
+MIN_DIRECTION = 1e-16
 
 def size_normalization(dir, poi, X):
     return dir / X.shape[0]
