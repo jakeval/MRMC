@@ -200,16 +200,9 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
 def run_experiment():
     print("starting the script...")
     args = sys.argv
-    num_tests = None
     dataset = None
-    if len(args) < 2:
-        print("Not enough arguments")
-        return
-    if len(args) == 2:
-        dataset = args[1]
-    if len(args) == 3:
-        num_tests = int(args[1])
-        dataset = args[2]
+    num_tests = int(args[2])
+    dataset = args[1]
     print("dataset is ", dataset)
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
 
@@ -217,6 +210,8 @@ def run_experiment():
     client = None
     num_trials = 30
     if not RUN_LOCALLY:
+        dask.config.set(scheduler='processes')
+        dask.config.set({'temporary-directory': SCRATCH_DIR})
         cluster = SLURMCluster(
             processes=1,
             memory='2000MB',
@@ -230,8 +225,6 @@ def run_experiment():
     else:
         num_trials = 5
         client = Client(n_workers=1, threads_per_worker=1)
-    dask.config.set(scheduler='processes')
-    dask.config.set({'temporary-directory': SCRATCH_DIR})
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
@@ -253,7 +246,7 @@ def run_experiment():
 
     all_params = get_params(num_trials, dataset)
     print(all_params.shape)
-    if num_tests is None:
+    if num_tests == 0:
         num_tests = all_params.shape[0]
     print(f"Run {num_tests} tests")
     param_df = all_params.iloc[0:num_tests]
