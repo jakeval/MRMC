@@ -128,7 +128,7 @@ def get_params(num_trials, dataset_str):
         'early_stopping': [True],
         'sparsity': [True, False],
         'model': ['svc', 'random_forest'],
-        'early_stopping_cutoff': [0.75],
+        'early_stopping_cutoff': [0.6, 0.7],
         'weight_function': ['centroid'],
         'weight_centroid_alpha': [0.7],
         'immutable_strict': [False],
@@ -156,7 +156,7 @@ def get_params(num_trials, dataset_str):
         {
             'alpha_function': ['volcano'],
             'alpha_volcano_cutoff': [0.2],
-            'alpha_volcano_degree': [4],
+            'alpha_volcano_degree': [2, 4],
         },
         {
             'alpha_function': ['normal'],
@@ -167,7 +167,7 @@ def get_params(num_trials, dataset_str):
     perturb_dir = [
         {
             'perturb_dir': ['random'],
-            'perturb_dir_random_scale': [0.1, 1, 10, 100, 1000, 10000]
+            'perturb_dir_random_scale': [0.25, 0.5, 1, 2, 4],
         },
         {
             'perturb_dir': [None]
