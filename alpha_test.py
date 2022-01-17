@@ -24,7 +24,6 @@ LOG_DIR = '/home/jasonvallada/MRMC/logs'
 def test_launcher(models, preprocessors, keys, params, dataset):
     p = dict([(key, val) for key, val in zip(keys, params)])
     model = models[(p['model'], p['dataset'])]
-    # dataset = p['dataframe']
     preprocessor = preprocessors[p['dataset']]
 
     X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
@@ -98,7 +97,7 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     return aggregated_stats
 
 
-def get_params(num_trials, dataset):
+def get_params(num_trials, dataset_str):
     """Create a dataframe of input parameters.
     
     Each row of the dataframe contains a setting over parameters used by test_launcher to launch a test.
@@ -118,7 +117,7 @@ def get_params(num_trials, dataset):
     }
 
     dataset = []
-    if dataset == 'adult_income':
+    if dataset_str == 'adult_income':
         dataset.append(
             {
                 'dataset': ['adult_income'],
