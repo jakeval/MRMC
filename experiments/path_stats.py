@@ -1,5 +1,7 @@
 import numpy as np
 
+EQ_EPSILON = 1e-10
+
 
 def check_path_count(paths):
     return np.array([len(path) for path in paths])
@@ -46,7 +48,7 @@ def check_validity(preprocessor, column_names_per_feature, paths):
     path_validity = np.zeros(len(paths))
     for path_idx, path in enumerate(paths):
         valid_path = make_valid(path, preprocessor)
-        diff = (valid_path - path) != 0
+        diff = np.abs(valid_path - path) > EQ_EPSILON
         path_totals = np.zeros(path.shape[0])
         for column_names in column_names_per_feature:
             path_totals += diff[column_names].sum(axis=1).to_numpy()

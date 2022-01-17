@@ -1,5 +1,6 @@
 import numpy as np
 
+EQ_EPSILON = 1e-10
 
 def check_positive_probability(model, poi, cf_points, cutoff):
     predictions = model.predict_proba(cf_points.to_numpy())[:,1]
@@ -20,7 +21,7 @@ def check_validity(preprocessor, column_names_per_feature, poi, cf_points):
     """
     valid_points = preprocessor.inverse_transform(cf_points)
     valid_points = preprocessor.transform(valid_points)
-    diff = (cf_points - valid_points) != 0
+    diff = (cf_points - valid_points) > EQ_EPSILON
     total = 0
     for column_names in column_names_per_feature:
         total += diff[column_names].any(axis=1)
