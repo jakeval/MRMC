@@ -16,7 +16,7 @@ import itertools
 
 
 class MrmcTestRunner:
-    def __init__(self, N, dataset, preprocessor, mrmc, path_statistics, point_statistics, cluster_statistics, immutable_features=None, immutable_strict=True, feature_tolerances=None):
+    def __init__(self, N, dataset, preprocessor, mrmc, path_statistics, point_statistics, cluster_statistics, immutable_features=None, immutable_strict=True, feature_tolerances=None, check_privacy=False):
         self.path_statistics = path_statistics
         self.point_statistics = point_statistics
         self.cluster_statistics = cluster_statistics
@@ -29,6 +29,7 @@ class MrmcTestRunner:
         self.immutable_features = immutable_features
         self.feature_tolerances = feature_tolerances
         self.immutable_strict = immutable_strict
+        self.check_privacy = check_privacy
 
     def run_trial(self):
         """Returns a dictionary like {stat_key: [path1_stat, path2_stat, ...], stat_key1: [...]}"""
@@ -43,13 +44,21 @@ class MrmcTestRunner:
                 filtered_data = self.dataset
         cluster_assignments, km = self.get_clusters(filtered_data, self.k_dirs)
         self.mrmc.fit(filtered_data, cluster_assignments)
-        paths = self.mrmc.iterate(poi)
+        paths = None
+        cosine_similarity = None
+        if self.check_privacy:
+            paths, cosine_similarity = self.mrmc.iterate(poi)
+        else:
+            paths = self.mrmc.iterate(poi)
         if paths is None:
             return self.get_null_results(), None, None
         for path in paths:
             if path is None:
                 return self.get_null_results(), None, None
-        return self.collect_statistics(poi, paths, cluster_assignments), paths, km.cluster_centers_
+        stats = self.collect_statistics(poi, paths, cluster_assignments)
+        if self.check_privacy:
+            stats['Cosine Similarity'] = cosine_similarity
+        return stats, paths, km.cluster_centers_
 
     def collect_statistics(self, poi, paths, cluster_assignments):
         stat_dict = {}
@@ -68,10 +77,14 @@ class MrmcTestRunner:
         d = {}
         for key in self.statistics_keys:
             d[key] = np.full(self.k_dirs, np.nan)
+        if self.check_privacy:
+            d['Cosine Similarity'] = np.full(self.k_dirs, np.nan)
         return d
 
     def run_test(self):
-        stats_dict = dict([(stat_key, np.empty(self.k_dirs*self.N)) for stat_key in self.statistics_keys])
+        stats_dict = dict([(stat_key, np.full(self.k_dirs*self.N, np.nan)) for stat_key in self.statistics_keys])
+        if self.check_privacy:
+            stats_dict['Cosine Similarity'] = np.full(self.k_dirs*self.N, np.nan)
         for n in range(self.N):
             #print(f"n={n}")
             i = n*self.k_dirs
@@ -79,6 +92,8 @@ class MrmcTestRunner:
             stats, _, _ = self.run_trial()
             for key in self.statistics_keys:
                 stats_dict[key][i:j] = stats[key]
+            if self.check_privacy:
+                stats_dict['Cosine Similarity'][i:j] = stats['Cosine Similarity']
         stats = pd.DataFrame(stats_dict)
         aggregated_statistics = self.aggregate_stats(stats)
         return stats, aggregated_statistics
@@ -102,6 +117,9 @@ class MrmcTestRunner:
         
         for metric, stat in itertools.product(statistics.columns, meta_stats):
             aggregated_stats[f'{metric} ({stat})'] = described_stats.loc[stat, metric]
+        if self.check_privacy:
+            for metric in meta_stats:
+                aggregated_stats[f'Cosine Similarity ({stat})'] = described_stats.loc[metric, 'Cosine Similarity']
 
         aggregated_stats.loc[:,'success_ratio'] = non_null_ratio
         return aggregated_stats

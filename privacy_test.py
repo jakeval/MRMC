@@ -15,11 +15,16 @@ import sys
 from models import model_utils
 import os
 
+np.random.seed(88557)
 
+RUN_LOCALLY = False
 SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
 OUTPUT_DIR = '/home/jasonvallada/privacy_output'
 LOG_DIR = '/home/jasonvallada/MRMC/logs'
-
+if RUN_LOCALLY:
+    SCRATCH_DIR = './'
+    OUTPUT_DIR = './'
+    LOG_DIR = './'
 
 def test_launcher(models, preprocessors, keys, params, dataset):
     p = dict([(key, val) for key, val in zip(keys, params)])
@@ -36,6 +41,16 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     experiment_immutable_feature_names = p['experiment_immutable_features']
     validate = p['validate']
     early_stopping = None
+
+    immutable_column_names = None
+    immutable_features = None
+    feature_tolerances = None
+    if p['immutable_features'] is not None:
+        immutable_column_names = preprocessor.get_feature_names_out(p['immutable_features'])
+        immutable_features = p['immutable_features']
+        feature_tolerances = {
+            'age': 5
+        }
 
     perturb_dir = None
     if p['perturb_dir'] == 'private':
@@ -54,8 +69,8 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     elif p['alpha_function'] == 'private':
         alpha_function = lambda dist: utils.private_alpha(dist, cutoff=p['alpha_private_cutoff'], degree=p['alpha_private_degree'])
 
-    mrm = MRM(alpha=alpha_function, weight_function=weight_function, perturb_dir=perturb_dir)
-    mrmc = MRMCIterator(k_dirs, mrm, preprocessor, max_iterations, early_stopping=early_stopping, validate=validate)
+    mrm = MRM(alpha=alpha_function, weight_function=weight_function, perturb_dir=perturb_dir, immutable_column_names=immutable_column_names, check_privacy=True)
+    mrmc = MRMCIterator(k_dirs, mrm, preprocessor, max_iterations, early_stopping=early_stopping, validate=validate, check_privacy=True)
 
     column_names_per_feature = [] # list of lists
     for feature in dataset.columns.difference(['Y']):
@@ -71,7 +86,8 @@ def test_launcher(models, preprocessors, keys, params, dataset):
         'Diversity': path_stats.check_diversity
     }
     point_statistics = {
-        'Positive Probability': lambda poi, paths: point_stats.check_positive_probability(model, poi, paths),
+        'Positive Probability': lambda poi, paths: point_stats.check_positive_probability(model, poi, paths, p['early_stopping_cutoff']),
+        'Model Certainty': lambda poi, paths: point_stats.check_model_certainty(model, poi, paths),
         'Point Invalidity': lambda poi, points: point_stats.check_validity(preprocessor, column_names_per_feature, poi, points),
         'Final Point Distance': point_stats.check_final_point_distance,
         'Point Immutable Violations': lambda poi, points: point_stats.check_immutability(preprocessor, experiment_immutable_feature_names, poi, points),
@@ -82,7 +98,8 @@ def test_launcher(models, preprocessors, keys, params, dataset):
     }
 
     test = MrmcTestRunner(num_trials, dataset, preprocessor, mrmc, path_statistics,
-                        point_statistics, cluster_statistics)
+                        point_statistics, cluster_statistics, immutable_strict=False, immutable_features=immutable_features,
+                        feature_tolerances=feature_tolerances, check_privacy=True)
     stats, aggregated_stats = test.run_test()
     return aggregated_stats
 
@@ -115,6 +132,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
+            'immutable_features': [['age', 'sex', 'race']],
             }
         ]
     elif dataset_str == 'german_credit':
@@ -122,17 +140,11 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['german_credit'],
             'experiment_immutable_features': [['age', 'sex']],
+            'immutable_features': [['age', 'sex']],
             }
         ]
 
     alpha_function = [
-        {
-            'alpha_function': ['private'],
-            'alpha_private_cutoff': [0.8],
-            'alpha_private_degree': [2],
-            'perturb_dir': ['privacy'],
-            'perturb_dir_privacy_C': [1.5625]
-        },
         {
             'alpha_function': ['private'],
             'alpha_private_cutoff': [0.5],
@@ -141,14 +153,21 @@ def get_params(num_trials, dataset_str):
             'perturb_dir_privacy_C': [4]
         },
         {
+            'alpha_function': ['private'],
+            'alpha_private_cutoff': [0.2],
+            'alpha_private_degree': [2],
+            'perturb_dir': ['privacy'],
+            'perturb_dir_privacy_C': [25]
+        },
+        {
             'alpha_function': ['volcano'],
-            'alpha_volcano_cutoff': [0.8],
+            'alpha_volcano_cutoff': [0.5],
             'alpha_volcano_degree': [2],
             'perturb_dir': [None],
         },
         {
             'alpha_function': ['volcano'],
-            'alpha_volcano_cutoff': [0.5],
+            'alpha_volcano_cutoff': [0.2],
             'alpha_volcano_degree': [2],
             'perturb_dir': [None],
         },
@@ -180,22 +199,26 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
 def run_experiment():
     print("starting the script...")
     args = sys.argv
-    output_file = os.path.join(OUTPUT_DIR, 'adult_income.pkl')
-
-    print("Open a client...")
-    cluster = SLURMCluster(
-        processes=1,
-        memory='2000MB',
-        queue='defq',
-        cores=1,
-        walltime='00:25:00',
-        log_directory=LOG_DIR
-    )
-    cluster.scale(4)
-    dask.config.set(scheduler='processes')
-    dask.config.set({'temporary-directory': SCRATCH_DIR})
-    client = Client(cluster)
-    #client = Client(n_workers=1, threads_per_worker=1)
+    dataset = args[1]
+    num_tests = int(args[2])
+    output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
+    client = None
+    if not RUN_LOCALLY:
+        print("Open a client...")
+        cluster = SLURMCluster(
+            processes=1,
+            memory='2000MB',
+            queue='defq',
+            cores=1,
+            walltime='00:25:00',
+            log_directory=LOG_DIR
+        )
+        cluster.scale(4)
+        dask.config.set(scheduler='processes')
+        dask.config.set({'temporary-directory': SCRATCH_DIR})
+        client = Client(cluster)
+    else:
+        client = Client()
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
@@ -215,21 +238,11 @@ def run_experiment():
         'adult_income': adult_preprocessor
     }
 
-    num_tests = None
-    dataset = None
-    if len(args) < 2:
-        print("Not enough arguments")
-        return
-    if len(args) == 2:
-        dataset = args[1]
-    if len(args) == 3:
-        num_tests = int(args[1])
-        dataset = args[2]
     all_params = get_params(30, dataset)
     print(all_params.shape)
-    if num_tests is None:
+    if num_tests == 0:
         num_tests = all_params.shape[0]
-    print(f"Run {num_tests} tests")
+    print(f"Run {num_tests} tests on {dataset}")
     param_df = all_params.iloc[0:num_tests]
     run_test = lambda params, dataset: test_launcher(models, preprocessors, list(param_df.columns), params, dataset)
     params = param_df.values

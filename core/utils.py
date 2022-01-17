@@ -5,6 +5,9 @@ MIN_DIRECTION = 1e-32
 def size_normalization(dir, poi, X):
     return dir / X.shape[0]
 
+def cosine_similarity(x1, x2):
+    return (x1@x2) / (np.sqrt(x1@x1) * np.sqrt(x2@x2))
+
 """
 Normalizes direction based on the distance to the data centroid
 """
