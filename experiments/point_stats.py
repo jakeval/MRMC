@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 EQ_EPSILON = 1e-10
 
@@ -49,6 +50,18 @@ def check_sparsity(preprocessor, poi, cf_points):
     return (cf_points.to_numpy() != poi.to_numpy()).sum(axis=1)
 
 
+def check_diversity(poi, cf_points):
+    d = cf_points.shape[1]
+    total = 0
+    for i in range(cf_points.shape[0] - 1):
+        for j in range(i+1, cf_points.shape[0] - 1):
+            ci = cf_points.iloc[i]
+            cj = cf_points.iloc[j]
+            total += (np.abs(ci - cj) > EQ_EPSILON).to_numpy().sum()
+    diversity = total * 1/(math.comb(d, 2) * d)
+    return np.full(cf_points.shape[0], diversity)
+
+"""
 def check_diversity(preprocessor, poi, cf_points):
     points = cf_points.to_numpy()
     dist = lambda p1, p2: np.sqrt((p1-p2)@(p1-p2))
@@ -63,3 +76,4 @@ def check_diversity(preprocessor, poi, cf_points):
     diversity = np.linalg.det(K)
     return np.full(cf_points.shape[0], diversity)
 
+"""

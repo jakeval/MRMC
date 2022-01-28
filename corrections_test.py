@@ -91,7 +91,6 @@ def test_launcher(models, preprocessors, keys, params, dataset):
         'Path Immutable Violations': lambda paths: path_stats.check_immutability(preprocessor, experiment_immutable_feature_names, paths),
         'Average Path Sparsity': lambda paths: path_stats.check_sparsity(preprocessor, paths),
         'Path Invalidity': lambda paths: path_stats.check_validity(preprocessor, column_names_per_feature, paths),
-        'Diversity': path_stats.check_diversity
     }
     point_statistics = {
         'Positive Probability': lambda poi, paths: point_stats.check_positive_probability(model, poi, paths, p['early_stopping_cutoff']),
@@ -99,6 +98,7 @@ def test_launcher(models, preprocessors, keys, params, dataset):
         'Final Point Distance': point_stats.check_final_point_distance,
         'Point Immutable Violations': lambda poi, points: point_stats.check_immutability(preprocessor, experiment_immutable_feature_names, poi, points),
         'Point Sparsity': lambda poi, points: point_stats.check_sparsity(preprocessor, poi, points),
+        'Diversity': point_stats.check_diversity
     }
     cluster_statistics = {
         'Cluster Size': path_stats.check_cluster_size,
