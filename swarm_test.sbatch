@@ -16,6 +16,6 @@ export OMP_NUM_THREADS=1
 
 module load shared python/3.8.11
 
-source /home/jasonvallada/MRMC/.env/bin/activate
+source /mnt/nfs/home/jasonvallada/MRMC/.env/bin/activate
 
-python /home/jasonvallada/MRMC/corrections_test.py $1
+python /mnt/nfs/home/jasonvallada/MRMC/corrections_test.py $1

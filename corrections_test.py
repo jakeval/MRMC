@@ -19,8 +19,8 @@ np.random.seed(88557)
 
 RUN_LOCALLY = False
 SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
-OUTPUT_DIR = '/home/jasonvallada/corrections_output'
-LOG_DIR = '/home/jasonvallada/MRMC/logs'
+OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/corrections_output'
+LOG_DIR = '/mnt/nfs/home/jasonvallada/MRMC/logs'
 if RUN_LOCALLY:
     SCRATCH_DIR = '.'
     OUTPUT_DIR = '.'
