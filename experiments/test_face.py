@@ -1,40 +1,31 @@
 
-from numpy.core.fromnumeric import nonzero
-from sklearn import cluster
 from data import data_adapter as da
-from experiments import path_stats
-
-from core.mrmc import MRM, MRMCIterator
-from core import utils
-
-from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
 
 import itertools
 
 
 class FaceTestRunner:
-    def __init__(self, N, dataset, preprocessor, face, path_statistics, point_statistics, immutable_features=None, age_tolerance=None):
-        self.path_statistics = path_statistics
+    def __init__(self, N, dataset, preprocessor, face, point_statistics, k_points, immutable_features=None, age_tolerance=None):
         self.point_statistics = point_statistics
         self.face = face
-        self.statistics_keys = list(path_statistics.keys()) + list(point_statistics.keys())
         self.dataset = dataset
         self.N = N
         self.preprocessor = preprocessor
-        self.k_dirs = face.k_paths
+        self.k_points = k_points
         self.immutable_features = immutable_features
         self.age_tolerance = age_tolerance
 
     def run_trial(self):
         """Returns a dictionary like {stat_key: [path1_stat, path2_stat, ...], stat_key1: [...]}"""
-        poi_index = da.random_poi(self.dataset).index[0]
+        poi = da.random_poi(self.dataset)
+        poi_index = poi.index[0]
         self.face.fit(self.dataset, self.preprocessor, verbose=False)
         if self.immutable_features is not None:
             self.face.add_age_condition(self.age_tolerance, poi_index)
         paths = self.face.iterate(poi_index)
+        self.face.clear_age_condition()
         if paths is None:
             return self.get_null_results(), None
         for path in paths:
@@ -42,12 +33,14 @@ class FaceTestRunner:
                 return self.get_null_results(), None
         if len(paths) == 0:
             return self.get_null_results(), None
+        if self.immutable_features is not None: # zero-out any changes to age.
+            poi_age = self.preprocessor.transform(poi).loc[poi.index[0],'age']
+            for i in range(len(paths)):
+                paths[i].loc[paths[i].index[-1],'age'] = poi_age
         return self.collect_statistics(self.dataset.loc[[poi_index],:].drop('Y', axis=1), paths), paths
 
     def collect_statistics(self, poi, paths):
         stat_dict = {}
-        for statistic, calculate_statistic in self.path_statistics.items():
-            stat_dict[statistic] = calculate_statistic(paths)
         for statistic, calculate_statistic in self.point_statistics.items():
             points = pd.DataFrame(columns=paths[0].columns, data=np.zeros((len(paths), len(paths[0].columns))))
             for i in range(len(paths)):
@@ -57,18 +50,17 @@ class FaceTestRunner:
 
     def get_null_results(self):
         d = {}
-        for key in self.statistics_keys:
-            d[key] = np.full(self.k_dirs, np.nan)
+        for key in self.point_statistics:
+            d[key] = np.full(self.k_points, np.nan)
         return d
 
     def run_test(self):
-        stats_dict = dict([(stat_key, np.full(self.k_dirs*self.N, np.nan)) for stat_key in self.statistics_keys])
+        stats_dict = dict([(stat_key, np.full(self.k_points*self.N, np.nan)) for stat_key in self.point_statistics])
         for n in range(self.N):
-            i = n*self.k_dirs
+            i = n*self.k_points
             stats, _ = self.run_trial()
-            for key in self.statistics_keys:
-                new_stats = stats[key]
-                j = new_stats.shape[0] + i
+            for key in self.point_statistics:
+                j = stats[key].shape[0] + i
                 stats_dict[key][i:j] = stats[key]
         stats = pd.DataFrame(stats_dict)
         aggregated_statistics = self.aggregate_stats(stats)
