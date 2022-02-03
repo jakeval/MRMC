@@ -8,7 +8,7 @@ class DicePathTestRunner:
     def __init__(self, N, dataset, preprocessor, dice,
                  point_statistics, path_statistics, k_points, 
                  certainty_cutoff, max_iterations, 
-                 weight_function, clf, perturb_dir=None, immutable_features=None, 
+                 weight_function, clf, pois, perturb_dir=None, immutable_features=None, 
                  feature_tolerances=None):
         self.point_statistics = point_statistics
         self.path_statistics = path_statistics
@@ -24,6 +24,7 @@ class DicePathTestRunner:
         self.preprocessor = preprocessor
         self.weight_function = weight_function
         self.clf = clf
+        self.pois = pois
         if immutable_features is not None:
             self.features_to_vary = list(dataset.columns.difference(immutable_features + ['Y']))
             if feature_tolerances is not None:
@@ -66,8 +67,7 @@ class DicePathTestRunner:
             new_cf = self.preprocessor.transform(new_cf.drop('Y', axis=1))
         return path
 
-    def run_trial(self):
-        poi = da.random_poi(self.dataset)
+    def run_trial(self, poi):
         permitted_range = {}
         if self.feature_tolerances is not None:
             for key, val in self.feature_tolerances.items():
@@ -103,10 +103,11 @@ class DicePathTestRunner:
 
     def run_test(self):
         stats_dict = dict([(stat_key, np.full(self.k_points*self.N, np.nan)) for stat_key in self.statistics_keys])
-        for n in range(self.N):
+        for n, poi_index in zip(range(self.N), self.pois):
             i = n*self.k_points
             j = (n+1)*self.k_points
-            stats, _, _ = self.run_trial()
+            poi = self.dataset[self.dataset.index == poi_index].drop('Y', axis=1)
+            stats, _, _ = self.run_trial(poi)
             for key in self.statistics_keys:
                 stats_dict[key][i:j] = stats[key]
         stats = pd.DataFrame(stats_dict)

@@ -15,15 +15,12 @@ import os
 
 np.random.seed(88557)
 
-NUM_TASKS = 16
-RUN_LOCALLY = True
-SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
-OUTPUT_DIR = '/home/jasonvallada/corrections_output'
-LOG_DIR = '/home/jasonvallada/MRMC/logs'
+RUN_LOCALLY = False
+NUM_TASKS = 32
+OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/dice_path_output'
 if RUN_LOCALLY:
-    SCRATCH_DIR = '.'
     OUTPUT_DIR = '../dice_path_output'
-    LOG_DIR = '.'
+    NUM_TASKS = 1
 
 class ToNumpy:
     def __init__(self):
@@ -41,6 +38,9 @@ def test_launcher(p):
     model = p['model_payload']
     preprocessor = p['preprocessor_payload']
     dataset = p['dataset_payload']
+
+    pois = np.random.choice(dataset[dataset.Y == 1].index, size=p['num_trials'])
+    np.random.seed(p['seed'])
 
     d = dice_ml.Data(dataframe=dataset, continuous_features=preprocessor.continuous_features, outcome_name='Y')
     clf = Pipeline(steps=[('preprocessor', preprocessor),
@@ -61,7 +61,6 @@ def test_launcher(p):
         experiment_immutable_feature_names = ['age', 'sex']
 
     path_statistics = {
-        'Path Invalidity': lambda paths: path_stats.check_validity_distance(preprocessor, paths),
         'Path Count': path_stats.check_path_count,
         'Path Length': path_stats.check_path_length,
         'Path Immutable Violations': lambda paths: path_stats.check_immutability(preprocessor, experiment_immutable_feature_names, paths),
@@ -108,6 +107,7 @@ def test_launcher(p):
                               max_iterations,
                               weight_function,
                               clf,
+                              pois,
                               perturb_dir=perturb_dir,
                               immutable_features=immutable_features,
                               feature_tolerances=feature_tolerances)
@@ -166,7 +166,7 @@ def run_experiment():
     dataset = args[1]
     print("dataset is ", dataset)
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
-    num_trials = 30
+    num_trials = 60
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
