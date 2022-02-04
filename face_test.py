@@ -17,7 +17,7 @@ np.random.seed(88557)
 
 NUM_TASKS = 32
 
-RUN_LOCALLY = True
+RUN_LOCALLY = False
 INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_strict'
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_output'
 if RUN_LOCALLY:
@@ -219,7 +219,7 @@ def run_experiment():
 
     all_params = get_params(num_trials, dataset)
     print(len(all_params))
-    if num_tests is None:
+    if num_tests == 0:
         num_tests = len(all_params)
     print(f"Run {num_tests} tests")
     params = all_params[:num_tests]
