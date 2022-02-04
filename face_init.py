@@ -14,10 +14,10 @@ np.random.seed(88557)
 NUM_TASKS = 32
 
 RUN_LOCALLY = False
-OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs'
+OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_strict'
 if RUN_LOCALLY:
-    NUM_TASKS = 2
-    OUTPUT_DIR = '.'
+    NUM_TASKS = 1
+    OUTPUT_DIR = './face_graphs'
 
 
 def get_params(dataset_str):
@@ -30,9 +30,7 @@ def get_params(dataset_str):
     """
 
     # simple parameters have no conflicts
-    simple_params = {
-        'distance_threshold': [1,1.25,1.5,2,4,8],
-    }
+    simple_params = {}
 
     dataset = None
     if dataset_str == 'adult_income':
@@ -42,7 +40,7 @@ def get_params(dataset_str):
             'immutable_features': [['age', 'sex', 'race'], None],
             'kde_bandwidth': [0.13],
             'kde_rtol': [1000],
-            'density_threshold': [0, np.exp(6), np.exp(7)],
+            'distance_threshold': [1,1.25,1.5,2],
             }
         ]
     elif dataset_str == 'german_credit':
@@ -52,7 +50,7 @@ def get_params(dataset_str):
             'immutable_features': [['age', 'sex'], None],
             'kde_bandwidth': [0.29],
             'kde_rtol': [None],
-            'density_threshold': [0, np.exp(12.771), np.exp(12.773)], # anything below this number will be culled
+            'distance_threshold': [1.5,2,4,8],
             }
         ]
 
@@ -65,7 +63,6 @@ def get_params(dataset_str):
             d.update(dict)
         d.update(simple_params)
         params.append(d)
-    
     return list(ParameterGrid(params))
 
 def generate_density_scores(dataset, preprocessor, dataset_str):
@@ -90,7 +87,7 @@ def generate_graph(p):
         immutable_columns = preprocessor.get_feature_names_out(immutable_features)
         tolerances = None
         immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
-        if 'age' in immutable_features:
+        if False and 'age' in immutable_features:
             age_index = np.arange(X.columns.shape[0])[X.columns == 'age'][0]
             immutable_column_indices = immutable_column_indices[immutable_column_indices != age_index]
             transformed_unit = preprocessor.sc_dict['age'].transform([[1]])[0,0] - preprocessor.sc_dict['age'].transform([[0]])[0,0]
@@ -126,7 +123,8 @@ def main():
         print("No dataset loaded")
         return
     print("Generate KDE scores...")
-    density_scores = generate_density_scores(data, preprocessor, dataset)
+    # density_scores = generate_density_scores(data, preprocessor, dataset)
+    density_scores = Face.load_kde('adult_income', 0.13, rtol=1000, dir='./face_graphs')
     print("Generated density scores")
 
     all_params = get_params(dataset)

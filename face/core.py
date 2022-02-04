@@ -23,7 +23,7 @@ def immutable_conditions(differences, immutable_column_indices, tolerances=None)
     """
     if tolerances is None:
         return (differences[:,:,np.array(immutable_column_indices)] == 0).all(axis=2)
-    else:
+    else:        
         strict_mask = (differences[:,:,np.array(immutable_column_indices)] == 0).all(axis=2)
         masks = [strict_mask]
         for index, tolerance in tolerances.items():
@@ -54,6 +54,7 @@ class Face:
         self.preprocessor = None
         self.original_graph = None
         self.original_density_scores = None
+        self.original_X = None
 
     def clean_number(f):
         return ''.join(map(lambda c: '-' if c == '.' else c, f'{f:.3f}'))
@@ -137,6 +138,7 @@ class Face:
         num_blocks = int(np.ceil(X.shape[0] / rows_per_block))
         graph = None
         for i in range(num_blocks):
+            # print(f"Compute block {i}/{num_blocks}")
             block_start = i*rows_per_block
             block_end = (i+1)*rows_per_block
             
@@ -150,7 +152,7 @@ class Face:
 
             # calculate the distances matrix
             distances = np.linalg.norm(differences, axis=2)
-            
+
             # calculate the neighbor mask
             neighbor_mask = ~((distances > distance_threshold) | ~conditions_mask) # true wherever there's an edge
             distances[~neighbor_mask] = 0.0
@@ -313,6 +315,19 @@ class Face:
         if save_results:
             sparse.save_npz(graph_path, self.graph)
 
+    def load_kde(dataset, bandwidth, rtol=None, dir='./face_graphs'):
+        """Load the graph and density scores from the filesystem.
+        """
+        bandwidth_str = Face.clean_number(bandwidth)
+        density_path = None
+        if rtol is not None:
+            rtol_str = Face.clean_number(rtol)
+            density_path = os.path.join(dir, f'{dataset}_density_scores_{bandwidth_str}_rtol_{rtol_str}.npy')
+        else:
+            density_path = os.path.join(dir, f'{dataset}_density_scores_{bandwidth_str}.npy')
+        density_scores = np.load(density_path)
+        return density_scores
+
     def load_graph(dataset, bandwidth, distance_threshold, use_conditions, rtol=None, dir='./face_graphs'):
         """Load the graph and density scores from the filesystem.
         """
@@ -340,13 +355,23 @@ class Face:
         self.graph = graph
         self.density_scores = density_scores
 
-    def fit(self, dataset, preprocessor, verbose=False):
+    def fit(self, dataset, preprocessor, verbose=False, bandwidth=None, rtol=None):
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
         X = X.to_numpy()
         self.dataset = dataset
         self.X = X
+
+        if self.density_estimator is None:
+            kde = None
+            if kde is not None:
+                kde = KernelDensity(bandwidth=bandwidth, rtol=rtol)
+            else:
+                kde = KernelDensity(bandwidth=bandwidth)        
+            kde.fit(X)
+            self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
+
         self.preprocessor = preprocessor
         self.candidate_mask = (self.clf(self.X) >= self.confidence_threshold) & (self.density_scores >= self.density_threshold)
 
@@ -358,17 +383,20 @@ class Face:
         """
         self.original_graph = self.graph
         self.original_density_scores = self.density_scores
+        self.original_X = self.X
         poi_age = self.dataset.loc[poi_index, 'age']
         age_mask = np.abs(self.dataset['age'] - poi_age) <= age_tolerance
         self.dataset = self.dataset[age_mask]
         self.X = self.X[age_mask]
         self.candidate_mask = self.candidate_mask[age_mask]
         self.graph = self.graph.tocsr()[age_mask][:,age_mask].tocoo()
+        self.density_scores = self.density_scores[age_mask]
 
     def clear_age_condition(self):
         if self.original_density_scores is not None:
             self.density_scores = self.original_density_scores
             self.graph = self.original_graph
+            self.X = self.original_X
 
     def iterate(self, poi_index):
         """Perform dijkstra's search on the graph.
@@ -404,3 +432,84 @@ class Face:
             pathdf = pd.DataFrame(columns=columns, data=path).loc[::-1].reset_index(drop=True)
             paths.append(pathdf)
         return paths
+
+    def iterate_new_point(self, poi, num_cfs):
+        """Perform dijkstra's search on the graph.
+        """
+        graph, X, density, candidate_mask = self.add_new_point(self.graph, poi)
+
+        # perform the search
+        poi_index = graph.shape[1] - 1
+        csgraph = graph.tocsr()
+        dist_matrix, predecessors = sparse.csgraph.dijkstra(csgraph, indices=poi_index, return_predecessors=True)
+
+        # find the nearest candidate points
+        candidates = np.arange(X.shape[0])[candidate_mask]
+        k = min(num_cfs, candidates.shape[0])
+        sorted_indices = np.argpartition(dist_matrix[candidate_mask], k-1)[:k]
+        cf_idx = candidates[sorted_indices]
+
+        # reconstruct and return the paths
+        processed_data = None
+        if 'Y' in self.dataset.columns:
+            processed_data = self.preprocessor.transform(self.dataset).drop('Y', axis=1)
+        else:
+            processed_data = self.preprocessor.transform(self.dataset)
+        columns = processed_data.columns
+        paths = []
+        for final_point in cf_idx:
+            path = []
+            point = final_point
+            if predecessors[point] == -9999:
+                continue
+            while point != -9999:
+                path.append(X[point])
+                point = predecessors[point]
+            pathdf = pd.DataFrame(columns=columns, data=path).loc[::-1].reset_index(drop=True)
+            paths.append(pathdf)
+        return paths
+
+    def add_new_point(self, graph, point):
+        point = self.preprocessor.transform(point)
+        distances = self.X
+        point_density = self.density_estimator(point.to_numpy())
+        #X = np.concatenate([self.X, point.to_numpy()])
+        #graph = np.concatenate([self.graph, ])
+
+
+        # calculate the (N x N x D) pairwise difference matrix
+        differences = self.X - point.to_numpy()
+        d = differences[:,None,:] # N x 1 x D
+
+        # calculate the (N x 1) conditions mask
+        conditions_mask = np.ones((differences.shape[0], differences.shape[1])).astype(np.bool)
+        if self.conditions_function is not None:
+            print("NOT NONE")
+            conditions_mask = self.conditions_function(d)[:,0]
+        print("the mask: ", conditions_mask)
+
+        # calculate the distances matrix
+        distances = np.linalg.norm(differences, axis=1) # shape N
+        
+        # calculate the neighbor mask
+        neighbor_mask = ~((distances > self.distance_threshold) | ~conditions_mask) # true wherever there's an edge
+        distances[~neighbor_mask] = 0.0
+        print("small edges ", (~(distances > self.distance_threshold)).sum())
+        print("conditions edges", conditions_mask.sum())
+
+        # calculate the weighted densities
+        density = None
+        # Instead of using the density of the midpoint of all points, choose the minimum endpoint density
+        density = np.minimum(self.density_scores, point_density)
+        graph_update = distances * density
+        print("Number of new edges: ", (graph_update > 0).sum())
+        col_update = sparse.coo_matrix(np.concatenate([graph_update, [0]])[None,:]).T
+        row_update = sparse.coo_matrix(graph_update)
+
+        graph = sparse.vstack([graph, row_update])
+        graph = sparse.hstack([graph, col_update])
+
+        X = np.concatenate([self.X, point.to_numpy()])
+        density = np.concatenate([self.density_scores, point_density])
+        candidate_mask = np.concatenate([self.candidate_mask, [False]])
+        return graph, X, density, candidate_mask
