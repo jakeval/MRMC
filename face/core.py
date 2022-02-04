@@ -55,6 +55,7 @@ class Face:
         self.original_graph = None
         self.original_density_scores = None
         self.original_X = None
+        self.kde = None
 
     def clean_number(f):
         return ''.join(map(lambda c: '-' if c == '.' else c, f'{f:.3f}'))
@@ -351,11 +352,15 @@ class Face:
         graph = sparse.load_npz(graph_path)
         return density_scores, graph
 
-    def set_graph_from_memory(self, graph, density_scores):
+    def set_graph_from_memory(self, graph, density_scores, kde_bandwidth, kde_rtol):
         self.graph = graph
         self.density_scores = density_scores
+        if kde_rtol is not None:
+            self.kde = KernelDensity(bandwidth=kde_bandwidth, rtol=kde_rtol)
+        else:
+            self.kde = KernelDensity(bandwidth=kde_bandwidth)
 
-    def fit(self, dataset, preprocessor, verbose=False, bandwidth=None, rtol=None):
+    def fit(self, dataset, preprocessor):
         X = preprocessor.transform(dataset)
         if 'Y' in X.columns:
             X = X.drop('Y', axis=1)
@@ -364,13 +369,8 @@ class Face:
         self.X = X
 
         if self.density_estimator is None:
-            kde = None
-            if kde is not None:
-                kde = KernelDensity(bandwidth=bandwidth, rtol=rtol)
-            else:
-                kde = KernelDensity(bandwidth=bandwidth)        
-            kde.fit(X)
-            self.density_estimator = lambda Z: np.exp(kde.score_samples(Z))
+            self.kde.fit(X)
+            self.density_estimator = lambda Z: np.exp(self.kde.score_samples(Z))
 
         self.preprocessor = preprocessor
         self.candidate_mask = (self.clf(self.X) >= self.confidence_threshold) & (self.density_scores >= self.density_threshold)

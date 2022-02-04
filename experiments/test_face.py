@@ -21,7 +21,7 @@ class FaceTestRunner:
         """Returns a dictionary like {stat_key: [path1_stat, path2_stat, ...], stat_key1: [...]}"""
         poi = da.random_poi(self.dataset)
         poi_index = poi.index[0]
-        self.face.fit(self.dataset, self.preprocessor, verbose=False)
+        self.face.fit(self.dataset, self.preprocessor)
         if self.age_tolerance is not None:
             self.face.add_age_condition(self.age_tolerance, poi_index)
         paths = self.face.iterate(poi_index)

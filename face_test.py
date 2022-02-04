@@ -17,10 +17,11 @@ np.random.seed(88557)
 
 NUM_TASKS = 32
 
-RUN_LOCALLY = False
+RUN_LOCALLY = True
 INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_strict'
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_output'
 if RUN_LOCALLY:
+    NUM_TASKS = 1
     INPUT_DIR = './face_graphs'
     OUTPUT_DIR = '.'
 
@@ -76,13 +77,16 @@ def test_launcher(p):
             }
         conditions_function = lambda differences: immutable_conditions(differences, immutable_column_indices, tolerances=tolerances)
 
+    kde_bandwidth = p['kde_bandwidth']
+    kde_rtol = p['kde_rtol']
+
     face = Face(k_dirs,
                 clf,
                 distance_threshold,
                 confidence_threshold,
                 density_threshold,
                 conditions_function=conditions_function)
-    face.set_graph_from_memory(graph, density_scores)
+    face.set_graph_from_memory(graph, density_scores, kde_bandwidth, kde_rtol)
 
     test = FaceTestRunner(num_trials, dataset, preprocessor, face,
                         point_statistics,
