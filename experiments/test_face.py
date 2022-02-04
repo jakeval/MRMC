@@ -22,7 +22,7 @@ class FaceTestRunner:
         poi = da.random_poi(self.dataset)
         poi_index = poi.index[0]
         self.face.fit(self.dataset, self.preprocessor, verbose=False)
-        if self.immutable_features is not None:
+        if self.age_tolerance is not None:
             self.face.add_age_condition(self.age_tolerance, poi_index)
         paths = self.face.iterate(poi_index)
         self.face.clear_age_condition()

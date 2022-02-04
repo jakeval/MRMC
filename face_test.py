@@ -2,7 +2,7 @@ import numpy as np
 from data import data_adapter as da
 from experiments.test_face import FaceTestRunner
 from face.core import Face, immutable_conditions
-from experiments import path_stats, point_stats
+from experiments import point_stats
 import multiprocessing
 import pandas as pd
 from sklearn.model_selection import ParameterGrid
@@ -15,10 +15,10 @@ import os
 sys.path.append(os.getcwd())
 np.random.seed(88557)
 
-NUM_TASKS = 8
+NUM_TASKS = 32
 
 RUN_LOCALLY = True
-INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs'
+INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_strict'
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_output'
 if RUN_LOCALLY:
     INPUT_DIR = './face_graphs'
@@ -66,7 +66,7 @@ def test_launcher(p):
         immutable_columns = preprocessor.get_feature_names_out(immutable_features)
         tolerances = None
         immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
-        if 'age' in immutable_features:
+        if False and 'age' in immutable_features:
             age_index = np.arange(X.columns.shape[0])[X.columns == 'age'][0]
             immutable_column_indices = immutable_column_indices[immutable_column_indices != age_index]
             transformed_unit = preprocessor.sc_dict['age'].transform([[1]])[0,0] - preprocessor.sc_dict['age'].transform([[0]])[0,0]
@@ -107,8 +107,7 @@ def get_params(num_trials, dataset_str):
         'num_trials': [num_trials],
         'k_dirs': [4],
         'model': ['svc', 'random_forest'],
-        'confidence_threshold': [0.6, 0.7],
-        'distance_threshold': [1,1.25,1.5,2,4],
+        'confidence_threshold': [0.7],
     }
 
     dataset = None
@@ -121,6 +120,7 @@ def get_params(num_trials, dataset_str):
             'kde_bandwidth': [0.13],
             'kde_rtol': [1000],
             'density_threshold': [0, np.exp(6), np.exp(7)],
+            'distance_threshold': [1,1.25,1.5,2],
             }
         ]
     elif dataset_str == 'german_credit':
@@ -132,6 +132,7 @@ def get_params(num_trials, dataset_str):
             'kde_bandwidth': [0.29],
             'kde_rtol': [None],
             'density_threshold': [0, np.exp(12.771), np.exp(12.773)], # anything below this number will be culled
+            'distance_threshold': [1.5,2,4,8],
             }
         ]
 
