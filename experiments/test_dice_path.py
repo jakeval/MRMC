@@ -47,6 +47,8 @@ class DicePathTestRunner:
                 return path
             if np.isnan(curr_poi).any().any():
                 return path
+            curr_poi = self.preprocessor.inverse_transform(curr_poi)
+            curr_poi = self.preprocessor.transform(curr_poi)
             path = path.append(curr_poi, ignore_index=True)
             curr_poi = self.preprocessor.inverse_transform(curr_poi)
             model_certainty = self.clf.predict_proba(curr_poi)[0,1]

@@ -39,7 +39,7 @@ def test_launcher(p):
     preprocessor = p['preprocessor_payload']
     dataset = p['dataset_payload']
 
-    pois = np.random.choice(dataset[dataset.Y == 1].index, size=p['num_trials'])
+    pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
     np.random.seed(p['seed'])
 
     d = dice_ml.Data(dataframe=dataset, continuous_features=preprocessor.continuous_features, outcome_name='Y')
@@ -89,7 +89,7 @@ def test_launcher(p):
         X = preprocessor.transform(dataset)
         immutable_columns = preprocessor.get_feature_names_out(immutable_features)
         immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
-        #feature_tolerances = {'age': 5}
+        # feature_tolerances = {'age': 5}
     
     max_iterations = p['max_iterations']
 
