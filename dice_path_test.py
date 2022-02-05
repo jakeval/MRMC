@@ -138,7 +138,7 @@ def get_params(num_trials, dataset_str):
     # simple parameters have no conflicts
     params = {
         'num_trials': [num_trials],
-        'max_iterations': [2],
+        'max_iterations': [15],
         'weight_function_alpha': [0.7],
         'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4],
         'k_paths': [4],
@@ -176,7 +176,7 @@ def run_experiment():
     dataset = args[1]
     print("dataset is ", dataset)
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
-    num_trials = 60
+    num_trials = 30
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
