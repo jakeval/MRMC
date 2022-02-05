@@ -27,7 +27,6 @@ if RUN_LOCALLY:
     NUM_TASKS = 1
 
 def test_launcher(p):
-    np.random.seed(p['seed'])
     if RUN_LOCALLY:
         print(f"Begin Test {p['distance_threshold']}")
     model = p['model_payload']
@@ -36,6 +35,9 @@ def test_launcher(p):
     dataset = p['dataset_payload']
     graph = p['graph_payload']
     density_scores = p['density_payload']
+
+    pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
+    np.random.seed(p['seed'])
 
     X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
 
@@ -115,6 +117,7 @@ def test_launcher(p):
                               clf,
                               perturb_dir,
                               max_iterations,
+                              pois,
                               immutable_features=immutable_features,
                               age_tolerance=age_tolerance)
     stats, aggregated_stats = test.run_test()

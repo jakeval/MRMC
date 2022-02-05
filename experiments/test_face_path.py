@@ -19,6 +19,7 @@ class FacePathTestRunner:
                  clf,
                  perturb_dir,
                  max_iterations,
+                 pois,
                  immutable_features=None,
                  age_tolerance=None):
         self.point_statistics = point_statistics
@@ -35,6 +36,7 @@ class FacePathTestRunner:
         self.clf = clf
         self.perturb_dir = perturb_dir
         self.max_iterations = max_iterations
+        self.pois = pois
 
     def iterate_face(self, poi, first_cf, max_iterations):
         old_poi = self.preprocessor.transform(poi)
@@ -66,9 +68,8 @@ class FacePathTestRunner:
             new_cf = self.preprocessor.transform(new_cf)
         return path
 
-    def run_trial(self):
+    def run_trial(self, poi):
         """Returns a dictionary like {stat_key: [path1_stat, path2_stat, ...], stat_key1: [...]}"""
-        poi = da.random_poi(self.dataset)
         poi_index = poi.index[0]
         self.face.fit(self.dataset, self.preprocessor)
         if self.immutable_features is not None:
@@ -113,9 +114,10 @@ class FacePathTestRunner:
 
     def run_test(self):
         stats_dict = dict([(stat_key, np.full(self.k_points*self.N, np.nan)) for stat_key in self.statistics_keys])
-        for n in range(self.N):
+        for n, poi_index in zip(range(self.N), self.pois):
             i = n*self.k_points
-            stats, _ = self.run_trial()
+            poi = self.dataset[self.dataset.index == poi_index].drop('Y', axis=1)
+            stats, _ = self.run_trial(poi)
             for key in self.statistics_keys:
                 j = stats[key].shape[0] + i
                 stats_dict[key][i:j] = stats[key]
