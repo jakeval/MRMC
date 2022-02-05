@@ -23,7 +23,7 @@ def immutable_conditions(differences, immutable_column_indices, tolerances=None)
     """
     if tolerances is None:
         return (differences[:,:,np.array(immutable_column_indices)] == 0).all(axis=2)
-    else:        
+    else:
         strict_mask = (differences[:,:,np.array(immutable_column_indices)] == 0).all(axis=2)
         masks = [strict_mask]
         for index, tolerance in tolerances.items():
@@ -484,9 +484,7 @@ class Face:
         # calculate the (N x 1) conditions mask
         conditions_mask = np.ones((differences.shape[0], differences.shape[1])).astype(np.bool)
         if self.conditions_function is not None:
-            print("NOT NONE")
             conditions_mask = self.conditions_function(d)[:,0]
-        print("the mask: ", conditions_mask)
 
         # calculate the distances matrix
         distances = np.linalg.norm(differences, axis=1) # shape N
@@ -494,15 +492,12 @@ class Face:
         # calculate the neighbor mask
         neighbor_mask = ~((distances > self.distance_threshold) | ~conditions_mask) # true wherever there's an edge
         distances[~neighbor_mask] = 0.0
-        print("small edges ", (~(distances > self.distance_threshold)).sum())
-        print("conditions edges", conditions_mask.sum())
 
         # calculate the weighted densities
         density = None
         # Instead of using the density of the midpoint of all points, choose the minimum endpoint density
         density = np.minimum(self.density_scores, point_density)
         graph_update = distances * density
-        print("Number of new edges: ", (graph_update > 0).sum())
         col_update = sparse.coo_matrix(np.concatenate([graph_update, [0]])[None,:]).T
         row_update = sparse.coo_matrix(graph_update)
 
