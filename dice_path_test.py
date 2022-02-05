@@ -16,7 +16,7 @@ import os
 np.random.seed(88557)
 
 RUN_LOCALLY = False
-NUM_TASKS = 32
+NUM_TASKS = 12
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/dice_path_output'
 if RUN_LOCALLY:
     OUTPUT_DIR = '../dice_path_output'
@@ -80,19 +80,23 @@ def test_launcher(p):
     k_paths = p['k_paths']
     immutable_features = None
     feature_tolerances = None
+    immutable_column_indices = None
     if p['immutable_features']:
         if p['dataset'] == 'adult_income':
             immutable_features = ['age', 'race', 'sex']
         if p['dataset'] == 'german_credit':
             immutable_features = ['age', 'sex']
-        feature_tolerances = {'age': 5}
+        X = preprocessor.transform(dataset)
+        immutable_columns = preprocessor.get_feature_names_out(immutable_features)
+        immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
+        #feature_tolerances = {'age': 5}
     
     max_iterations = p['max_iterations']
 
-    weight_function = lambda dir: dir * p['weight_function_alpha']
+    weight_function = lambda dir: scale_weight_function(dir, immutable_column_indices, p['weight_function_alpha'])
     perturb_dir = None
     if p['perturb_dir_random_scale'] is not None:
-        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir)
+        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir, immutable_column_indices)
 
     num_trials = p['num_trials']
     certainty_cutoff = p['certainty_cutoff']
@@ -116,6 +120,12 @@ def test_launcher(p):
     return aggregated_stats
 
 
+def scale_weight_function(dir, immutable_column_indices, rescale_factor):
+    new_dir = dir * rescale_factor
+    new_dir[:,immutable_column_indices] = dir[:,immutable_column_indices]
+    return new_dir
+
+
 def get_params(num_trials, dataset_str):
     """Create a dataframe of input parameters.
     
@@ -128,14 +138,14 @@ def get_params(num_trials, dataset_str):
     # simple parameters have no conflicts
     params = {
         'num_trials': [num_trials],
-        'max_iterations': [15],
+        'max_iterations': [2],
         'weight_function_alpha': [0.7],
         'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4],
         'k_paths': [4],
         'model': ['svc', 'random_forest'],
         'immutable_features': [True],
         'dataset': [dataset_str],
-        'certainty_cutoff': [0.6, 0.7]
+        'certainty_cutoff': [0.7]
     }
     
     return list(ParameterGrid(params))
