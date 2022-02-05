@@ -29,6 +29,7 @@ def random_perturb_dir(scale, dir, immutable_column_indices):
     new_dir = dir + np.random.normal(0, scale, dir.shape)
     if immutable_column_indices is not None:
         new_dir[:,immutable_column_indices] = 0
+    new_dir = (new_dir * np.linalg.norm(dir)) / np.linalg.norm(new_dir)
     return new_dir
 
 def perturb_point(scale, x):
