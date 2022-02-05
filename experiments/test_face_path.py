@@ -54,6 +54,8 @@ class FacePathTestRunner:
                 return path
             if np.isnan(curr_poi).any().any():
                 return path
+            curr_poi = self.preprocessor.inverse_transform(curr_poi)
+            curr_poi = self.preprocessor.transform(curr_poi)
             path = path.append(curr_poi, ignore_index=True)
             model_certainty = self.clf(curr_poi.to_numpy())
             curr_poi = self.preprocessor.inverse_transform(curr_poi)
