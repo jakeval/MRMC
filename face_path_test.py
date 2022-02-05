@@ -143,7 +143,7 @@ def get_params(num_trials, dataset_str):
         'max_iterations': [15],
         'model': ['svc', 'random_forest'],
         'confidence_threshold': [0.7],
-        'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4],
+        'perturb_dir_random_scale': [0.25, 0.5, 1, 2, 4],
         'weight_function_alpha': [0.7]
     }
 
@@ -237,7 +237,7 @@ def run_experiment():
     print("dataset is ", dataset)
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
 
-    num_trials = 2
+    num_trials = 30
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),

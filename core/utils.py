@@ -28,7 +28,7 @@ def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
 def random_perturb_dir(scale, dir, immutable_column_indices):
     new_dir = dir + np.random.normal(0, scale, dir.shape)
     if immutable_column_indices is not None:
-        new_dir[immutable_column_indices] = 0
+        new_dir[:,immutable_column_indices] = 0
     return new_dir
 
 def perturb_point(scale, x):
