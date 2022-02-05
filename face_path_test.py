@@ -16,9 +16,9 @@ import os
 sys.path.append(os.getcwd())
 np.random.seed(88557)
 
-NUM_TASKS = 8
+NUM_TASKS = 32
 
-RUN_LOCALLY = True
+RUN_LOCALLY = False
 INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs'
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_path_output'
 if RUN_LOCALLY:
@@ -142,8 +142,7 @@ def get_params(num_trials, dataset_str):
         'k_dirs': [4],
         'max_iterations': [15],
         'model': ['svc', 'random_forest'],
-        'confidence_threshold': [0.6, 0.7],
-        'distance_threshold': [1,1.25,1.5,2,4],
+        'confidence_threshold': [0.7],
         'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4],
         'weight_function_alpha': [0.7]
     }
@@ -154,10 +153,11 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
-            'immutable_features': [['age', 'sex', 'race'], None],
+            'immutable_features': [['age', 'sex', 'race']],
             'kde_bandwidth': [0.13],
             'kde_rtol': [1000],
             'density_threshold': [0, np.exp(6), np.exp(7)],
+            'distance_threshold': [1,1.25,1.5,2],
             }
         ]
     elif dataset_str == 'german_credit':
@@ -165,10 +165,11 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['german_credit'],
             'experiment_immutable_features': [['age', 'sex']],
-            'immutable_features': [['age', 'sex'], None],
+            'immutable_features': [['age', 'sex']],
             'kde_bandwidth': [0.29],
             'kde_rtol': [None],
             'density_threshold': [0, np.exp(12.771), np.exp(12.773)], # anything below this number will be culled
+            'distance_threshold': [1.5,2,4,8],
             }
         ]
 
