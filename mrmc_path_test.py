@@ -18,7 +18,7 @@ import os
 sys.path.append(os.getcwd())
 np.random.seed(885577)
 
-NUM_TASKS = 32
+NUM_TASKS = 48
 
 RUN_LOCALLY = False
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/mrmc_path_output'
@@ -48,20 +48,16 @@ def test_launcher(p):
     immutable_column_names = None
     immutable_features = None
     feature_tolerances = None
-    immutable_column_indices = None
     if p['immutable_features'] is not None:
         immutable_column_names = preprocessor.get_feature_names_out(p['immutable_features'])
         immutable_features = p['immutable_features']
         feature_tolerances = {
             'age': 5
         }
-        transformed = preprocessor.transform(dataset)
-        immutable_columns = preprocessor.get_feature_names_out(immutable_features)
-        immutable_column_indices = np.arange(transformed.columns.shape[0])[transformed.columns.isin(immutable_columns)]
 
     perturb_dir = None
     if p['perturb_dir_random_scale'] is not None:
-        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir, immutable_column_indices)
+        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir)
 
     if p['early_stopping']:
         early_stopping = lambda point: utils.model_early_stopping(model, point, cutoff=p['early_stopping_cutoff'])
