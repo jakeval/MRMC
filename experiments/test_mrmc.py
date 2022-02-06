@@ -16,7 +16,7 @@ import itertools
 
 
 class MrmcTestRunner:
-    def __init__(self, N, dataset, preprocessor, mrmc, path_statistics, point_statistics, cluster_statistics, immutable_features=None, immutable_strict=True, feature_tolerances=None, check_privacy=False):
+    def __init__(self, N, dataset, preprocessor, mrmc, path_statistics, point_statistics, cluster_statistics, pois, immutable_features=None, immutable_strict=True, feature_tolerances=None, check_privacy=False):
         self.path_statistics = path_statistics
         self.point_statistics = point_statistics
         self.cluster_statistics = cluster_statistics
@@ -25,15 +25,15 @@ class MrmcTestRunner:
         self.dataset = dataset
         self.N = N
         self.preprocessor = preprocessor
+        self.pois = pois
         self.k_dirs = mrmc.k_dirs
         self.immutable_features = immutable_features
         self.feature_tolerances = feature_tolerances
         self.immutable_strict = immutable_strict
         self.check_privacy = check_privacy
 
-    def run_trial(self):
+    def run_trial(self, poi):
         """Returns a dictionary like {stat_key: [path1_stat, path2_stat, ...], stat_key1: [...]}"""
-        poi = da.random_poi(self.dataset)
         filtered_data = self.dataset
         if self.immutable_features is not None:
             filtered_data = da.filter_from_poi(self.dataset, poi, immutable_features=self.immutable_features, feature_tolerances=self.feature_tolerances)
@@ -85,11 +85,12 @@ class MrmcTestRunner:
         stats_dict = dict([(stat_key, np.full(self.k_dirs*self.N, np.nan)) for stat_key in self.statistics_keys])
         if self.check_privacy:
             stats_dict['Cosine Similarity'] = np.full(self.k_dirs*self.N, np.nan)
-        for n in range(self.N):
+        for n, poi_index in zip(range(self.N), self.pois):
             #print(f"n={n}")
             i = n*self.k_dirs
             j = (n+1)*self.k_dirs
-            stats, _, _ = self.run_trial()
+            poi = self.dataset[self.dataset.index == poi_index].drop('Y', axis=1)
+            stats, _, _ = self.run_trial(poi)
             for key in self.statistics_keys:
                 stats_dict[key][i:j] = stats[key]
             if self.check_privacy:
