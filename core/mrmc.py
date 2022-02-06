@@ -38,9 +38,10 @@ class MRM:
         if self.weight_function is not None:
             dir = self.weight_function(dir, poi.to_numpy()[0], self.X.to_numpy())
         original_dir = dir
+        index = dir.index
         if self.perturb_dir is not None:
-            dir = self.perturb_dir(dir)
-        dir = pd.DataFrame(columns=dir.index, data=[dir])
+            dir = self.perturb_dir(dir.to_numpy()[None,:])[0]
+        dir = pd.DataFrame(columns=index, data=[dir])
         original_dir = pd.DataFrame(columns=original_dir.index, data=[original_dir])
 
         if self.immutable_column_names is not None:
