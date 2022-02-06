@@ -40,13 +40,13 @@ def constant_priority_dir(dir, k=1, step_size=1):
     return constant_step_size(priority_dir(dir, k), step_size)
 
 def priority_dir(dir, k=5):
-    dir_arry = dir.to_numpy()
-    sorted_idx = np.argsort(-np.abs(dir_arry))  
-    dir_new = np.zeros_like(dir_arry)
-    dir_new[sorted_idx[:k]] = dir_arry[sorted_idx[:k]]
-    sparse_dir = dir.copy()
-    sparse_dir.loc[:] = dir_new
-    return sparse_dir
+    #dir_arry = dir.to_numpy()
+    sorted_idx = np.argsort(-np.abs(dir[0,:]))
+    dir_new = np.zeros_like(dir)
+    dir_new[:,sorted_idx[:k]] = dir[:,sorted_idx[:k]]
+    #sparse_dir = dir.copy()
+    #sparse_dir.loc[:] = dir_new
+    return dir_new
 
 def constant_step_size(dir, step_size=1):
     return step_size*dir / np.sqrt(dir@dir)
