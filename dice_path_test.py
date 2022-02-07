@@ -39,7 +39,12 @@ def test_launcher(p):
     preprocessor = p['preprocessor_payload']
     dataset = p['dataset_payload']
 
-    pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
+    X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
+    model_scores = model.predict_proba(X)
+    dataset_filtered = da.filter_from_model(dataset, model_scores)
+
+    np.random.seed(p['poi_seed'])
+    pois = np.random.choice(dataset_filtered[dataset_filtered.Y == -1].index, size=p['num_trials'])
     np.random.seed(p['seed'])
 
     d = dice_ml.Data(dataframe=dataset, continuous_features=preprocessor.continuous_features, outcome_name='Y')
@@ -185,8 +190,15 @@ def run_experiment():
         ('random_forest', 'adult_income'): model_utils.load_model('random_forest', 'adult_income'),
     }
 
-    german_data, _, german_preprocessor = da.load_german_credit_dataset()
-    adult_data, _, adult_preprocessor = da.load_adult_income_dataset()
+    dataset_payload, preprocessor_payload = None, None
+    if dataset == 'adult_income':
+        dataset_payload, _, preprocessor_payload = da.load_adult_income_dataset()
+    elif dataset == 'german_credit':
+        dataset_payload, _, preprocessor_payload = da.load_german_credit_dataset()
+    else:
+        print("No dataset recognized")
+        return
+    poi_seed = 148294
 
     all_params = get_params(num_trials, dataset)
     print(len(all_params))
@@ -196,9 +208,10 @@ def run_experiment():
     params = all_params[:num_tests]
     for param_dict in params:
         new_params = {
+            'poi_seed': poi_seed,
             'seed': np.random.randint(999999),
-            'dataset_payload': german_data if param_dict['dataset'] == 'german_credit' else adult_data,
-            'preprocessor_payload': german_preprocessor if param_dict['dataset'] == 'german_credit' else adult_preprocessor,
+            'dataset_payload': dataset_payload,
+            'preprocessor_payload': preprocessor_payload,
             'model_payload': models[(param_dict['model'], param_dict['dataset'])]
         }
         param_dict.update(new_params)
