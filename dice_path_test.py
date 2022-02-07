@@ -39,12 +39,8 @@ def test_launcher(p):
     preprocessor = p['preprocessor_payload']
     dataset = p['dataset_payload']
 
-    X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
-    model_scores = model.predict_proba(X)
-    dataset_filtered = da.filter_from_model(dataset, model_scores)
-
     np.random.seed(p['poi_seed'])
-    pois = np.random.choice(dataset_filtered[dataset_filtered.Y == -1].index, size=p['num_trials'])
+    pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
     np.random.seed(p['seed'])
 
     d = dice_ml.Data(dataframe=dataset, continuous_features=preprocessor.continuous_features, outcome_name='Y')

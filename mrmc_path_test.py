@@ -31,13 +31,13 @@ def test_launcher(p):
     preprocessor = p['preprocessor_payload']
     dataset = p['dataset_payload']
 
-    X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
-    model_scores = model.predict_proba(X)
-    dataset = da.filter_from_model(dataset, model_scores)
-
     np.random.seed(p['poi_seed'])
     pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
     np.random.seed(p['seed'])
+
+    X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
+    model_scores = model.predict_proba(X)
+    dataset = da.filter_from_model(dataset, model_scores)
 
     num_trials = p['num_trials']
     k_dirs = p['k_dirs']
@@ -220,7 +220,7 @@ def run_experiment():
         print("No dataset recognized")
         return
 
-    poi_seed = np.random.randint(148294)
+    poi_seed = 148294
 
     all_params = get_params(num_trials, dataset)
     print(len(all_params))
