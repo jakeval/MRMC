@@ -50,9 +50,9 @@ def test_launcher(p):
     immutable_column_names = None
     immutable_features = None
     feature_tolerances = None
-    if p['immutable_features'] is not None:
-        immutable_column_names = preprocessor.get_feature_names_out(p['immutable_features'])
-        immutable_features = p['immutable_features']
+    if p['immutable_features']:
+        immutable_features = experiment_immutable_feature_names
+        immutable_column_names = preprocessor.get_feature_names_out(immutable_features)
         feature_tolerances = {
             'age': 5
         }
@@ -139,14 +139,14 @@ def get_params(num_trials, dataset_str):
             {
                 'dataset': ['adult_income'],
                 'experiment_immutable_features': [['age', 'sex', 'race']],
-                'immutable_features': [['age', 'sex', 'race']],
+                'immutable_features': [True],
             })
     else:
         dataset.append(
             {
                 'dataset': ['german_credit'],
                 'experiment_immutable_features': [['age', 'sex']],
-                'immutable_features': [['age', 'sex']],
+                'immutable_features': [True],
             })
 
     early_stopping = [

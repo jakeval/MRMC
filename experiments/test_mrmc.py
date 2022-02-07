@@ -85,11 +85,11 @@ class MrmcTestRunner:
         stats_dict = dict([(stat_key, np.full(self.k_dirs*self.N, np.nan)) for stat_key in self.statistics_keys])
         if self.check_privacy:
             stats_dict['Cosine Similarity'] = np.full(self.k_dirs*self.N, np.nan)
-        for n, poi_index in zip(range(self.N), self.pois):
+        for n in range(self.N):
             #print(f"n={n}")
+            poi = self.pois.iloc[[n],:]
             i = n*self.k_dirs
             j = (n+1)*self.k_dirs
-            poi = self.dataset[self.dataset.index == poi_index].drop('Y', axis=1)
             stats, _, _ = self.run_trial(poi)
             for key in self.statistics_keys:
                 stats_dict[key][i:j] = stats[key]

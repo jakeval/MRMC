@@ -20,7 +20,7 @@ def random_poi(dataset, label=-1, drop_label=True):
 
 
 def filter_from_poi(dataset, poi, immutable_features=None, feature_tolerances=None):
-    df = dataset.drop(poi.index, axis=0)
+    df = dataset[dataset.index != poi.index[0]]
     if immutable_features is not None:
         for feature in immutable_features:
             mask = None
