@@ -32,7 +32,8 @@ def test_launcher(p):
     dataset = p['dataset_payload']
 
     np.random.seed(p['poi_seed'])
-    pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
+    poi_indices = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
+    pois = dataset.loc[poi_indices].drop('Y', axis=1)
     np.random.seed(p['seed'])
 
     X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
