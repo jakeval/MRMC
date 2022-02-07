@@ -35,6 +35,7 @@ def test_launcher(p):
     model_scores = model.predict_proba(X)
     dataset = da.filter_from_model(dataset, model_scores)
 
+    np.random.seed(p['poi_seed'])
     pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
     np.random.seed(p['seed'])
 
@@ -201,7 +202,6 @@ def run_experiment():
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
     print("dataset is ", dataset)
 
-
     num_trials = 30
 
     models = {
@@ -220,6 +220,8 @@ def run_experiment():
         print("No dataset recognized")
         return
 
+    poi_seed = np.random.randint(148294)
+
     all_params = get_params(num_trials, dataset)
     print(len(all_params))
     if num_tests == 0:
@@ -229,6 +231,7 @@ def run_experiment():
     params = all_params[:num_tests]
     for param_dict in params:
         new_params = {
+            'poi_seed': poi_seed,
             'seed': np.random.randint(999999),
             'dataset_payload': dataset_payload,
             'preprocessor_payload': preprocessor_payload,

@@ -26,7 +26,9 @@ def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
     return dir + np.random.normal(0, stdev, size=dir.shape)
 
 def random_perturb_dir(scale, dir, immutable_column_indices=None):
-    new_dir = dir + np.random.normal(0, scale, dir.shape)
+    r = np.random.normal(0, scale, dir.shape)
+    # print(np.linalg.norm(dir), np.linalg.norm(r))
+    new_dir = dir + r
     if immutable_column_indices is not None:
         new_dir[:,immutable_column_indices] = 0
     new_dir = (new_dir * np.linalg.norm(dir)) / np.linalg.norm(new_dir)

@@ -96,7 +96,8 @@ def get_education_ordering(df):
 
 # TODO: actually check for previously reformatted data
 def check_for_reformatted_data(data_dir, train_filename, test_filename):
-    False
+    train_reformatted = get_reformatted_filename(train_filename)
+    return os.path.exists(os.path.join(data_dir, train_reformatted))
 
 
 def get_reformatted_filename(filename):

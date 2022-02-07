@@ -71,8 +71,8 @@ class GermanPreprocessor:
 # TODO: support loading from online directly
 def load_data(data_dir='../data/german'):
     data_filename = 'german.data'
-    train_filename, test_filename = None, None
-    if True:
+    train_filename, test_filename = get_filenames()
+    if not reformatted_files_exist(os.path.join(data_dir, train_filename)):
         new_filename = reformat_data(data_dir, data_filename)
         train_filename, test_filename = write_train_test(data_dir, new_filename)
     data_df, test_df = load_and_process_data(data_dir, train_filename), load_and_process_data(data_dir, test_filename)
@@ -80,6 +80,14 @@ def load_data(data_dir='../data/german'):
     continuous_features = ['duration', 'credit-amount', 'installment-rate', 'residence-duration', 'age', 'num-credits', 'num-liable']
     category_features = data_df.columns.difference(continuous_features).difference(['Y'])
     return data_df, test_df, GermanPreprocessor(category_features, continuous_features).fit(data_df)
+
+
+def reformatted_files_exist(train_filename):
+    return os.path.exists(train_filename)
+
+
+def get_filenames():
+    return "german.train", "german.test"
 
 
 def write_train_test(data_dir, file):
