@@ -36,7 +36,12 @@ def test_launcher(p):
     graph = p['graph_payload']
     density_scores = p['density_payload']
 
-    pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
+    X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
+    model_scores = model.predict_proba(X)
+    dataset_filtered = da.filter_from_model(dataset, model_scores)
+
+    np.random.seed(p['poi_seed'])
+    pois = np.random.choice(dataset_filtered[dataset_filtered.Y == -1].index, size=p['num_trials'])
     np.random.seed(p['seed'])
 
     X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
@@ -146,7 +151,7 @@ def get_params(num_trials, dataset_str):
         'max_iterations': [15],
         'model': ['svc', 'random_forest'],
         'confidence_threshold': [0.7],
-        'perturb_dir_random_scale': [0.25, 0.5, 1, 2, 4],
+        'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4],
         'weight_function_alpha': [0.7]
     }
 
@@ -257,6 +262,8 @@ def run_experiment():
         print("No dataset recognized")
         return
 
+    poi_seed = 148294
+
     all_params = get_params(num_trials, dataset)
     print(len(all_params))
     if num_tests == 0:
@@ -266,6 +273,7 @@ def run_experiment():
     density_score_list, graph_list = aux_data_from_params(params)
     for param_dict, density_score, graph in zip(params, density_score_list, graph_list):
         new_params = {
+            'poi_seed': poi_seed,
             'seed': np.random.randint(999999),
             'dataset_payload': dataset_payload,
             'preprocessor_payload': preprocessor_payload,
