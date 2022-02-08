@@ -37,8 +37,16 @@ For each path,
 def check_immutability(preprocessor, immutable_features, poi, cf_points):
     cf_points = preprocessor.inverse_transform(cf_points)
     poi = preprocessor.inverse_transform(poi)
-    diff = (cf_points[immutable_features].to_numpy() != poi[immutable_features].to_numpy())
-    return diff.sum(axis=1)
+
+    cf_points = cf_points[immutable_features]
+    poi = poi[immutable_features]
+
+    numeric_columns = poi.select_dtypes(include=np.number).columns
+    other_columns = poi.columns.difference(numeric_columns)
+
+    numeric_diff = (np.abs(cf_points[numeric_columns].to_numpy() - poi[numeric_columns].to_numpy()) >= EQ_EPSILON).sum(axis=1)
+    other_diff = (cf_points[other_columns].to_numpy() != poi[other_columns].to_numpy()).sum(axis=1)
+    return numeric_diff + other_diff
 
 
 """

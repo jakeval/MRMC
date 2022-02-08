@@ -63,6 +63,20 @@ def test_launcher(p):
     elif p['dataset'] == 'german_credit':
         experiment_immutable_feature_names = ['age', 'sex']
 
+    k_paths = p['k_paths']
+    immutable_features = None
+    feature_tolerances = None
+    immutable_column_indices = None
+    if p['immutable_features']:
+        if p['dataset'] == 'adult_income':
+            immutable_features = ['age', 'race', 'sex']
+        if p['dataset'] == 'german_credit':
+            immutable_features = ['age', 'sex']
+        X = preprocessor.transform(dataset)
+        immutable_columns = preprocessor.get_feature_names_out(immutable_features)
+        immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
+        # feature_tolerances = {'age': 5}
+
     path_statistics = {
         'Path Count': path_stats.check_path_count,
         'Path Length': path_stats.check_path_length,
@@ -79,20 +93,6 @@ def test_launcher(p):
         'Diversity': point_stats.check_diversity,
         'Model Certainty': lambda poi, cf_points: point_stats.check_model_certainty(model, poi, cf_points)
     }
-
-    k_paths = p['k_paths']
-    immutable_features = None
-    feature_tolerances = None
-    immutable_column_indices = None
-    if p['immutable_features']:
-        if p['dataset'] == 'adult_income':
-            immutable_features = ['age', 'race', 'sex']
-        if p['dataset'] == 'german_credit':
-            immutable_features = ['age', 'sex']
-        X = preprocessor.transform(dataset)
-        immutable_columns = preprocessor.get_feature_names_out(immutable_features)
-        immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
-        # feature_tolerances = {'age': 5}
     
     max_iterations = p['max_iterations']
 
