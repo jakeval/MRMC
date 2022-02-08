@@ -58,14 +58,15 @@ def test_launcher(p):
         }
 
     perturb_dir = None
-    if p['perturb_dir_random_scale'] is not None:
-        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir)
     if p['sparsity']:
-        if perturb_dir is None:
-            perturb_dir = lambda dir: utils.priority_dir(dir, k=5)
-        else:
+        perturb_dir = lambda dir: utils.priority_dir(dir, k=5)
+
+    if p['perturb_dir_random_scale'] is not None:
+        if perturb_dir is not None:
             original_perturbation = perturb_dir
-            perturb_dir = lambda dir: utils.priority_dir(original_perturbation(dir), k=5)
+            perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], original_perturbation(dir))
+        else:
+            perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir)
 
     if p['early_stopping']:
         early_stopping = lambda point: utils.model_early_stopping(model, point, cutoff=p['early_stopping_cutoff'])
