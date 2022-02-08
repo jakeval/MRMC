@@ -37,7 +37,8 @@ For each path,
 def check_immutability(preprocessor, immutable_features, poi, cf_points):
     cf_points = preprocessor.inverse_transform(cf_points)
     poi = preprocessor.inverse_transform(poi)
-    return (cf_points[immutable_features].to_numpy() != poi[immutable_features].to_numpy()).sum(axis=1)
+    diff = (cf_points[immutable_features].to_numpy() != poi[immutable_features].to_numpy())
+    return diff.sum(axis=1)
 
 
 """

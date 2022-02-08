@@ -2,6 +2,7 @@ from data import data_adapter as da
 import numpy as np
 import pandas as pd
 import itertools
+from experiments import recourse_iterator
 
 
 class DicePathTestRunner:
@@ -32,64 +33,37 @@ class DicePathTestRunner:
         else:
             self.features_to_vary = list(dataset.columns.difference(['Y']))
 
-    def iterate_dice(self, poi, first_cf, permitted_range, max_iterations):
-        old_poi = self.preprocessor.transform(poi)
-        path = old_poi.reset_index(drop=True)
-        new_cf = first_cf
-        for i in range(max_iterations):
-            new_cf_processed = self.preprocessor.transform(new_cf)
-            dir = new_cf_processed.to_numpy() - old_poi.to_numpy()
-            dir = self.weight_function(dir)
-            if self.perturb_dir is not None:
-                dir = self.perturb_dir(dir)
-            curr_poi = old_poi + dir
-            if np.isinf(curr_poi).any().any():
-                return path
-            if np.isnan(curr_poi).any().any():
-                return path
-            curr_poi = self.preprocessor.inverse_transform(curr_poi)
-            curr_poi = self.preprocessor.transform(curr_poi)
-            path = path.append(curr_poi, ignore_index=True)
-            curr_poi = self.preprocessor.inverse_transform(curr_poi)
-            model_certainty = self.clf.predict_proba(curr_poi)[0,1]
-            if model_certainty >= self.certainty_cutoff:
-                return path
-
-            desired_class = "opposite"
-            if self.clf.predict_proba(curr_poi)[0,1] >= 0.5:
-                desired_class = 1
-            new_cf = self.dice.generate_counterfactuals(
-                curr_poi, 
-                total_CFs=1,
-                desired_class=desired_class,
-                features_to_vary=self.features_to_vary,
-                permitted_range=permitted_range,
-                random_seed=88557,
-                stopping_threshold=self.certainty_cutoff).cf_examples_list[0].final_cfs_df
-            new_cf = self.preprocessor.transform(new_cf.drop('Y', axis=1))
-        return path
-
     def run_trial(self, poi):
         permitted_range = {}
         if self.feature_tolerances is not None:
             for key, val in self.feature_tolerances.items():
                 poi_val = poi.loc[poi.index[0],key]
                 permitted_range[key] = [poi_val - val, poi_val + val]
-
-        cf_points = self.dice.generate_counterfactuals(
-            poi,
-            total_CFs=self.k_points,
-            desired_class="opposite",
-            features_to_vary=self.features_to_vary,
-            permitted_range=permitted_range,
-            random_seed=88557,
-            stopping_threshold=self.certainty_cutoff).cf_examples_list[0].final_cfs_df
         
-        paths = []
-        for i in cf_points.index:
-            cf = cf_points.loc[cf_points.index == i,:].drop('Y', axis=1)
-            path = self.iterate_dice(poi, cf, permitted_range, self.max_iterations - 1)
-            paths.append(path)
+        transformed_poi = self.preprocessor.transform(poi)
+        get_recourse = lambda poi, k_paths: self.preprocessor.transform(
+            self.dice.generate_counterfactuals(
+                self.preprocessor.inverse_transform(poi),
+                total_CFs=k_paths,
+                desired_class=1,
+                features_to_vary=self.features_to_vary,
+                permitted_range=permitted_range,
+                random_seed=88557,
+                stopping_threshold=self.certainty_cutoff)
+            .cf_examples_list[0].final_cfs_df).drop('Y', axis=1)
+
+        paths = recourse_iterator.iterate_recourse(
+            transformed_poi,
+            self.preprocessor,
+            self.max_iterations,
+            self.certainty_cutoff,
+            self.k_points,
+            get_recourse,
+            self.clf,
+            self.weight_function,
+            perturb_dir=self.perturb_dir
+        )
+
         return self.collect_statistics(poi, paths), paths, poi
 
     def collect_statistics(self, poi, paths):

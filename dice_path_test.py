@@ -51,6 +51,8 @@ def test_launcher(p):
     m = dice_ml.Model(model=clf, backend=backend)
     dice = dice_ml.Dice(d, m, method="random")
 
+    get_positive_probability = lambda p: model.predict_proba(p.to_numpy())[0,1]
+
     column_names_per_feature = [] # list of lists
     for feature in dataset.columns.difference(['Y']):
         column_names_per_feature.append(preprocessor.get_feature_names_out([feature]))
@@ -111,7 +113,7 @@ def test_launcher(p):
                               certainty_cutoff,
                               max_iterations,
                               weight_function,
-                              clf,
+                              get_positive_probability,
                               pois,
                               perturb_dir=perturb_dir,
                               immutable_features=immutable_features,
@@ -160,11 +162,12 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
         outputs = [
             'model',
             'perturb_dir_random_scale',
-            'certainty_cutoff',
+            #'certainty_cutoff',
             'Positive Probability (mean)',
             #'Model Certainty (mean)',
             'Final Point Distance (mean)',
-            'Path Count (mean)',
+            #'Path Count (mean)',
+            'Path Immutable Violations (mean)'
             #'Point Sparsity (mean)',
         ]
         print(final_df[outputs])
@@ -178,6 +181,8 @@ def run_experiment():
     print("dataset is ", dataset)
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
     num_trials = 30
+    if RUN_LOCALLY:
+        num_trials = 1
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),

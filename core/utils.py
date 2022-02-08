@@ -26,11 +26,18 @@ def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
     return dir + np.random.normal(0, stdev, size=dir.shape)
 
 def random_perturb_dir(scale, dir, immutable_column_indices=None):
+    # generate random noise
     r = np.random.normal(0, scale, dir.shape)
-    # print(np.linalg.norm(dir), np.linalg.norm(r))
-    new_dir = dir + r
+    # zero-out immutable columns
     if immutable_column_indices is not None:
-        new_dir[:,immutable_column_indices] = 0
+        r[:,immutable_column_indices] = 0
+    
+    # rescale random noise to a percentage of the original direction's magnitude
+    original_norm = np.linalg.norm(dir)
+    r = (r * (scale * original_norm)) / np.linalg.norm(r)
+
+    # rescale the perturbed direction to the original magnitude
+    new_dir = dir + r
     new_dir = (new_dir * np.linalg.norm(dir)) / np.linalg.norm(new_dir)
     return new_dir
 
