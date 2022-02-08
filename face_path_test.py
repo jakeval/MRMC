@@ -40,6 +40,8 @@ def test_launcher(p):
     pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
     np.random.seed(p['seed'])
 
+    get_positive_probability = lambda p: model.predict_proba(p.to_numpy())[0,1]
+
     num_trials = p['num_trials']
     k_dirs = p['k_dirs']
     experiment_immutable_feature_names = p['experiment_immutable_features']
@@ -113,7 +115,7 @@ def test_launcher(p):
                               path_statistics,
                               k_dirs,
                               weight_function,
-                              clf,
+                              get_positive_probability,
                               perturb_dir,
                               max_iterations,
                               pois,

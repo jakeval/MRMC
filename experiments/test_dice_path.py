@@ -55,7 +55,7 @@ class DicePathTestRunner:
         paths = recourse_iterator.iterate_recourse(
             transformed_poi,
             self.preprocessor,
-            self.max_iterations,
+            self.max_iterations - 1,
             self.certainty_cutoff,
             self.k_points,
             get_recourse,

@@ -9,6 +9,8 @@ def iterate_recourse(transformed_poi,
                      weight_function,
                      perturb_dir=None):
     path_starts = get_recourse(transformed_poi, k_paths) # dataframe of points in transformed space
+    if path_starts is None:
+        return None
     paths = []
     for i in range(path_starts.shape[0]):
         point = path_starts.iloc[[i]]
@@ -34,7 +36,6 @@ def generate_path(p1,
     for i in range(max_iterations):
         dir = p2.to_numpy() - p1.to_numpy()
         dir = weight_function(dir) # rescale the direction
-        original_dir = dir
         if perturb_dir is not None:
             dir = perturb_dir(dir)
         p2 = p1 + dir
@@ -44,5 +45,7 @@ def generate_path(p1,
         if get_positive_probability(p2) >= certainty_cutoff:
             return path
         p2 = get_recourse(p1, 1)
+        if p2 is None:
+            return path
     
     return path
