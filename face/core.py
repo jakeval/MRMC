@@ -471,7 +471,6 @@ class Face:
 
     def add_new_point(self, graph, point):
         point = self.preprocessor.transform(point)
-        distances = self.X
         point_density = self.density_estimator(point.to_numpy())
         #X = np.concatenate([self.X, point.to_numpy()])
         #graph = np.concatenate([self.graph, ])
@@ -482,7 +481,7 @@ class Face:
         d = differences[:,None,:] # N x 1 x D
 
         # calculate the (N x 1) conditions mask
-        conditions_mask = np.ones((differences.shape[0], differences.shape[1])).astype(np.bool)
+        conditions_mask = np.ones(differences.shape[0]).astype(np.bool)
         if self.conditions_function is not None:
             conditions_mask = self.conditions_function(d)[:,0]
 

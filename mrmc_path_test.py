@@ -130,7 +130,7 @@ def get_params(num_trials, dataset_str):
         'validate': [True],
         'sparsity': [True],
         'model': ['random_forest', 'svc'],
-        'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4, 8]
+        'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4]
     }
 
     dataset = []

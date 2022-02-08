@@ -40,11 +40,15 @@ class FacePathTestRunner:
         self.pois = pois
 
     def get_recourse(self, poi, k_paths):
-        paths = self.face.iterate_new_point(self.preprocessor.inverse_transform(poi), k_paths)
-        if len(paths) == 1:
-            return paths[0].iloc[[-1]]
-        else:
+        points = pd.DataFrame(columns=poi.columns)
+        face_paths = self.face.iterate_new_point(self.preprocessor.inverse_transform(poi), k_paths)
+        if face_paths is None:
             return None
+        if len(face_paths) == 0:
+            return None
+        for path in face_paths:
+            points = points.append(path.iloc[[-1]], ignore_index=True)
+        return points
 
     def run_trial(self, poi):
         """Returns a dictionary like {stat_key: [path1_stat, path2_stat, ...], stat_key1: [...]}"""
