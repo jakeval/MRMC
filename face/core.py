@@ -385,6 +385,7 @@ class Face:
         self.original_graph = self.graph
         self.original_density_scores = self.density_scores
         self.original_X = self.X
+        self.original_candidate_mask = self.candidate_mask
         poi_age = self.dataset.loc[poi_index, 'age']
         age_mask = np.abs(self.dataset['age'] - poi_age) <= age_tolerance
 
@@ -393,12 +394,10 @@ class Face:
             poi = self.dataset.loc[[poi_index]]
             difference_matrix = utils.epsilon_compare(poi[other_features], self.dataset[other_features])
             candidate_mask = difference_matrix.all(axis=1)
-            print("immutable candidates: ", candidate_mask.sum())
 
         self.dataset = self.dataset[age_mask]
         self.X = self.X[age_mask]
         self.candidate_mask = self.candidate_mask[age_mask]# & candidate_mask 
-        self.candidate_mask = self.candidate_mask[age_mask]# & candidate_mask & age_mask
         self.graph = self.graph.tocsr()[age_mask][:,age_mask].tocoo()
         self.density_scores = self.density_scores[age_mask]
 
@@ -407,6 +406,7 @@ class Face:
             self.density_scores = self.original_density_scores
             self.graph = self.original_graph
             self.X = self.original_X
+            self.candidate_mask = self.original_candidate_mask
 
     def iterate(self, poi_index):
         """Perform dijkstra's search on the graph.
