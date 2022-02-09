@@ -72,7 +72,7 @@ def test_launcher(p):
             immutable_features = ['age', 'race', 'sex']
         if p['dataset'] == 'german_credit':
             immutable_features = ['age', 'sex']
-        X = preprocessor.transform(dataset)
+        X = preprocessor.transform(dataset).drop('Y', axis=1)
         immutable_columns = preprocessor.get_feature_names_out(immutable_features)
         immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
         # feature_tolerances = {'age': 5}
