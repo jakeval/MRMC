@@ -1,3 +1,4 @@
+from core.utils import cosine_similarity
 
 def iterate_recourse(transformed_poi,
                      preprocessor,
@@ -38,13 +39,13 @@ def generate_path(p1,
         dir = weight_function(dir) # rescale the direction
         if perturb_dir is not None:
             dir = perturb_dir(dir)
-        p2 = p1 + dir
-        perturbed_point = validate_point(p2, preprocessor)
+        perturbed_point = p1 + dir
+        perturbed_point = validate_point(perturbed_point, preprocessor)
         path = path.append(perturbed_point, ignore_index=True)
-        p1 = p2
-        if get_positive_probability(p2) >= certainty_cutoff:
+        p1 = perturbed_point
+        if get_positive_probability(perturbed_point) >= certainty_cutoff:
             return path
-        p2 = get_recourse(p1, 1)
+        p2 = get_recourse(perturbed_point, 1)
         if p2 is None:
             return path
     
