@@ -395,12 +395,12 @@ class Face:
             candidate_mask = difference_matrix.all(axis=1)
             print("immutable candidates: ", candidate_mask.sum())
 
-        #self.dataset = self.dataset[age_mask]
-        #self.X = self.X[age_mask]
-        #self.candidate_mask = self.candidate_mask[age_mask] & candidate_mask 
-        self.candidate_mask = self.candidate_mask & candidate_mask & age_mask
-        #self.graph = self.graph.tocsr()[age_mask][:,age_mask].tocoo()
-        #self.density_scores = self.density_scores[age_mask]
+        self.dataset = self.dataset[age_mask]
+        self.X = self.X[age_mask]
+        self.candidate_mask = self.candidate_mask[age_mask]# & candidate_mask 
+        self.candidate_mask = self.candidate_mask[age_mask]# & candidate_mask & age_mask
+        self.graph = self.graph.tocsr()[age_mask][:,age_mask].tocoo()
+        self.density_scores = self.density_scores[age_mask]
 
     def clear_age_condition(self):
         if self.original_density_scores is not None:

@@ -157,7 +157,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
-            'immutable_features': [False],
+            'immutable_features': [True],
             'kde_bandwidth': [0.13],
             'kde_rtol': [1000],
             'density_threshold': [0, np.exp(6), np.exp(7)],
@@ -169,7 +169,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['german_credit'],
             'experiment_immutable_features': [['age', 'sex']],
-            'immutable_features': [False],
+            'immutable_features': [True],
             'kde_bandwidth': [0.29],
             'kde_rtol': [None],
             'density_threshold': [0, np.exp(12.771), np.exp(12.773)], # anything below this number will be culled
