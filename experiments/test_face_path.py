@@ -58,7 +58,8 @@ class FacePathTestRunner:
 
         self.face.fit(self.dataset, self.preprocessor)
         if self.immutable_features is not None:
-            self.face.add_age_condition(self.age_tolerance, poi_index)
+            ageless_immutable_features = list(filter(lambda feature: feature != 'age', self.immutable_features))
+            self.face.add_age_condition(self.age_tolerance, poi_index, other_features=ageless_immutable_features)
 
         get_recourse = lambda poi, k_paths: self.preprocessor.transform(
             self.face.iterate_new_point(poi, k_paths).iloc[[-1]])

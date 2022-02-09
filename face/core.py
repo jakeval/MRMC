@@ -4,6 +4,7 @@ from sklearn.neighbors import KernelDensity
 import heapq
 import os
 from scipy import sparse
+from core import utils
 
 
 LINEAR_APPROXIMATION = True
@@ -375,7 +376,7 @@ class Face:
         self.preprocessor = preprocessor
         self.candidate_mask = (self.clf(self.X) >= self.confidence_threshold) & (self.density_scores >= self.density_threshold)
 
-    def add_age_condition(self, age_tolerance, poi_index):
+    def add_age_condition(self, age_tolerance, poi_index, other_features=None):
         """Culls points from the graph which would violate immutability constraints.
 
         The paper poses this functionality as a function (self.conditions_function), but
@@ -385,12 +386,18 @@ class Face:
         self.original_density_scores = self.density_scores
         self.original_X = self.X
         poi_age = self.dataset.loc[poi_index, 'age']
-        age_mask = np.abs(self.dataset['age'] - poi_age) <= age_tolerance
-        self.dataset = self.dataset[age_mask]
-        self.X = self.X[age_mask]
-        self.candidate_mask = self.candidate_mask[age_mask]
-        self.graph = self.graph.tocsr()[age_mask][:,age_mask].tocoo()
-        self.density_scores = self.density_scores[age_mask]
+        mask = np.abs(self.dataset['age'] - poi_age) <= age_tolerance
+
+        if other_features is not None:
+            poi = self.dataset.loc[[poi_index]]
+            difference_matrix = utils.epsilon_compare(poi[other_features], self.dataset[other_features])
+            mask = difference_matrix.all(axis=1) & mask
+
+        self.dataset = self.dataset[mask]
+        self.X = self.X[mask]
+        self.candidate_mask = self.candidate_mask[mask]
+        self.graph = self.graph.tocsr()[mask][:,mask].tocoo()
+        self.density_scores = self.density_scores[mask]
 
     def clear_age_condition(self):
         if self.original_density_scores is not None:

@@ -74,9 +74,9 @@ def test_launcher(p):
     immutable_features = None
     immutable_column_indices = None
     immutable_column_indices_full = None
-    if p['immutable_features'] is not None:
-        immutable_features = p['immutable_features']
-        X = preprocessor.transform(dataset)
+    if p['immutable_features']:
+        immutable_features = experiment_immutable_feature_names
+        X = preprocessor.transform(dataset).drop('Y', axis=1)
         immutable_columns = preprocessor.get_feature_names_out(immutable_features)
         tolerances = None
         immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
@@ -157,7 +157,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
-            'immutable_features': [['age', 'sex', 'race']],
+            'immutable_features': [True],
             'kde_bandwidth': [0.13],
             'kde_rtol': [1000],
             'density_threshold': [0, np.exp(6), np.exp(7)],
@@ -169,7 +169,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['german_credit'],
             'experiment_immutable_features': [['age', 'sex']],
-            'immutable_features': [['age', 'sex']],
+            'immutable_features': [True],
             'kde_bandwidth': [0.29],
             'kde_rtol': [None],
             'density_threshold': [0, np.exp(12.771), np.exp(12.773)], # anything below this number will be culled
@@ -199,15 +199,15 @@ def write_dataframe(params_df, results_dataframe_list, output_file):
         outputs = [
             'dataset',
             'model',
-            'density_threshold',
-            'confidence_threshold',
+            #'density_threshold',
+            #'confidence_threshold',
             'Positive Probability (mean)',
             #'Model Certainty (mean)',
             'Final Point Distance (mean)',
             #'Point Sparsity (mean)',
-            #'Point Immutable Violations (mean)',
+            'Path Immutable Violations (mean)',
             'success_ratio',
-            'Diversity (mean)'
+            #'Diversity (mean)'
         ]
         print(final_df[outputs])
 
@@ -221,7 +221,7 @@ def aux_data_from_params(params):
         bandwidth = param_dict['kde_bandwidth']
         rtol = param_dict['kde_rtol']
         distance_threshold = param_dict['distance_threshold']
-        use_conditions = param_dict['immutable_features'] is not None
+        use_conditions = param_dict['immutable_features']
         awkward_key = f"{dataset}-{bandwidth}-{rtol}-{distance_threshold}-{use_conditions}"
         if awkward_key not in cache:
             cache[awkward_key] = Face.load_graph(dataset, bandwidth, distance_threshold, use_conditions, rtol=rtol, dir=INPUT_DIR)

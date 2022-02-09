@@ -1,6 +1,8 @@
 import numpy as np
 
 MIN_DIRECTION = 1e-32
+EQ_EPSILON = 1e-10
+
 
 def size_normalization(dir, poi, X):
     return dir / X.shape[0]
@@ -80,3 +82,16 @@ def private_alpha(dist, cutoff=0.5, degree=2):
 def model_early_stopping(model, point, cutoff=0.7):
     _, pos_proba = model.predict_proba(point.to_numpy())[0]
     return pos_proba >= cutoff
+
+def epsilon_compare(point, df):
+    numeric_columns = point.select_dtypes(include=np.number).columns
+    other_columns = point.columns.difference(numeric_columns)
+
+    numeric_diff = np.ones((df.shape[0], df.shape[1])).astype(np.bool8)
+    if len(numeric_columns) > 0:
+        numeric_diff = (np.abs(df[numeric_columns].to_numpy() - point[numeric_columns].to_numpy()) >= EQ_EPSILON)
+    other_diff = np.ones((df.shape[0], df.shape[1])).astype(np.bool8)
+    if len(other_columns) > 0:
+        other_diff = (df[other_columns].to_numpy() != point[other_columns].to_numpy())
+
+    return numeric_diff & other_diff
