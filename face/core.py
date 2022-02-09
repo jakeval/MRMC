@@ -377,7 +377,7 @@ class Face:
         self.candidate_mask = (self.clf(self.X) >= self.confidence_threshold) & (self.density_scores >= self.density_threshold)
 
     def add_age_condition(self, age_tolerance, poi_index, other_features=None):
-        """Culls points from the graph which would violate immutability constraints.
+        """Culls points from the candidate set which would violate immutability constraints.
 
         The paper poses this functionality as a function (self.conditions_function), but
         it is easier and more efficient to achieve the desired effect via filtering.
@@ -386,18 +386,21 @@ class Face:
         self.original_density_scores = self.density_scores
         self.original_X = self.X
         poi_age = self.dataset.loc[poi_index, 'age']
-        mask = np.abs(self.dataset['age'] - poi_age) <= age_tolerance
+        age_mask = np.abs(self.dataset['age'] - poi_age) <= age_tolerance
 
+        candidate_mask = self.candidate_mask
         if other_features is not None:
             poi = self.dataset.loc[[poi_index]]
             difference_matrix = utils.epsilon_compare(poi[other_features], self.dataset[other_features])
-            mask = difference_matrix.all(axis=1) & mask
+            candidate_mask = difference_matrix.all(axis=1)
+            print("immutable candidates: ", candidate_mask.sum())
 
-        self.dataset = self.dataset[mask]
-        self.X = self.X[mask]
-        self.candidate_mask = self.candidate_mask[mask]
-        self.graph = self.graph.tocsr()[mask][:,mask].tocoo()
-        self.density_scores = self.density_scores[mask]
+        #self.dataset = self.dataset[age_mask]
+        #self.X = self.X[age_mask]
+        #self.candidate_mask = self.candidate_mask[age_mask] & candidate_mask 
+        self.candidate_mask = self.candidate_mask & candidate_mask & age_mask
+        #self.graph = self.graph.tocsr()[age_mask][:,age_mask].tocoo()
+        #self.density_scores = self.density_scores[age_mask]
 
     def clear_age_condition(self):
         if self.original_density_scores is not None:

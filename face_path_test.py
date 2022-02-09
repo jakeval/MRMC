@@ -157,7 +157,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['adult_income'],
             'experiment_immutable_features': [['age', 'sex', 'race']],
-            'immutable_features': [True],
+            'immutable_features': [False],
             'kde_bandwidth': [0.13],
             'kde_rtol': [1000],
             'density_threshold': [0, np.exp(6), np.exp(7)],
@@ -169,7 +169,7 @@ def get_params(num_trials, dataset_str):
             {
             'dataset': ['german_credit'],
             'experiment_immutable_features': [['age', 'sex']],
-            'immutable_features': [True],
+            'immutable_features': [False],
             'kde_bandwidth': [0.29],
             'kde_rtol': [None],
             'density_threshold': [0, np.exp(12.771), np.exp(12.773)], # anything below this number will be culled
@@ -224,7 +224,7 @@ def aux_data_from_params(params):
         use_conditions = param_dict['immutable_features']
         awkward_key = f"{dataset}-{bandwidth}-{rtol}-{distance_threshold}-{use_conditions}"
         if awkward_key not in cache:
-            cache[awkward_key] = Face.load_graph(dataset, bandwidth, distance_threshold, use_conditions, rtol=rtol, dir=INPUT_DIR)
+            cache[awkward_key] = Face.load_graph(dataset, bandwidth, distance_threshold, False, rtol=rtol, dir=INPUT_DIR)
         density_scores, graph = cache[awkward_key]
         density_score_list.append(density_scores)
         graph_list.append(graph)
