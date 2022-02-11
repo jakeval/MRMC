@@ -3,7 +3,7 @@ from core import utils
 import pandas as pd
 
 class MRM:
-    def __init__(self, alpha=utils.volcano_alpha, alpha_neg=None, ignore_negatives=True, 
+    def __init__(self, alpha=utils.volcano_alpha, alpha_neg=None, ignore_negatives=True, sparsity=None,
                  perturb_dir=utils.priority_dir, weight_function=utils.centroid_normalization,
                  immutable_column_names=None, check_privacy=False):
         self.alpha = alpha
@@ -15,6 +15,7 @@ class MRM:
         self.Y = None
         self.perturb_dir = perturb_dir
         self.check_privacy = check_privacy
+        self.sparsity = sparsity
 
     def fit(self, X, Y):
         if self.ignore_negatives:
@@ -39,9 +40,11 @@ class MRM:
             dir = self.weight_function(dir, poi.to_numpy()[0], self.X.to_numpy())
         original_dir = dir
         index = dir.index
-        if self.perturb_dir is not None:
-            dir = self.perturb_dir(dir.to_numpy()[None,:])[0]
         dir = pd.DataFrame(columns=index, data=[dir])
+        if self.sparsity is not None:
+            dir = utils.priority_dir(dir)
+        if self.perturb_dir is not None:
+            dir = self.perturb_dir(poi, dir)
         original_dir = pd.DataFrame(columns=original_dir.index, data=[original_dir])
 
         if self.immutable_column_names is not None:
