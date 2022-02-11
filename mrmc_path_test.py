@@ -22,8 +22,10 @@ NUM_TASKS = 48
 
 RUN_LOCALLY = False
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/mrmc_path_output'
+CLUSTER_DIR = '/mnt/nfs/home/jasonvallada/mrmc_cluster_output'
 if RUN_LOCALLY:
     OUTPUT_DIR = '../mrmc_path_output'
+    CLUSTER_DIR = '../mrmc_cluster_output'
     NUM_TASKS = 1
 
 def test_launcher(p):
@@ -31,10 +33,9 @@ def test_launcher(p):
     preprocessor = p['preprocessor_payload']
     dataset = p['dataset_payload']
 
-    np.random.seed(p['poi_seed'])
-    poi_indices = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
-    pois = dataset.loc[poi_indices].drop('Y', axis=1)
     np.random.seed(p['seed'])
+    poi_index = p['poi_index']
+    poi = dataset.loc[[poi_index]].drop('Y', axis=1)
 
     X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
     model_scores = model.predict_proba(X)
@@ -43,7 +44,12 @@ def test_launcher(p):
     num_trials = p['num_trials']
     k_dirs = p['k_dirs']
     max_iterations = p['max_iterations']
-    experiment_immutable_feature_names = p['experiment_immutable_features']
+    experiment_immutable_feature_names = None
+    if p['dataset'] == 'adult_income':
+        experiment_immutable_feature_names = ['age', 'sex', 'race']
+    elif p['dataset'] == 'german_credit':
+        experiment_immutable_feature_names = ['age', 'sex']
+
     validate = p['validate']
     early_stopping = None
 
@@ -58,15 +64,18 @@ def test_launcher(p):
         }
 
     perturb_dir = None
-    if p['sparsity']:
-        perturb_dir = lambda dir: utils.priority_dir(dir, k=5)
-
     if p['perturb_dir_random_scale'] is not None:
-        if perturb_dir is not None:
-            original_perturbation = perturb_dir
-            perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], original_perturbation(dir))
-        else:
-            perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir)
+        num_features = dataset.select_dtypes(include=np.number).columns.difference(['Y'])
+        cat_features = dataset.columns.difference(num_features).difference(['Y'])
+        perturb_dir = lambda point, dir: utils.random_perturb_dir(
+            preprocessor,
+            p['perturb_dir_random_scale'],
+            p['perturb_dir_random_scale'],
+            point,
+            dir,
+            num_features,
+            cat_features,
+            immutable_features)
 
     if p['early_stopping']:
         early_stopping = lambda point: utils.model_early_stopping(model, point, cutoff=p['early_stopping_cutoff'])
@@ -79,7 +88,7 @@ def test_launcher(p):
     elif p['alpha_function'] == 'normal':
         alpha_function = lambda dist: utils.normal_alpha(dist, width=p['alpha_normal_width'])
 
-    mrm = MRM(alpha=alpha_function, weight_function=weight_function, perturb_dir=perturb_dir, immutable_column_names=immutable_column_names)
+    mrm = MRM(alpha=alpha_function, weight_function=weight_function, sparsity=p['sparsity'], perturb_dir=perturb_dir, immutable_column_names=immutable_column_names)
     mrmc = MRMCIterator(k_dirs, mrm, preprocessor, max_iterations, early_stopping=early_stopping, validate=validate)
 
     column_names_per_feature = [] # list of lists
@@ -108,13 +117,13 @@ def test_launcher(p):
     }
 
     test = MrmcTestRunner(num_trials, dataset, preprocessor, mrmc, path_statistics,
-                        point_statistics, cluster_statistics, pois, immutable_features=immutable_features,
+                        point_statistics, cluster_statistics, None, immutable_features=immutable_features,
                         immutable_strict=False, feature_tolerances=feature_tolerances)
-    stats, aggregated_stats = test.run_test()
-    return aggregated_stats
+    stats, paths, cluster_centers = test.run_trial(poi)
+    return paths, cluster_centers
 
 
-def get_params(num_trials, dataset_str):
+def get_params(dataset_str, dataset_poi_indices, seed):
     """Create a dataframe of input parameters.
     
     Each row of the dataframe contains a setting over parameters used by test_launcher to launch a test.
@@ -125,13 +134,15 @@ def get_params(num_trials, dataset_str):
 
     # simple parameters have no conflicts
     simple_params = {
-        'num_trials': [num_trials],
+        'seed': [seed],
+        'num_trials': [1],
         'k_dirs': [4],
         'max_iterations': [15],
         'validate': [True],
-        'sparsity': [True],
+        'sparsity': [False],
         'model': ['random_forest', 'svc'],
-        'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4]
+        'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4],
+        'poi_index': dataset_poi_indices,
     }
 
     dataset = []
@@ -139,14 +150,12 @@ def get_params(num_trials, dataset_str):
         dataset.append(
             {
                 'dataset': ['adult_income'],
-                'experiment_immutable_features': [['age', 'sex', 'race']],
                 'immutable_features': [True],
             })
     else:
         dataset.append(
             {
                 'dataset': ['german_credit'],
-                'experiment_immutable_features': [['age', 'sex']],
                 'immutable_features': [True],
             })
 
@@ -168,12 +177,8 @@ def get_params(num_trials, dataset_str):
         {
             'alpha_function': ['volcano'],
             'alpha_volcano_cutoff': [0.2],
-            'alpha_volcano_degree': [2, 4, 8]
+            'alpha_volcano_degree': [4]
         },
-        {
-            'alpha_function': ['normal'],
-            'alpha_normal_width': [0.5, 2]
-        }
     ]
 
     # the simple and constrained parameters are combined into a list of dictionaries which respect the parameter constraints
@@ -189,10 +194,29 @@ def get_params(num_trials, dataset_str):
     return list(ParameterGrid(params))
 
 
-def write_dataframe(params_df, results_dataframe_list, output_file):
-    results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
-    results_dataframe = results_dataframe
-    final_df = pd.concat([params_df, results_dataframe], axis=1)
+def clean_dict(d):
+    d2 = {}
+    for key, val in d.items():
+        if key not in ['dataset_payload', 'preprocessor_payload', 'model_payload']:
+            d2[key] = val
+    return d2
+
+
+def write_dataframe(columns, preprocessor, param_dicts, results_list, output_file):
+    results_dataframes = []
+    for param_dict, results in zip(param_dicts, results_list):
+        paths, cluster_centers = results
+        paths_df = pd.DataFrame(columns=columns)
+        for i, path in enumerate(paths):
+            path_df = preprocessor.inverse_transform(path)
+            path_df['path_index'] = i
+            paths_df = pd.concat([paths_df, path_df], ignore_index=True)
+        param_dict = clean_dict(param_dict)
+        keys = list(param_dict.keys())
+        values = list(param_dict.values())
+        paths_df.loc[:,keys] = values
+        results_dataframes.append(paths_df)
+    final_df = pd.concat(results_dataframes, ignore_index=True)
     final_df.to_pickle(output_file)
 
 
@@ -204,7 +228,9 @@ def run_experiment():
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
     print("dataset is ", dataset)
 
-    num_trials = 30
+    num_trials = 100
+    if RUN_LOCALLY:
+        num_trials = 2
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
@@ -222,9 +248,10 @@ def run_experiment():
         print("No dataset recognized")
         return
 
-    poi_seed = 148294
+    poi_indices = np.random.choice(dataset_payload[dataset_payload.Y == -1].index, size=num_trials)
+    seed = 885577
 
-    all_params = get_params(num_trials, dataset)
+    all_params = get_params(dataset, poi_indices, seed)
     print(len(all_params))
     if num_tests == 0:
         num_tests = len(all_params)
@@ -233,8 +260,6 @@ def run_experiment():
     params = all_params[:num_tests]
     for param_dict in params:
         new_params = {
-            'poi_seed': poi_seed,
-            'seed': np.random.randint(999999),
             'dataset_payload': dataset_payload,
             'preprocessor_payload': preprocessor_payload,
             'model_payload': models[(param_dict['model'], param_dict['dataset'])],
@@ -245,7 +270,8 @@ def run_experiment():
     with multiprocessing.Pool(NUM_TASKS) as p:
         results = p.map(test_launcher, params)
     param_df = pd.DataFrame(params).drop(['dataset_payload', 'preprocessor_payload', 'model_payload'], axis=1)
-    write_dataframe(param_df, results, output_file)
+    columns = dataset_payload.columns.difference(['Y'])
+    write_dataframe(columns, preprocessor_payload, params, results, output_file)
     print("Finished experiment.")
 
 

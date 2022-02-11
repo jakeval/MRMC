@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 MIN_DIRECTION = 1e-32
 EQ_EPSILON = 1e-10
@@ -31,22 +32,49 @@ def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
     stdev = (beta*C**2)/epsilon
     return dir + np.random.normal(0, stdev, size=dir.shape)
 
-def random_perturb_dir(scale, dir, immutable_column_indices=None):
+def random_perturb_dir(preprocessor, scale, categorical_prob, p1, dir, num_features, cat_features, immutable_features=None, immutable_column_indices=None):
+    """Randomly perturb a direction.
+
+    Continuous variables are perturbed with random noise.
+    Categorical variables are randomly changed with probability p
+    """
+
+    if immutable_features is not None:
+        num_features = num_features.difference(immutable_features)
+        cat_features = cat_features.difference(immutable_features)
+
+    new_dir = dir.copy()
+
+    for feature in cat_features:
+        # set the original category to -1 and a new category to +1
+        if np.random.random() <= categorical_prob:
+            ohe_columns = preprocessor.get_feature_names_out([feature])
+            p1_cat = ohe_columns[np.argmax(p1[ohe_columns].to_numpy())]
+            unselected_categories = ohe_columns
+            if (new_dir[ohe_columns].to_numpy() == 0).all():
+                #unselected_categories = list(filter(lambda cat: cat != p1_cat, unselected_categories))
+                new_dir.loc[:,p1_cat] = -1
+            else:
+                dir_cat = ohe_columns[np.argmax(new_dir[ohe_columns].to_numpy())]
+                new_dir.loc[:,dir_cat] = 0
+                #unselected_categories = list(filter(lambda cat: cat != dir_cat, unselected_categories))
+            new_cat = np.random.choice(unselected_categories, 1)[0]
+            new_dir.loc[:,new_cat] += 1
+    
     # generate random noise
-    r = np.random.normal(0, scale, dir.shape)
-    # zero-out immutable columns
-    if immutable_column_indices is not None:
-        r[:,immutable_column_indices] = 0
+    r = np.random.normal(0, 1, len(num_features))
     
     # rescale random noise to a percentage of the original direction's magnitude
-    original_norm = np.linalg.norm(dir)
+    original_norm = np.linalg.norm(dir[num_features].to_numpy())
     if original_norm == 0:
         return dir
     r = (r * (scale * original_norm)) / np.linalg.norm(r)
 
     # rescale the perturbed direction to the original magnitude
-    new_dir = dir + r
-    new_dir = (new_dir * np.linalg.norm(dir)) / np.linalg.norm(new_dir)
+    old_numeric_values = new_dir[num_features].to_numpy()
+    new_numeric_values = old_numeric_values + r
+    new_numeric_values = (new_numeric_values * np.linalg.norm(old_numeric_values)) / np.linalg.norm(new_numeric_values)
+    new_dir.loc[:,num_features] = new_numeric_values
     return new_dir
 
 def perturb_point(scale, x):
@@ -57,13 +85,13 @@ def constant_priority_dir(dir, k=1, step_size=1):
     return constant_step_size(priority_dir(dir, k), step_size)
 
 def priority_dir(dir, k=5):
-    #dir_arry = dir.to_numpy()
-    sorted_idx = np.argsort(-np.abs(dir[0,:]))
-    dir_new = np.zeros_like(dir)
-    dir_new[:,sorted_idx[:k]] = dir[:,sorted_idx[:k]]
+    dir_arry = dir.to_numpy()
+    sorted_idx = np.argsort(-np.abs(dir_arry[0,:]))
+    dir_new = np.zeros_like(dir_arry)
+    dir_new[:,sorted_idx[:k]] = dir_arry[:,sorted_idx[:k]]
     #sparse_dir = dir.copy()
     #sparse_dir.loc[:] = dir_new
-    return dir_new
+    return pd.DataFrame(columns=dir.columns, data=dir_new)
 
 def constant_step_size(dir, step_size=1):
     return step_size*dir / np.sqrt(dir@dir)
