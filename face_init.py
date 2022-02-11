@@ -124,7 +124,7 @@ def main():
         return
     print("Generate KDE scores...")
     # density_scores = generate_density_scores(data, preprocessor, dataset)
-    density_scores = Face.load_kde('adult_income', 0.13, rtol=1000, dir='./face_graphs')
+    density_scores = Face.load_kde('adult_income', 0.13, rtol=1000, dir=OUTPUT_DIR)
     print("Generated density scores")
 
     all_params = get_params(dataset)
