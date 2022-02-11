@@ -22,7 +22,7 @@ class FacePathTestRunner:
                  max_iterations,
                  pois,
                  immutable_features=None,
-                 age_tolerance=None):
+                 feature_tolerances=None):
         self.point_statistics = point_statistics
         self.path_statistics = path_statistics
         self.statistics_keys = list(path_statistics.keys()) + list(point_statistics.keys())
@@ -32,22 +32,28 @@ class FacePathTestRunner:
         self.preprocessor = preprocessor
         self.k_points = k_points
         self.immutable_features = immutable_features
-        self.age_tolerance = age_tolerance
         self.weight_function = weight_function
         self.clf = clf
         self.perturb_dir = perturb_dir
         self.max_iterations = max_iterations
         self.pois = pois
+        self.feature_tolerances = feature_tolerances
 
     def get_recourse(self, poi, k_paths):
         points = pd.DataFrame(columns=poi.columns)
-        face_paths = self.face.iterate_new_point(self.preprocessor.inverse_transform(poi), k_paths)
+        poi = self.preprocessor.inverse_transform(poi)
+        face_paths = self.face.iterate_new_point(poi, k_paths)
         if face_paths is None:
             return None
         if len(face_paths) == 0:
             return None
         for path in face_paths:
-            points = points.append(path.iloc[[-1]], ignore_index=True)
+            point = path.iloc[[-1]]
+            point = self.preprocessor.inverse_transform(point)
+            if self.immutable_features is not None:
+                point.loc[:,self.immutable_features] = poi[self.immutable_features].to_numpy()[0]
+            point = self.preprocessor.transform(point)
+            points = points.append(point, ignore_index=True)
         return points
 
     def run_trial(self, poi):
@@ -58,8 +64,7 @@ class FacePathTestRunner:
 
         self.face.fit(self.dataset, self.preprocessor)
         if self.immutable_features is not None:
-            ageless_immutable_features = list(filter(lambda feature: feature != 'age', self.immutable_features))
-            self.face.add_age_condition(self.age_tolerance, poi_index, other_features=ageless_immutable_features)
+            self.face.add_immutable_condition(poi, self.immutable_features, self.feature_tolerances)
 
         get_recourse = lambda poi, k_paths: self.preprocessor.transform(
             self.face.iterate_new_point(poi, k_paths).iloc[[-1]])
@@ -77,7 +82,7 @@ class FacePathTestRunner:
             perturb_dir=self.perturb_dir
         )
 
-        self.face.clear_age_condition()
+        self.face.clear_immutable_condition()
 
         if paths is None:
             return self.get_null_results(), None

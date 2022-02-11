@@ -1,5 +1,3 @@
-from core.utils import cosine_similarity
-
 def iterate_recourse(transformed_poi,
                      preprocessor,
                      max_iterations,

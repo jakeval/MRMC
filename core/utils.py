@@ -22,6 +22,10 @@ def centroid_normalization(dir, poi, X, alpha=0.7):
     dir = (alpha * dir * centroid_dist) / np.sqrt(dir@dir)
     return dir
 
+def scale_weight_function(dir, immutable_column_indices, rescale_factor):
+    new_dir = dir * rescale_factor
+    return new_dir
+
 def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
     beta = np.sqrt(2*np.log(1.25/delta))
     stdev = (beta*C**2)/epsilon
@@ -36,6 +40,8 @@ def random_perturb_dir(scale, dir, immutable_column_indices=None):
     
     # rescale random noise to a percentage of the original direction's magnitude
     original_norm = np.linalg.norm(dir)
+    if original_norm == 0:
+        return dir
     r = (r * (scale * original_norm)) / np.linalg.norm(r)
 
     # rescale the perturbed direction to the original magnitude

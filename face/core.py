@@ -134,7 +134,7 @@ class Face:
             graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_rtol_{rtol_str}_conditions_{conditions_function is not None}_distance_{distance_str}.npz')
         else:
             graph_path = os.path.join(dir, f'{dataset_str}_density_{bandwidth_str}_conditions_{conditions_function is not None}_distance_{distance_str}.npz')
-
+        
         # split the dataset into blocks and begin calculation
         rows_per_block = int(np.floor(block_size / (X.shape[1] * X.shape[0])))
         num_blocks = int(np.ceil(X.shape[0] / rows_per_block))
@@ -183,6 +183,8 @@ class Face:
 
         if save_results:
             sparse.save_npz(graph_path, graph)
+        
+        return graph
 
     def set_kde(self, preprocessor, dataset, dataset_str, bandwidth, rtol=None, dir='./face_graphs', save_results=True):
         """Sets the KDE scores with a given bandwidth on the given dataset.
@@ -376,6 +378,27 @@ class Face:
         self.preprocessor = preprocessor
         self.candidate_mask = (self.clf(self.X) >= self.confidence_threshold) & (self.density_scores >= self.density_threshold)
 
+    def add_immutable_condition(self, poi, immutable_features, feature_tolerances=None):
+        """Culls points from the candidate set which would violate immutability constraints.
+
+        The paper poses this functionality as a function (self.conditions_function), but
+        it is easier and more efficient to achieve the desired effect via filtering.
+        """
+        self.original_candidate_mask = self.candidate_mask
+
+        for feature in immutable_features:
+            if (feature_tolerances is not None) and (feature in feature_tolerances):
+                continue
+            feature_val = poi.loc[poi.index[0],feature]
+            self.candidate_mask = self.candidate_mask & (self.dataset[feature] == feature_val)
+
+        if feature_tolerances is not None:
+            for feature, tolerance in feature_tolerances.items():
+                feature_val = poi[feature]
+                feature_mask = np.abs(self.dataset[feature].to_numpy() - feature_val.to_numpy()) <= tolerance
+                self.candidate_mask = self.candidate_mask & feature_mask
+
+
     def add_age_condition(self, age_tolerance, poi_index, other_features=None):
         """Culls points from the candidate set which would violate immutability constraints.
 
@@ -406,6 +429,10 @@ class Face:
             self.density_scores = self.original_density_scores
             self.graph = self.original_graph
             self.X = self.original_X
+            self.candidate_mask = self.original_candidate_mask
+
+    def clear_immutable_condition(self):
+        if self.original_candidate_mask is not None:
             self.candidate_mask = self.original_candidate_mask
 
     def iterate(self, poi_index):
