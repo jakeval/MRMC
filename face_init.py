@@ -11,10 +11,10 @@ import multiprocessing
 sys.path.append(os.getcwd())
 np.random.seed(88557)
 
-NUM_TASKS = 32
+NUM_TASKS = 1
 
 RUN_LOCALLY = False
-OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_strict'
+OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_final'
 if RUN_LOCALLY:
     NUM_TASKS = 1
     OUTPUT_DIR = './face_graphs'
@@ -37,20 +37,20 @@ def get_params(dataset_str):
         dataset = [
             {
             'dataset': ['adult_income'],
-            'immutable_features': [['age', 'sex', 'race'], None],
+            'immutable_features': [None],
             'kde_bandwidth': [0.13],
             'kde_rtol': [1000],
-            'distance_threshold': [1,1.25,1.5,2],
+            'distance_threshold': [2],
             }
         ]
     elif dataset_str == 'german_credit':
         dataset = [
             {
             'dataset': ['german_credit'],
-            'immutable_features': [['age', 'sex'], None],
+            'immutable_features': [None],
             'kde_bandwidth': [0.29],
             'kde_rtol': [None],
-            'distance_threshold': [1.5,2,4,8],
+            'distance_threshold': [8],
             }
         ]
 
@@ -87,7 +87,7 @@ def generate_graph(p):
         immutable_columns = preprocessor.get_feature_names_out(immutable_features)
         tolerances = None
         immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
-        if False and 'age' in immutable_features:
+        if 'age' in immutable_features:
             age_index = np.arange(X.columns.shape[0])[X.columns == 'age'][0]
             immutable_column_indices = immutable_column_indices[immutable_column_indices != age_index]
             transformed_unit = preprocessor.sc_dict['age'].transform([[1]])[0,0] - preprocessor.sc_dict['age'].transform([[0]])[0,0]
