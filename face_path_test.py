@@ -19,10 +19,10 @@ np.random.seed(88557)
 NUM_TASKS = 32
 
 RUN_LOCALLY = False
-INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs'
+INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_final'
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_path_output'
 if RUN_LOCALLY:
-    INPUT_DIR = './face_graphs'
+    INPUT_DIR = './face_graphs_final'
     OUTPUT_DIR = '../face_path_output'
     NUM_TASKS = 1
 
@@ -36,15 +36,19 @@ def test_launcher(p):
     graph = p['graph_payload']
     density_scores = p['density_payload']
 
-    np.random.seed(p['poi_seed'])
-    pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
     np.random.seed(p['seed'])
+    poi_index = p['poi_index']
+    poi = dataset.loc[[poi_index]].drop('Y', axis=1)
 
     get_positive_probability = lambda p: model.predict_proba(p.to_numpy())[0,1]
 
     num_trials = p['num_trials']
     k_dirs = p['k_dirs']
-    experiment_immutable_feature_names = p['experiment_immutable_features']
+    experiment_immutable_feature_names = None
+    if p['dataset'] == 'adult_income':
+        experiment_immutable_feature_names = ['age', 'race', 'sex']
+    elif p['dataset'] == 'german_credit':
+        experiment_immutable_feature_names = ['age', 'sex']
 
     column_names_per_feature = [] # list of lists
     for feature in dataset.columns.difference(['Y']):
@@ -69,32 +73,30 @@ def test_launcher(p):
     distance_threshold = p['distance_threshold']
     density_threshold = p['density_threshold']
     confidence_threshold = p['confidence_threshold']
-    conditions_function = None
-    age_tolerance = None
     immutable_features = None
-    immutable_column_indices = None
-    immutable_column_indices_full = None
+    feature_tolerances = None
     if p['immutable_features']:
         immutable_features = experiment_immutable_feature_names
-        X = preprocessor.transform(dataset).drop('Y', axis=1)
-        immutable_columns = preprocessor.get_feature_names_out(immutable_features)
-        tolerances = None
-        immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
-        if 'age' in immutable_features:
-            age_index = np.arange(X.columns.shape[0])[X.columns == 'age'][0]
-            immutable_column_indices_full = immutable_column_indices
-            immutable_column_indices = immutable_column_indices[immutable_column_indices != age_index]
-            transformed_unit = preprocessor.sc_dict['age'].transform([[1]])[0,0] - preprocessor.sc_dict['age'].transform([[0]])[0,0]
-            age_tolerance = 5.5
-            tolerances = {
-                age_index: transformed_unit * age_tolerance
-            }
-        conditions_function = lambda differences: immutable_conditions(differences, immutable_column_indices_full, tolerances=tolerances)
+        feature_tolerances = {
+            'age': 5.1
+        }
 
-    weight_function = lambda dir: scale_weight_function(dir, immutable_column_indices_full, p['weight_function_alpha'])
+    weight_function = lambda dir: utils.scale_weight_function(dir, p['weight_function_alpha'])
+
     perturb_dir = None
     if p['perturb_dir_random_scale'] is not None:
-        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir, immutable_column_indices_full)
+        num_features = dataset.select_dtypes(include=np.number).columns.difference(['Y'])
+        cat_features = dataset.columns.difference(num_features).difference(['Y'])
+        perturb_dir = lambda point, dir: utils.random_perturb_dir(
+            preprocessor,
+            p['perturb_dir_random_scale'],
+            p['perturb_dir_random_scale'],
+            point,
+            dir,
+            num_features,
+            cat_features,
+            immutable_features)
+
     max_iterations = p['max_iterations']
 
     kde_bandwidth = p['kde_bandwidth']
@@ -104,8 +106,7 @@ def test_launcher(p):
                 clf,
                 distance_threshold,
                 confidence_threshold,
-                density_threshold,
-                conditions_function=conditions_function)
+                density_threshold)
     face.set_graph_from_memory(graph, density_scores, kde_bandwidth, kde_rtol)
     test = FacePathTestRunner(num_trials,
                               dataset,
@@ -118,11 +119,11 @@ def test_launcher(p):
                               get_positive_probability,
                               perturb_dir,
                               max_iterations,
-                              pois,
+                              None,
                               immutable_features=immutable_features,
-                              age_tolerance=age_tolerance)
-    stats, aggregated_stats = test.run_test()
-    return aggregated_stats
+                              feature_tolerances=feature_tolerances)
+    stats, paths = test.run_trial(poi)
+    return paths
 
 
 def scale_weight_function(dir, immutable_column_indices, rescale_factor):
@@ -131,7 +132,7 @@ def scale_weight_function(dir, immutable_column_indices, rescale_factor):
     return new_dir
 
 
-def get_params(num_trials, dataset_str):
+def get_params(dataset_str, dataset_poi_indices, seed):
     """Create a dataframe of input parameters.
     
     Each row of the dataframe contains a setting over parameters used by test_launcher to launch a test.
@@ -142,13 +143,15 @@ def get_params(num_trials, dataset_str):
 
     # simple parameters have no conflicts
     simple_params = {
-        'num_trials': [num_trials],
+        'seed': [seed],
+        'num_trials': [1],
         'k_dirs': [4],
         'max_iterations': [15],
         'model': ['svc', 'random_forest'],
         'confidence_threshold': [0.7],
-        'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4],
-        'weight_function_alpha': [0.7]
+        'perturb_dir_random_scale': [None, 0.25, 0.5, 0.75, 1],
+        'weight_function_alpha': [0.7],
+        'poi_index': dataset_poi_indices
     }
 
     dataset = None
@@ -156,24 +159,22 @@ def get_params(num_trials, dataset_str):
         dataset = [
             {
             'dataset': ['adult_income'],
-            'experiment_immutable_features': [['age', 'sex', 'race']],
             'immutable_features': [True],
             'kde_bandwidth': [0.13],
             'kde_rtol': [1000],
-            'density_threshold': [0, np.exp(6), np.exp(7)],
-            'distance_threshold': [1,1.25,1.5,2],
+            'density_threshold': [0],
+            'distance_threshold': [2],
             }
         ]
     elif dataset_str == 'german_credit':
         dataset = [
             {
             'dataset': ['german_credit'],
-            'experiment_immutable_features': [['age', 'sex']],
             'immutable_features': [True],
             'kde_bandwidth': [0.29],
             'kde_rtol': [None],
-            'density_threshold': [0, np.exp(12.771), np.exp(12.773)], # anything below this number will be culled
-            'distance_threshold': [1.5,2,4,8],
+            'density_threshold': [0], # anything below this number will be culled
+            'distance_threshold': [8],
             }
         ]
 
@@ -190,26 +191,30 @@ def get_params(num_trials, dataset_str):
     return list(ParameterGrid(params))
 
 
-def write_dataframe(params_df, results_dataframe_list, output_file):
-    results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
-    results_dataframe = results_dataframe
-    final_df = pd.concat([params_df.reset_index(), results_dataframe], axis=1)
+def clean_dict(d):
+    d2 = {}
+    for key, val in d.items():
+        if key not in ['dataset_payload', 'preprocessor_payload', 'model_payload', 'density_payload', 'graph_payload']:
+            d2[key] = val
+    return d2
+
+
+def write_dataframe(columns, preprocessor, param_dicts, results_list, output_file):
+    results_dataframes = []
+    for param_dict, results in zip(param_dicts, results_list):
+        paths = results
+        paths_df = pd.DataFrame(columns=columns)
+        for i, path in enumerate(paths):
+            path_df = preprocessor.inverse_transform(path)
+            path_df['path_index'] = i
+            paths_df = pd.concat([paths_df, path_df], ignore_index=True)
+        param_dict = clean_dict(param_dict)
+        keys = list(param_dict.keys())
+        values = list(param_dict.values())
+        paths_df.loc[:,keys] = values
+        results_dataframes.append(paths_df)
+    final_df = pd.concat(results_dataframes, ignore_index=True)
     final_df.to_pickle(output_file)
-    if RUN_LOCALLY:
-        outputs = [
-            'dataset',
-            'model',
-            #'density_threshold',
-            #'confidence_threshold',
-            'Positive Probability (mean)',
-            #'Model Certainty (mean)',
-            'Final Point Distance (mean)',
-            #'Point Sparsity (mean)',
-            'Path Immutable Violations (mean)',
-            'success_ratio',
-            #'Diversity (mean)'
-        ]
-        print(final_df[outputs])
 
 
 def aux_data_from_params(params):
@@ -241,7 +246,9 @@ def run_experiment():
     print("dataset is ", dataset)
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
 
-    num_trials = 30
+    num_trials = 100
+    if RUN_LOCALLY:
+        num_trials = 2
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
@@ -258,19 +265,19 @@ def run_experiment():
         print("No dataset recognized")
         return
 
-    poi_seed = 148294
+    poi_indices = np.random.choice(dataset_payload[dataset_payload.Y == -1].index, size=num_trials)
+    seed = 885577
 
-    all_params = get_params(num_trials, dataset)
+    all_params = get_params(dataset, poi_indices, seed)
     print(len(all_params))
     if num_tests == 0:
         num_tests = len(all_params)
     print(f"Run {num_tests} tests")
+
     params = all_params[:num_tests]
     density_score_list, graph_list = aux_data_from_params(params)
     for param_dict, density_score, graph in zip(params, density_score_list, graph_list):
         new_params = {
-            'poi_seed': poi_seed,
-            'seed': np.random.randint(999999),
             'dataset_payload': dataset_payload,
             'preprocessor_payload': preprocessor_payload,
             'model_payload': models[(param_dict['model'], param_dict['dataset'])],
@@ -282,8 +289,8 @@ def run_experiment():
     results = None
     with multiprocessing.Pool(NUM_TASKS) as p:
         results = p.map(test_launcher, params)
-    param_df = pd.DataFrame(params).drop(['dataset_payload', 'preprocessor_payload', 'model_payload', 'density_payload', 'graph_payload'], axis=1)
-    write_dataframe(param_df, results, output_file)
+    columns = dataset_payload.columns.difference(['Y'])
+    write_dataframe(columns, preprocessor_payload, params, results, output_file)
     print("Finished experiment.")
 
 
