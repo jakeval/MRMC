@@ -23,7 +23,7 @@ def centroid_normalization(dir, poi, X, alpha=0.7):
     dir = (alpha * dir * centroid_dist) / np.sqrt(dir@dir)
     return dir
 
-def scale_weight_function(dir, immutable_column_indices, rescale_factor):
+def scale_weight_function(dir, rescale_factor):
     new_dir = dir * rescale_factor
     return new_dir
 

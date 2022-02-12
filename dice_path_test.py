@@ -16,7 +16,7 @@ import os
 np.random.seed(88557)
 
 RUN_LOCALLY = False
-NUM_TASKS = 12
+NUM_TASKS = 48
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/dice_path_output'
 if RUN_LOCALLY:
     OUTPUT_DIR = '../dice_path_output'
@@ -39,9 +39,9 @@ def test_launcher(p):
     preprocessor = p['preprocessor_payload']
     dataset = p['dataset_payload']
 
-    np.random.seed(p['poi_seed'])
-    pois = np.random.choice(dataset[dataset.Y == -1].index, size=p['num_trials'])
     np.random.seed(p['seed'])
+    poi_index = p['poi_index']
+    poi = dataset.loc[[poi_index]].drop('Y', axis=1)
 
     d = dice_ml.Data(dataframe=dataset, continuous_features=preprocessor.continuous_features, outcome_name='Y')
     clf = Pipeline(steps=[('preprocessor', preprocessor),
@@ -96,12 +96,23 @@ def test_launcher(p):
     
     max_iterations = p['max_iterations']
 
-    weight_function = lambda dir: scale_weight_function(dir, immutable_column_indices, p['weight_function_alpha'])
+    weight_function = lambda dir: utils.scale_weight_function(dir, p['weight_function_alpha'])
+
     perturb_dir = None
     if p['perturb_dir_random_scale'] is not None:
-        perturb_dir = lambda dir: utils.random_perturb_dir(p['perturb_dir_random_scale'], dir, immutable_column_indices)
+        num_features = dataset.select_dtypes(include=np.number).columns.difference(['Y'])
+        cat_features = dataset.columns.difference(num_features).difference(['Y'])
+        perturb_dir = lambda point, dir: utils.random_perturb_dir(
+            preprocessor,
+            p['perturb_dir_random_scale'],
+            p['perturb_dir_random_scale'],
+            point,
+            dir,
+            num_features,
+            cat_features,
+            immutable_features)
 
-    num_trials = p['num_trials']
+    num_trials = 1
     certainty_cutoff = p['certainty_cutoff']
     test = DicePathTestRunner(num_trials,
                               dataset,
@@ -114,22 +125,16 @@ def test_launcher(p):
                               max_iterations,
                               weight_function,
                               get_positive_probability,
-                              pois,
+                              None,
                               perturb_dir=perturb_dir,
                               immutable_features=immutable_features,
                               feature_tolerances=feature_tolerances)
 
-    _, aggregated_stats = test.run_test()
-    return aggregated_stats
+    stats, paths, poi = test.run_trial(poi)
+    return paths
 
 
-def scale_weight_function(dir, immutable_column_indices, rescale_factor):
-    new_dir = dir * rescale_factor
-    new_dir[:,immutable_column_indices] = dir[:,immutable_column_indices]
-    return new_dir
-
-
-def get_params(num_trials, dataset_str):
+def get_params(dataset_str, dataset_poi_indices, seed):
     """Create a dataframe of input parameters.
     
     Each row of the dataframe contains a setting over parameters used by test_launcher to launch a test.
@@ -140,37 +145,43 @@ def get_params(num_trials, dataset_str):
 
     # simple parameters have no conflicts
     params = {
-        'num_trials': [num_trials],
+        'seed': [seed],
+        'num_trials': [1],
         'max_iterations': [15],
         'weight_function_alpha': [0.7],
-        'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4],
+        'perturb_dir_random_scale': [None, 0.25, 0.5, 0.75, 1],
         'k_paths': [4],
         'model': ['svc', 'random_forest'],
         'immutable_features': [True],
         'dataset': [dataset_str],
-        'certainty_cutoff': [0.7]
+        'certainty_cutoff': [0.7],
+        'poi_index': dataset_poi_indices,
     }
     
     return list(ParameterGrid(params))
 
-def write_dataframe(params_df, results_dataframe_list, output_file):
-    results_dataframe = pd.concat(results_dataframe_list, axis=0).reset_index()
-    results_dataframe = results_dataframe
-    final_df = pd.concat([params_df.reset_index(), results_dataframe], axis=1)
+def clean_dict(d):
+    d2 = {}
+    for key, val in d.items():
+        if key not in ['dataset_payload', 'preprocessor_payload', 'model_payload']:
+            d2[key] = val
+    return d2
+
+def write_dataframe(columns, preprocessor, param_dicts, results_list, output_file):
+    results_dataframes = []
+    for param_dict, paths in zip(param_dicts, results_list):
+        paths_df = pd.DataFrame(columns=columns)
+        for i, path in enumerate(paths):
+            path_df = preprocessor.inverse_transform(path)
+            path_df['path_index'] = i
+            paths_df = pd.concat([paths_df, path_df], ignore_index=True)
+        param_dict = clean_dict(param_dict)
+        keys = list(param_dict.keys())
+        values = list(param_dict.values())
+        paths_df.loc[:,keys] = values
+        results_dataframes.append(paths_df)
+    final_df = pd.concat(results_dataframes, ignore_index=True)
     final_df.to_pickle(output_file)
-    if RUN_LOCALLY:
-        outputs = [
-            'model',
-            'perturb_dir_random_scale',
-            #'certainty_cutoff',
-            'Positive Probability (mean)',
-            #'Model Certainty (mean)',
-            'Final Point Distance (mean)',
-            #'Path Count (mean)',
-            'Path Immutable Violations (mean)'
-            #'Point Sparsity (mean)',
-        ]
-        print(final_df[outputs])
 
 def run_experiment():
     print("starting the script...")
@@ -180,9 +191,10 @@ def run_experiment():
     dataset = args[1]
     print("dataset is ", dataset)
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
-    num_trials = 30
+
+    num_trials = 100
     if RUN_LOCALLY:
-        num_trials = 1
+        num_trials = 2
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
@@ -199,18 +211,19 @@ def run_experiment():
     else:
         print("No dataset recognized")
         return
-    poi_seed = 148294
 
-    all_params = get_params(num_trials, dataset)
+    poi_indices = np.random.choice(dataset_payload[dataset_payload.Y == -1].index, size=num_trials)
+    seed = 885577
+
+    all_params = get_params(dataset, poi_indices, seed)
     print(len(all_params))
     if num_tests == 0:
         num_tests = len(all_params)
     print(f"Run {num_tests} tests")
+
     params = all_params[:num_tests]
     for param_dict in params:
         new_params = {
-            'poi_seed': poi_seed,
-            'seed': np.random.randint(999999),
             'dataset_payload': dataset_payload,
             'preprocessor_payload': preprocessor_payload,
             'model_payload': models[(param_dict['model'], param_dict['dataset'])]
@@ -220,10 +233,8 @@ def run_experiment():
     results = None
     with multiprocessing.Pool(NUM_TASKS) as p:
         results = p.map(test_launcher, params)
-
-    param_df = pd.DataFrame(params).drop(['dataset_payload', 'preprocessor_payload', 'model_payload'], axis=1)
-
-    write_dataframe(param_df, results, output_file)
+    columns = dataset_payload.columns.difference(['Y'])
+    write_dataframe(columns, preprocessor_payload, params, results, output_file)
     print("Finished experiment.")
 
 

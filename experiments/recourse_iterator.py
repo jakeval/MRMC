@@ -22,21 +22,23 @@ def validate_point(point, preprocessor):
     point = preprocessor.transform(point)
     return point
 
-def generate_path(p1, 
-                  p2, 
-                  preprocessor, 
-                  max_iterations, 
-                  certainty_cutoff, 
-                  get_recourse, 
-                  get_positive_probability, 
-                  weight_function, 
+def generate_path(p1,
+                  p2,
+                  preprocessor,
+                  max_iterations,
+                  certainty_cutoff,
+                  get_recourse,
+                  get_positive_probability,
+                  weight_function,
                   perturb_dir=None):
     path = p1.reset_index(drop=True)
+    p1 = p1.reset_index(drop=True)
+    p2 = p2.reset_index(drop=True)
     for i in range(max_iterations):
-        dir = p2.to_numpy() - p1.to_numpy()
+        dir = p2 - p1
         dir = weight_function(dir) # rescale the direction
         if perturb_dir is not None:
-            dir = perturb_dir(dir)
+            dir = perturb_dir(p1, dir)
         perturbed_point = p1 + dir
         perturbed_point = validate_point(perturbed_point, preprocessor)
         path = path.append(perturbed_point, ignore_index=True)

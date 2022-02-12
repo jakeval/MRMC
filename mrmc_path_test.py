@@ -141,7 +141,7 @@ def get_params(dataset_str, dataset_poi_indices, seed):
         'validate': [True],
         'sparsity': [False],
         'model': ['random_forest', 'svc'],
-        'perturb_dir_random_scale': [None, 0.25, 0.5, 1, 2, 4],
+        'perturb_dir_random_scale': [None, 0.25, 0.5, 0.75, 1],
         'poi_index': dataset_poi_indices,
     }
 
