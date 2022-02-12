@@ -16,7 +16,7 @@ import os
 sys.path.append(os.getcwd())
 np.random.seed(88557)
 
-NUM_TASKS = 32
+NUM_TASKS = 48
 
 RUN_LOCALLY = False
 INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_final'

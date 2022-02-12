@@ -85,12 +85,12 @@ class FacePathTestRunner:
         self.face.clear_immutable_condition()
 
         if paths is None:
-            return self.get_null_results(), None
+            return self.get_null_results(), [poi.reset_index(drop=True)]*self.k_points
         for path in paths:
             if path is None:
-                return self.get_null_results(), None
+                return self.get_null_results(), [poi.reset_index(drop=True)]*self.k_points
         if len(paths) == 0:
-            return self.get_null_results(), None
+            return self.get_null_results(), [poi.reset_index(drop=True)]*self.k_points
 
         return self.collect_statistics(self.dataset.loc[[poi_index],:].drop('Y', axis=1), paths), paths
 
