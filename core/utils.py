@@ -71,10 +71,15 @@ def random_perturb_dir(preprocessor, scale, categorical_prob, p1, dir, num_featu
     r = (r * (scale * original_norm)) / np.linalg.norm(r)
 
     # rescale the perturbed direction to the original magnitude
-    old_numeric_values = new_dir[num_features].to_numpy()
-    new_numeric_values = old_numeric_values + r
-    new_numeric_values = (new_numeric_values * np.linalg.norm(old_numeric_values)) / np.linalg.norm(new_numeric_values)
-    new_dir.loc[:,num_features] = new_numeric_values
+    num_only = False
+    if num_only:
+        old_numeric_values = new_dir[num_features].to_numpy()
+        new_numeric_values = old_numeric_values + r
+        new_numeric_values = (new_numeric_values * np.linalg.norm(old_numeric_values)) / np.linalg.norm(new_numeric_values)
+        new_dir.loc[:,num_features] = new_numeric_values
+    else:
+        new_dir = new_dir * np.linalg.norm(dir.to_numpy()) / np.linalg.norm(new_dir.to_numpy())
+
     return new_dir
 
 def perturb_point(scale, x):
@@ -94,7 +99,8 @@ def priority_dir(dir, k=5):
     return pd.DataFrame(columns=dir.columns, data=dir_new)
 
 def constant_step_size(dir, step_size=1):
-    return step_size*dir / np.sqrt(dir@dir)
+    normalization = np.linalg.norm(dir.to_numpy())
+    return step_size*dir / normalization
 
 def preference_dir(preferences, epsilon, max_step_size, dir):
     for dimension in preferences:

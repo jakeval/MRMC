@@ -81,7 +81,8 @@ def test_launcher(p):
             'age': 5.1
         }
 
-    weight_function = lambda dir: utils.scale_weight_function(dir, p['weight_function_alpha'])
+    #weight_function = lambda dir: utils.scale_weight_function(dir, p['weight_function_alpha'])
+    weight_function = lambda dir: utils.constant_step_size(dir, p['step_size'])
 
     perturb_dir = None
     if p['perturb_dir_random_scale'] > 0:
@@ -155,7 +156,7 @@ def get_params(dataset_str, dataset_poi_indices, seed):
         'model': ['svc', 'random_forest'],
         'confidence_threshold': [0.7],
         'perturb_dir_random_scale': [0, 0.25, 0.5, 0.75, 1],
-        'weight_function_alpha': [0.3, 0.7],
+        'step_size': [1,1.25,1.5],
         'poi_index': dataset_poi_indices
     }
 
@@ -242,7 +243,7 @@ def aux_data_from_params(params):
         density_score_list.append(density_scores)
         graph_list.append(graph)
     return density_score_list, graph_list
-        
+
 
 def run_experiment():
     print("starting the script...")

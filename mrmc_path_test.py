@@ -82,6 +82,8 @@ def test_launcher(p):
     weight_function = None
     if p['weight_function'] == 'centroid':
         weight_function = lambda dir, poi, X: utils.centroid_normalization(dir, poi, X, alpha=p['weight_centroid_alpha'])
+    elif p['weight_function'] == 'const':
+        weight_function = lambda dir, poi, X: utils.constant_step_size(dir, p['step_size'])
     alpha_function = None
     if p['alpha_function'] == 'volcano':
         alpha_function = lambda dist: utils.volcano_alpha(dist, cutoff=p['alpha_volcano_cutoff'], degree=p['alpha_volcano_degree'])
@@ -141,7 +143,7 @@ def get_params(dataset_str, dataset_poi_indices, seed):
     simple_params = {
         'seed': [seed],
         'num_trials': [1],
-        'k_dirs': [1,2,4],
+        'k_dirs': [4],
         'max_iterations': [15],
         'validate': [True],
         'sparsity': [False],
@@ -173,8 +175,8 @@ def get_params(dataset_str, dataset_poi_indices, seed):
 
     weight_function = [
         {
-            'weight_function': ['centroid'],
-            'weight_centroid_alpha': [0.3,0.7]
+            'weight_function': ['const'],
+            'step_size': [1, 1.25, 1.5]
         },
     ]
 
@@ -182,7 +184,7 @@ def get_params(dataset_str, dataset_poi_indices, seed):
         {
             'alpha_function': ['volcano'],
             'alpha_volcano_cutoff': [0.2],
-            'alpha_volcano_degree': [4,16]
+            'alpha_volcano_degree': [4]
         },
     ]
 

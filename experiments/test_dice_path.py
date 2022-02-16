@@ -49,7 +49,8 @@ class DicePathTestRunner:
                 features_to_vary=self.features_to_vary,
                 permitted_range=permitted_range,
                 random_seed=88557,
-                stopping_threshold=self.certainty_cutoff)
+                stopping_threshold=self.certainty_cutoff,
+                verbose=0)
             .cf_examples_list[0].final_cfs_df).drop('Y', axis=1)
 
         paths = recourse_iterator.iterate_recourse(

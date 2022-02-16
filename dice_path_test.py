@@ -96,10 +96,11 @@ def test_launcher(p):
     
     max_iterations = p['max_iterations']
 
-    weight_function = lambda dir: utils.scale_weight_function(dir, p['weight_function_alpha'])
+    #weight_function = lambda dir: utils.scale_weight_function(dir, p['weight_function_alpha'])
+    weight_function = lambda dir: utils.constant_step_size(dir, p['step_size'])
 
     perturb_dir = None
-    if p['perturb_dir_random_scale'] is not None:
+    if p['perturb_dir_random_scale'] > 0:
         num_features = dataset.select_dtypes(include=np.number).columns.difference(['Y'])
         cat_features = dataset.columns.difference(num_features).difference(['Y'])
         perturb_dir = lambda point, dir: utils.random_perturb_dir(
@@ -153,8 +154,8 @@ def get_params(dataset_str, dataset_poi_indices, seed):
         'seed': [seed],
         'num_trials': [1],
         'max_iterations': [15],
-        'weight_function_alpha': [0.3, 0.7],
-        'perturb_dir_random_scale': [None, 0.25, 0.5, 0.75, 1],
+        'step_size': [1, 1.25, 1.5],
+        'perturb_dir_random_scale': [0, 0.25, 0.5, 0.75, 1],
         'k_paths': [4],
         'model': ['svc', 'random_forest'],
         'immutable_features': [True],
