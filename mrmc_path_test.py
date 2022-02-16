@@ -209,6 +209,7 @@ def clean_dict(d):
 
 def write_dataframe(columns, preprocessor, param_dicts, results_list, output_file):
     results_dataframes = []
+    trial_key = 0
     for param_dict, results in zip(param_dicts, results_list):
         paths, cluster_centers = results
         paths_df = pd.DataFrame(columns=columns)
@@ -216,6 +217,8 @@ def write_dataframe(columns, preprocessor, param_dicts, results_list, output_fil
             path_df = preprocessor.inverse_transform(path)
             path_df['path_index'] = i
             paths_df = pd.concat([paths_df, path_df], ignore_index=True)
+        paths_df['trial_key'] = trial_key
+        trial_key += 1
         param_dict = clean_dict(param_dict)
         keys = list(param_dict.keys())
         values = list(param_dict.values())
