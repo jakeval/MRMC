@@ -84,7 +84,7 @@ def test_launcher(p):
     weight_function = lambda dir: utils.scale_weight_function(dir, p['weight_function_alpha'])
 
     perturb_dir = None
-    if p['perturb_dir_random_scale'] is not None:
+    if p['perturb_dir_random_scale'] > 0:
         num_features = dataset.select_dtypes(include=np.number).columns.difference(['Y'])
         cat_features = dataset.columns.difference(num_features).difference(['Y'])
         perturb_dir = lambda point, dir: utils.random_perturb_dir(
@@ -100,7 +100,7 @@ def test_launcher(p):
     max_iterations = p['max_iterations']
 
     kde_bandwidth = p['kde_bandwidth']
-    kde_rtol = p['kde_rtol']
+    kde_rtol = None if p['kde_rtol'] == 0 else p['kde_rtol'] == 0
 
     face = Face(k_dirs,
                 clf,
@@ -149,8 +149,8 @@ def get_params(dataset_str, dataset_poi_indices, seed):
         'max_iterations': [15],
         'model': ['svc', 'random_forest'],
         'confidence_threshold': [0.7],
-        'perturb_dir_random_scale': [None, 0.25, 0.5, 0.75, 1],
-        'weight_function_alpha': [0.7],
+        'perturb_dir_random_scale': [0, 0.25, 0.5, 0.75, 1],
+        'weight_function_alpha': [0.3, 0.7],
         'poi_index': dataset_poi_indices
     }
 
@@ -172,7 +172,7 @@ def get_params(dataset_str, dataset_poi_indices, seed):
             'dataset': ['german_credit'],
             'immutable_features': [True],
             'kde_bandwidth': [0.29],
-            'kde_rtol': [None],
+            'kde_rtol': [0],
             'density_threshold': [0], # anything below this number will be culled
             'distance_threshold': [8],
             }
