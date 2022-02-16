@@ -1,90 +1,23 @@
 import numpy as np
-from matplotlib import pyplot as plt
 import pandas as pd
 import os
+import sys
+
+import multiprocessing
 
 from experiments import stat_functions
 from data import data_adapter as da
 from models import model_utils
 
-plt.style.use('style.mplstyle')
+sys.path.append(os.getcwd())
 
+NUM_TASKS = 48
 
-def load_data(directory):
-    if not os.path.exists(f'{directory}/paths.csv'):
-        df1 = pd.read_pickle(f'{directory}/adult_income.pkl')
-        df2 = pd.read_pickle(f'{directory}/german_credit.pkl')
-        pd.concat([df1, df2], ignore_index=True).to_csv(f'{directory}/paths.csv', index=False)
-    df = pd.read_csv(f'{directory}/paths.csv')
-    return df
-
-
-def count_path_successes(paths, preprocessor, model, cutoff=0.7):
-    successes = 0
-    for path in paths:
-        point = preprocessor.transform(path.iloc[[-1]])
-        is_positive = model.predict_proba(point.to_numpy())[0,1] >= cutoff
-        if is_positive:
-            successes += 1
-    return successes
-
-
-def distance_comparison(baseline_paths, paths, preprocessor):
-    avg_distance = 0
-    for baseline_path, path in zip(baseline_paths, paths):
-        point = preprocessor.transform(path.iloc[[-1]])
-        baseline_point = preprocessor.transform(baseline_path.iloc[[-1]])
-        diff = point.to_numpy() - baseline_point.to_numpy()
-        avg_distance += np.linalg.norm(diff)
-    return avg_distance / len(baseline_paths)
-
-
-def get_stats_per_poi(df, param_columns, point_columns, stat_dict):
-    """
-    Returns a dataframe like:
-
-    [param1, param2, ..., poi_index, poi_stat1, poi_stat2]
-    """
-    print("Get POI stats")
-    result_df = pd.DataFrame(columns=(param_columns + list(stat_dict.keys()) + ['poi_index']))
-    for params, param_df in df.groupby(param_columns):
-        print(params)
-        for poi, poi_df in param_df.groupby('poi_index'):
-            paths = []
-            for path_index, path_df in poi_df.groupby('path_index'):
-                paths.append(path_df[point_columns])
-            stat_df = pd.DataFrame(columns=(param_columns + ['poi_index']), data=([list(params) + [poi]]))
-            for stat, calculate_stat in stat_dict.items():
-                stat_df.loc[:,stat] = calculate_stat(paths)
-            result_df = pd.concat([result_df, stat_df], ignore_index=True)
-    return result_df
-
-
-def get_comparison_path(comparison_df, param_value_tuples):
-    mask = np.ones(comparison_df.shape[0]).astype(np.bool8)
-    for param, value in param_value_tuples:
-        mask = mask & (comparison_df[param] == value)
-    return comparison_df.loc[mask,:].copy()
-
-
-def get_comparison_stats(comparison_df, df, comparison_param, param_columns, point_columns, stat_dict):
-    print("Get comparison stats")
-    result_df = pd.DataFrame(columns=(param_columns + list(stat_dict.keys()) + ['poi_index']))
-    for params, param_df in df.groupby(param_columns):
-        print(params)
-        for poi, poi_df in param_df.groupby('poi_index'):
-            paths = []
-            comparison_paths = []
-            for path_index, path_df in poi_df.groupby('path_index'):
-                paths.append(path_df[point_columns])
-                shared_params = list(filter(lambda pair: pair[0] != comparison_param, zip(param_columns, params)))
-                shared_params = shared_params + [('poi_index', poi), ('path_index', path_index)]
-                comparison_paths.append(get_comparison_path(comparison_df, shared_params)[point_columns])
-            stat_df = pd.DataFrame(columns=(param_columns + ['poi_index']), data=([list(params) + [poi]]))
-            for stat, calculate_stat in stat_dict.items():
-                stat_df.loc[:,stat] = calculate_stat(comparison_paths, paths)
-            result_df = pd.concat([result_df, stat_df], ignore_index=True)
-    return result_df
+RUN_LOCALLY = False
+BASE_DIR = '/mnt/nfs/home/jasonvallada'
+if RUN_LOCALLY:
+    BASE_DIR = '..'
+    NUM_TASKS = 1
 
 
 def aggregate_stats(stats_df, param_columns, stat_columns):
@@ -100,23 +33,96 @@ def aggregate_stats(stats_df, param_columns, stat_columns):
     return result_df
 
 
-def get_histogram(counts):
-    plt.hist(counts)
-    plt.show()
+
+def aggregate_stats(stats_df, param_columns, stat_columns):
+    result_df = pd.DataFrame(columns=(param_columns + stat_columns))
+    std_dev_columns = list(map(lambda column: f"{column} (std)", stat_columns))
+    for params, param_df in stats_df.groupby(param_columns):
+        print(params)
+        means, std_devs = param_df[stat_columns].mean(), param_df[stat_columns].std()
+        #print(means)
+        #print(stat_columns)
+        stat_df = pd.DataFrame(columns=param_columns, data=[params])
+        stat_df[stat_columns] = means
+        stat_df[std_dev_columns] = std_devs
+        result_df = pd.concat([result_df, stat_df], ignore_index=True)
+
+    return result_df
 
 
-def get_all_poi_stats(df, model, preprocessor, param_columns, point_columns):
-    column_names_per_feature = [] # list of lists
-    for feature in point_columns:
-        column_names_per_feature.append(preprocessor.get_feature_names_out([feature]))
+def write_dataframe(results, directory, dataset):
+    result_df = pd.concat(results, ignore_index=True)
+    result_df.to_csv(f'{directory}/{dataset}_stats.csv')
+    if RUN_LOCALLY:
+        print(result_df[['k_dirs', 'poi_index']])
 
-    comparison_param = 'perturb_dir_random_scale'
-    baseline_df = df[df[comparison_param] == 0]
 
-    num_columns = df[point_columns].select_dtypes(include=np.number).columns.difference(['Y'])
+def run_analysis():
+    print("starting the script...")
+    args = sys.argv
+    dataset = args[1]
+    method = args[2]
+    directory = f'{BASE_DIR}/{method}_path_output'
+    print(dataset, method)
+
+    params = get_params(directory, dataset)
+    results = None
+    with multiprocessing.Pool(NUM_TASKS) as p:
+        results = p.map(collect_stats, params)
+    write_dataframe(results, directory, dataset)
+
+
+def get_params(directory, dataset):
+    df = pd.read_pickle(f'{directory}/{dataset}.pkl')
+    d, p = None, None
+    if dataset == 'adult_income':
+        d, _, p = da.load_adult_income_dataset()
+    elif dataset == 'german_credit':
+        d, _, p = da.load_german_credit_dataset()
+
+    misc_columns = ['path_index', 'path_order', 'trial_key']
+    point_columns = list(d.columns.difference(['Y']))
+    param_columns = list(df.columns.difference(d.columns).difference(misc_columns))
+
+    num_columns = list(df[point_columns].select_dtypes(include=np.number).columns)
     cat_columns = list(filter(lambda col: col not in num_columns, point_columns))
 
-    stats = {
+    shared_params = {
+        'preprocessor_payload': p,
+        'num_columns': num_columns,
+        'cat_columns': cat_columns,
+        'point_columns': point_columns,
+        'param_columns': param_columns,
+    }
+
+    param_dicts = []
+    for trial_key in df['trial_key'].unique():
+        param_dict = {}
+        param_dict.update(shared_params)
+
+        paths_df = df[df['trial_key'] == trial_key]
+        param_dict['paths_payload'] = paths_df
+
+        model = paths_df['model'].unique()[0]
+        param_dict['model_payload'] = model_utils.load_model(model, dataset)
+        param_dicts.append(param_dict)
+
+    return param_dicts
+
+
+def collect_stats(p):
+    preprocessor = p['preprocessor_payload']
+    model = p['model_payload']
+    df = p['paths_payload']
+
+    num_columns = p['num_columns']
+    cat_columns = p['cat_columns']
+    point_columns = p['point_columns']
+    param_columns = p['param_columns']
+
+    # poi_index, path_index, path_order, trial_key
+
+    stat_dict = {
         'Iterations': stat_functions.check_path_count,
         'Path Length': lambda paths: stat_functions.check_path_length(preprocessor, paths),
         'Positive Probability': lambda paths: stat_functions.check_positive_probability(preprocessor, model, paths, 0.7),
@@ -126,88 +132,34 @@ def get_all_poi_stats(df, model, preprocessor, param_columns, point_columns):
         'Diversity': lambda paths: stat_functions.check_diversity(preprocessor, paths),
     }
 
-    comparison_stats = {
-        'Comparison Distance': lambda df1, df2: stat_functions.distance_comparison(df1, df2, preprocessor),
+    comparison_stat_dict = {
+        #'Comparison Distance': lambda df1, df2: stat_functions.distance_comparison(df1, df2, preprocessor),
         #'Comparison Similarity': lambda df1, df2: stat_functions.cosine_comparison(df1, df2, preprocessor)
     }
 
+    stat_columns = list(stat_dict.keys()) + list(comparison_stat_dict.keys())
 
-    poi_results = get_stats_per_poi(df,
-                                  param_columns, point_columns,
-                                  stats)
+    paths = []
 
-    comparison_results = get_comparison_stats(baseline_df,
-                                            df,
-                                            comparison_param,
-                                            param_columns,
-                                            point_columns,
-                                            comparison_stats)
-    poi_results[list(comparison_stats.keys())] = comparison_results[list(comparison_stats.keys())]
-    return poi_results
+    for path_idx in df['path_index'].unique():
+        path_df = df[df['path_index'] == path_idx].sort_values('path_order')
+        path_points = path_df[point_columns]
+        paths.append(path_points)
 
+    stat_df = pd.DataFrame(columns=stat_columns, data=np.zeros((1, len(stat_columns))))
+    for stat, calculate_stat in stat_dict.items():
+        stat_df.loc[:,stat] = calculate_stat(paths) # returns a single stat
 
-def clean_paths(df):
-    df.loc[df['perturb_dir_random_scale'].isnull(),'perturb_dir_random_scale'] = 0
-    if 'kde_rtol' in df.columns:
-        df = df.drop('kde_rtol', axis=1)
-    return df
+    stat_df[param_columns] = df.loc[df.index[0],param_columns]
 
+    return stat_df
 
-def write_poi_stats(directory):
-    # Adult Income
-    print("load adult")
-    d, _, p = da.load_adult_income_dataset()
-    df = clean_paths(pd.read_pickle(f'{directory}/adult_income.pkl'))
-    rf_model = model_utils.load_model('random_forest', 'adult_income')
-    lr_model = model_utils.load_model('svc', 'adult_income')
-    misc_columns = ['poi_index', 'path_index']
-    param_columns = list(df.columns.difference(d.columns).difference(misc_columns))
-    point_columns = list(d.columns.difference(['Y']))
-    print("get RF stats")
-    adult_rf_results = get_all_poi_stats(df[df['model'] == 'random_forest'], rf_model, p, param_columns, point_columns)
-    print(adult_rf_results)
-    print("get LR stats")
-    adult_lr_results = get_all_poi_stats(df[df['model'] == 'svc'], lr_model, p, param_columns, point_columns)
-    print(adult_lr_results)
-
-    # German Credit
-    print("load german")
-    d, _, p = da.load_german_credit_dataset()
-    df = clean_paths(pd.read_pickle(f'{directory}/german_credit.pkl'))
-    rf_model = model_utils.load_model('random_forest', 'german_credit')
-    lr_model = model_utils.load_model('svc', 'german_credit')
-    misc_columns = ['poi_index', 'path_index']
-    param_columns = list(df.columns.difference(d.columns).difference(misc_columns))
-    print("At start ", param_columns)
-    point_columns = list(d.columns.difference(['Y']))
-    print("get RF stats")
-    german_rf_results = get_all_poi_stats(df[df['model'] == 'random_forest'], rf_model, p, param_columns, point_columns)
-    print(german_rf_results)
-    print("get LR stats")
-    german_lr_results = get_all_poi_stats(df[df['model'] == 'svc'], lr_model, p, param_columns, point_columns)
-    print(german_lr_results)
-
-    #path_stats = pd.concat([adult_rf_results, adult_lr_results, german_rf_results, german_lr_results], ignore_index=True)
-    #path_stats.to_csv(f'{directory}/poi_stats.csv', index=False)
-    #print(path_stats)
-
-
-def aggregate_stats(stats_df, param_columns, stat_columns):
-    result_df = pd.DataFrame(columns=(param_columns + stat_columns))
-    std_dev_columns = list(map(lambda column: f"{column} (std)", stat_columns))
-    for params, param_df in stats_df.groupby(param_columns):
-        print(params)
-        means, std_devs = param_df[stat_columns].mean(), param_df[stat_columns].std()
-        stat_df = pd.DataFrame(columns=param_columns, data=[params])
-        stat_df.loc[:,stat_columns] = means
-        stat_df.loc[:,std_dev_columns] = std_devs
-        result_df = pd.concat([result_df, stat_df], ignore_index=True)
-
-    return result_df
 
 
 def write_aggregated_stats(directory):
-    df = pd.read_csv(f'{directory}/poi_stats.csv')
+    df = pd.read_csv(f'{directory}/poi_stats.csv').drop('kde_rtol', axis=1)
+    print(df.columns)
+    print(df['dataset'].unique())
 
     stat_columns = [
         'Iterations',
@@ -228,5 +180,6 @@ def write_aggregated_stats(directory):
 
 
 if __name__ == '__main__':
-    write_poi_stats('../face_path_output')
+    #write_poi_stats('../face_path_output')
     #write_aggregated_stats('../face_path_output')
+    run_analysis()
