@@ -64,7 +64,7 @@ def test_launcher(p):
         }
 
     perturb_dir = None
-    if p['perturb_dir_random_scale'] is not None:
+    if p['perturb_dir_random_scale'] > 0:
         num_features = dataset.select_dtypes(include=np.number).columns.difference(['Y'])
         cat_features = dataset.columns.difference(num_features).difference(['Y'])
         perturb_dir = lambda point, dir: utils.random_perturb_dir(
@@ -120,7 +120,12 @@ def test_launcher(p):
                         point_statistics, cluster_statistics, None, immutable_features=immutable_features,
                         immutable_strict=False, feature_tolerances=feature_tolerances)
     stats, paths, cluster_centers = test.run_trial(poi)
-    return paths, cluster_centers
+    paths_indexed = []
+    for path in paths:
+        path = path.copy()
+        path['path_order'] = np.arange(path.shape[0])
+        paths_indexed.append(path)
+    return paths_indexed, cluster_centers
 
 
 def get_params(dataset_str, dataset_poi_indices, seed):
@@ -136,12 +141,12 @@ def get_params(dataset_str, dataset_poi_indices, seed):
     simple_params = {
         'seed': [seed],
         'num_trials': [1],
-        'k_dirs': [4],
+        'k_dirs': [1,2,4],
         'max_iterations': [15],
         'validate': [True],
         'sparsity': [False],
         'model': ['random_forest', 'svc'],
-        'perturb_dir_random_scale': [None, 0.25, 0.5, 0.75, 1],
+        'perturb_dir_random_scale': [0, 0.25, 0.5, 0.75, 1],
         'poi_index': dataset_poi_indices,
     }
 
@@ -169,7 +174,7 @@ def get_params(dataset_str, dataset_poi_indices, seed):
     weight_function = [
         {
             'weight_function': ['centroid'],
-            'weight_centroid_alpha': [0.7]
+            'weight_centroid_alpha': [0.3,0.7]
         },
     ]
 
@@ -177,7 +182,7 @@ def get_params(dataset_str, dataset_poi_indices, seed):
         {
             'alpha_function': ['volcano'],
             'alpha_volcano_cutoff': [0.2],
-            'alpha_volcano_degree': [4]
+            'alpha_volcano_degree': [4,16]
         },
     ]
 
