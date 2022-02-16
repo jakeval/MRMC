@@ -100,7 +100,9 @@ def priority_dir(dir, k=5):
 
 def constant_step_size(dir, step_size=1):
     normalization = np.linalg.norm(dir.to_numpy())
-    return step_size*dir / normalization
+    if normalization <= MIN_DIRECTION:
+        return dir
+    return (step_size*dir) / normalization
 
 def preference_dir(preferences, epsilon, max_step_size, dir):
     for dimension in preferences:

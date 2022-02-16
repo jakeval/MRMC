@@ -234,6 +234,8 @@ def aux_data_from_params(params):
         dataset = param_dict['dataset']
         bandwidth = param_dict['kde_bandwidth']
         rtol = param_dict['kde_rtol']
+        if rtol == 0:
+            rtol = None
         distance_threshold = param_dict['distance_threshold']
         use_conditions = param_dict['immutable_features']
         awkward_key = f"{dataset}-{bandwidth}-{rtol}-{distance_threshold}-{use_conditions}"
