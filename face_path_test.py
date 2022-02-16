@@ -123,7 +123,12 @@ def test_launcher(p):
                               immutable_features=immutable_features,
                               feature_tolerances=feature_tolerances)
     stats, paths = test.run_trial(poi)
-    return paths
+    paths_indexed = []
+    for path in paths:
+        path = path.copy()
+        path['path_order'] = np.arange(path.shape[0])
+        paths_indexed.append(path)
+    return paths_indexed
 
 
 def scale_weight_function(dir, immutable_column_indices, rescale_factor):
@@ -201,6 +206,7 @@ def clean_dict(d):
 
 def write_dataframe(columns, preprocessor, param_dicts, results_list, output_file):
     results_dataframes = []
+    trial_key = 0
     for param_dict, results in zip(param_dicts, results_list):
         paths = results
         paths_df = pd.DataFrame(columns=columns)
@@ -208,6 +214,8 @@ def write_dataframe(columns, preprocessor, param_dicts, results_list, output_fil
             path_df = preprocessor.inverse_transform(path)
             path_df['path_index'] = i
             paths_df = pd.concat([paths_df, path_df], ignore_index=True)
+        paths_df['trial_key'] = trial_key
+        trial_key += 1
         param_dict = clean_dict(param_dict)
         keys = list(param_dict.keys())
         values = list(param_dict.values())
