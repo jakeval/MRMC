@@ -131,7 +131,12 @@ def test_launcher(p):
                               feature_tolerances=feature_tolerances)
 
     stats, paths, poi = test.run_trial(poi)
-    return paths
+    paths_indexed = []
+    for path in paths:
+        path = path.copy()
+        path['path_order'] = np.arange(path.shape[0])
+        paths_indexed.append(path)
+    return paths_indexed
 
 
 def get_params(dataset_str, dataset_poi_indices, seed):
@@ -148,7 +153,7 @@ def get_params(dataset_str, dataset_poi_indices, seed):
         'seed': [seed],
         'num_trials': [1],
         'max_iterations': [15],
-        'weight_function_alpha': [0.7],
+        'weight_function_alpha': [0.3, 0.7],
         'perturb_dir_random_scale': [None, 0.25, 0.5, 0.75, 1],
         'k_paths': [4],
         'model': ['svc', 'random_forest'],
@@ -169,12 +174,15 @@ def clean_dict(d):
 
 def write_dataframe(columns, preprocessor, param_dicts, results_list, output_file):
     results_dataframes = []
+    trial_key = 0
     for param_dict, paths in zip(param_dicts, results_list):
         paths_df = pd.DataFrame(columns=columns)
         for i, path in enumerate(paths):
             path_df = preprocessor.inverse_transform(path)
             path_df['path_index'] = i
             paths_df = pd.concat([paths_df, path_df], ignore_index=True)
+        paths_df['trial_key'] = trial_key
+        trial_key += 1
         param_dict = clean_dict(param_dict)
         keys = list(param_dict.keys())
         values = list(param_dict.values())
@@ -182,6 +190,7 @@ def write_dataframe(columns, preprocessor, param_dicts, results_list, output_fil
         results_dataframes.append(paths_df)
     final_df = pd.concat(results_dataframes, ignore_index=True)
     final_df.to_pickle(output_file)
+
 
 def run_experiment():
     print("starting the script...")
