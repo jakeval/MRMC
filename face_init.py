@@ -14,7 +14,7 @@ np.random.seed(88557)
 NUM_TASKS = 1
 
 RUN_LOCALLY = False
-OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_final'
+OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs'
 if RUN_LOCALLY:
     NUM_TASKS = 1
     OUTPUT_DIR = './face_graphs'

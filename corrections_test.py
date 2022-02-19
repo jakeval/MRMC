@@ -5,9 +5,7 @@ from experiments.test_mrmc import MrmcTestRunner
 from core.mrmc import MRM, MRMCIterator, MRMIterator
 from experiments import path_stats, point_stats
 from core import utils
-import dask
-from dask.distributed import Client
-from dask_jobqueue import SLURMCluster
+import multiprocessing
 import pandas as pd
 from sklearn.model_selection import ParameterGrid
 import itertools
@@ -15,7 +13,10 @@ import sys
 from models import model_utils
 import os
 
+sys.path.append(os.getcwd())
 np.random.seed(88557)
+
+NUM_TASKS = 32
 
 RUN_LOCALLY = False
 SCRATCH_DIR = '/mnt/nfs/scratch1/jasonvallada'
@@ -26,13 +27,15 @@ if RUN_LOCALLY:
     OUTPUT_DIR = '.'
     LOG_DIR = '.'
 
-def test_launcher(models, preprocessors, keys, params, dataset):
-    p = dict([(key, val) for key, val in zip(keys, params)])
+
+def test_launcher(p):
     if RUN_LOCALLY:
         print("Begin Test")
         print(p)
-    model = models[(p['model'], p['dataset'])]
-    preprocessor = preprocessors[p['dataset']]
+    np.random.seed(p['seed'])
+    model = p['model_payload']
+    preprocessor = p['preprocessor_payload']
+    dataset = p['dataset_payload']
 
     X = np.array(preprocessor.transform(dataset.drop('Y', axis=1)))
     model_scores = model.predict_proba(X)
@@ -124,7 +127,7 @@ def get_params(num_trials, dataset_str):
         'num_trials': [num_trials],
         'k_dirs': [4],
         'max_iterations': [15],
-        'validate': [False, True],
+        'validate': [True, False],
         'early_stopping': [True],
         'sparsity': [True, False],
         'model': ['svc', 'random_forest'],
@@ -183,11 +186,7 @@ def get_params(num_trials, dataset_str):
             d.update(dict)
         d.update(simple_params)
         params.append(d)
-    
-    params = pd.DataFrame(ParameterGrid(params))
-    print("param count: ")
-    print(params.shape[0])
-    return params
+    return list(ParameterGrid(params))
 
 
 def write_dataframe(params_df, results_dataframe_list, output_file):
@@ -205,26 +204,7 @@ def run_experiment():
     dataset = args[1]
     print("dataset is ", dataset)
     output_file = os.path.join(OUTPUT_DIR, f'{dataset}.pkl')
-
-    print("Open a client...")
-    client = None
     num_trials = 30
-    if not RUN_LOCALLY:
-        dask.config.set(scheduler='processes')
-        dask.config.set({'temporary-directory': SCRATCH_DIR})
-        cluster = SLURMCluster(
-            processes=1,
-            memory='2000MB',
-            queue='defq',
-            cores=1,
-            walltime='00:25:00',
-            log_directory=LOG_DIR
-        )
-        cluster.scale(32)
-        client = Client(cluster)
-    else:
-        num_trials = 5
-        client = Client(n_workers=1, threads_per_worker=1)
 
     models = {
         ('svc', 'german_credit'): model_utils.load_model('svc', 'german_credit'),
@@ -236,25 +216,26 @@ def run_experiment():
     german_data, _, german_preprocessor = da.load_german_credit_dataset()
     adult_data, _, adult_preprocessor = da.load_adult_income_dataset()
 
-    german_future = client.scatter([german_data], broadcast=True)[0]
-    adult_future = client.scatter([adult_data], broadcast=True)[0]
-
-    preprocessors = {
-        'german_credit': german_preprocessor,
-        'adult_income': adult_preprocessor
-    }
-
     all_params = get_params(num_trials, dataset)
-    print(all_params.shape)
+    print(len(all_params))
     if num_tests == 0:
-        num_tests = all_params.shape[0]
+        num_tests = len(all_params)
     print(f"Run {num_tests} tests")
-    param_df = all_params.iloc[0:num_tests]
-    run_test = lambda params, dataset: test_launcher(models, preprocessors, list(param_df.columns), params, dataset)
-    params = param_df.values
-    dataset_futures = list(map(lambda dataset: german_future if dataset == 'german_credit' else adult_future, param_df.loc[:,'dataset']))
-    futures = client.map(run_test, params, dataset_futures)
-    results = client.gather(futures)
+    params = all_params[:num_tests]
+    for param_dict in params:
+        new_params = {
+            'seed': np.random.randint(999999),
+            'dataset_payload': german_data if param_dict['dataset'] == 'german_credit' else adult_data,
+            'preprocessor_payload': german_preprocessor if param_dict['dataset'] == 'german_credit' else adult_preprocessor,
+            'model_payload': models[(param_dict['model'], param_dict['dataset'])]
+        }
+        param_dict.update(new_params)
+
+    results = None
+    with multiprocessing.Pool(NUM_TASKS) as p:
+        results = p.map(test_launcher, params)
+
+    param_df = pd.DataFrame(params).drop(['dataset_payload', 'preprocessor_payload', 'model_payload'], axis=1)
     write_dataframe(param_df, results, output_file)
     print("Finished experiment.")
 

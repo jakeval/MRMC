@@ -19,10 +19,10 @@ np.random.seed(88557)
 NUM_TASKS = 48
 
 RUN_LOCALLY = False
-INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs_final'
+INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs'
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_path_output'
 if RUN_LOCALLY:
-    INPUT_DIR = './face_graphs_final'
+    INPUT_DIR = './face_graphs'
     OUTPUT_DIR = '../face_path_output'
     NUM_TASKS = 1
 
