@@ -20,39 +20,9 @@ if RUN_LOCALLY:
     NUM_TASKS = 1
 
 
-def aggregate_stats(stats_df, param_columns, stat_columns):
-    result_df = pd.DataFrame(columns=(param_columns + stat_columns))
-    std_dev_columns = list(map(lambda column: f"{column} (std)", stat_columns))
-    for params, param_df in stats_df.groupby(param_columns):
-        means, std_devs = param_df[stat_columns].mean(), param_df[stat_columns].std()
-        stat_df = pd.DataFrame(columns=param_columns, data=[params])
-        stat_df.loc[:,stat_columns] = means
-        stat_df.loc[:,std_dev_columns] = std_devs
-        result_df = pd.concat([result_df, stat_df], ignore_index=True)
-
-    return result_df
-
-
-
-def aggregate_stats(stats_df, param_columns, stat_columns):
-    result_df = pd.DataFrame(columns=(param_columns + stat_columns))
-    std_dev_columns = list(map(lambda column: f"{column} (std)", stat_columns))
-    for params, param_df in stats_df.groupby(param_columns):
-        print(params)
-        means, std_devs = param_df[stat_columns].mean(), param_df[stat_columns].std()
-        #print(means)
-        #print(stat_columns)
-        stat_df = pd.DataFrame(columns=param_columns, data=[params])
-        stat_df[stat_columns] = means
-        stat_df[std_dev_columns] = std_devs
-        result_df = pd.concat([result_df, stat_df], ignore_index=True)
-
-    return result_df
-
-
 def write_dataframe(results, directory, dataset):
     result_df = pd.concat(results, ignore_index=True)
-    result_df.to_csv(f'{directory}/{dataset}_stats.csv')
+    result_df.to_csv(f'{directory}/{dataset}_stats.csv', index=False)
     if RUN_LOCALLY:
         print(result_df[['k_dirs', 'poi_index']])
 
@@ -155,11 +125,30 @@ def collect_stats(p):
     return stat_df
 
 
+def aggregate_stats(stats_df, param_columns, stat_columns):
+    result_df = pd.DataFrame(columns=(param_columns + stat_columns))
+    std_dev_columns = list(map(lambda column: f"{column} (std)", stat_columns))
+    for params, param_df in stats_df.groupby(param_columns):
+        #print(params)
+        #print(param_df)
+        means, std_devs = param_df[stat_columns].mean(), param_df[stat_columns].std()
+        stat_df = pd.DataFrame(columns=param_columns, data=[params])
+        stat_df[stat_columns] = means
+        stat_df[std_dev_columns] = std_devs
+        result_df = pd.concat([result_df, stat_df], ignore_index=True)
+
+    return result_df
+
 
 def write_aggregated_stats(directory):
-    df = pd.read_csv(f'{directory}/poi_stats.csv').drop('kde_rtol', axis=1)
-    print(df.columns)
-    print(df['dataset'].unique())
+    df_adult = pd.read_csv(f'{directory}/adult_income_stats.csv').drop('Unnamed: 0', axis=1)
+    df_german = pd.read_csv(f'{directory}/german_credit_stats.csv').drop('Unnamed: 0', axis=1)
+    if 'Unnamed: 0' in df_adult.columns:
+        df_adult = df_adult.drop('Unnamed: 0', axis=1)
+    if 'Unnamed: 0' in df_german.columns:
+        df_german = df_german.drop('Unnamed: 0', axis=1)
+
+    df = pd.concat([df_adult, df_german], ignore_index=True)
 
     stat_columns = [
         'Iterations',
@@ -169,7 +158,7 @@ def write_aggregated_stats(directory):
         'Final Point Distance',
         'Sparsity',
         'Diversity',
-        'Comparison Distance'
+        #'Comparison Distance'
     ]
 
     param_columns = list(df.columns.difference(stat_columns + ['poi_index']))
@@ -180,6 +169,5 @@ def write_aggregated_stats(directory):
 
 
 if __name__ == '__main__':
-    #write_poi_stats('../face_path_output')
-    #write_aggregated_stats('../face_path_output')
+    #write_aggregated_stats('../dice_path_output')
     run_analysis()
