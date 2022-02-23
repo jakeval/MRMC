@@ -101,7 +101,7 @@ def test_launcher(p):
     max_iterations = p['max_iterations']
 
     kde_bandwidth = p['kde_bandwidth']
-    kde_rtol = None if p['kde_rtol'] == 0 else p['kde_rtol'] == 0
+    kde_rtol = None if p['kde_rtol'] == 0 else p['kde_rtol']
 
     face = Face(k_dirs,
                 clf,
