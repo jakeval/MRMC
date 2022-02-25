@@ -74,39 +74,19 @@ def generate_density_scores(dataset, preprocessor, dataset_str):
     else:
         bandwidth = 0.29
         rtol = None
-    return Face.write_kde_to_file(preprocessor, dataset, dataset_str, bandwidth, rtol=rtol, dir=OUTPUT_DIR)
-
+    return Face.generate_kde_scores(preprocessor, dataset, bandwidth, rtol=rtol, save_results=True, dataset_str=dataset_str, dir=OUTPUT_DIR)
+ 
 def generate_graph(p):
     np.random.seed(p['seed'])
-    conditions_function = None
-    preprocessor = p['preprocessor_payload']
-    dataset = p['dataset_payload']
-    if p['immutable_features'] is not None:
-        immutable_features = p['immutable_features']
-        X = preprocessor.transform(dataset)
-        immutable_columns = preprocessor.get_feature_names_out(immutable_features)
-        tolerances = None
-        immutable_column_indices = np.arange(X.columns.shape[0])[X.columns.isin(immutable_columns)]
-        if 'age' in immutable_features:
-            age_index = np.arange(X.columns.shape[0])[X.columns == 'age'][0]
-            immutable_column_indices = immutable_column_indices[immutable_column_indices != age_index]
-            transformed_unit = preprocessor.sc_dict['age'].transform([[1]])[0,0] - preprocessor.sc_dict['age'].transform([[0]])[0,0]
-            age_tolerance = 5.5
-            tolerances = {
-                age_index: transformed_unit * age_tolerance
-            }
-        conditions_function = lambda differences: immutable_conditions(differences, immutable_column_indices, tolerances=tolerances)
-    Face.write_graph_to_file(p['preprocessor_payload'],
-                             p['dataset_payload'],
-                             p['dataset'],
-                             p['kde_bandwidth'],
-                             p['density_scores_payload'],
-                             p['distance_threshold'],
-                             conditions_function,
-                             block_size=80000000,
-                             rtol=p['kde_rtol'],
-                             dir=OUTPUT_DIR,
-                             save_results=True)
+    Face.generate_graph(p['preprocessor_payload'],
+                        p['dataset_payload'],
+                        p['kde_bandwidth'],
+                        p['density_scores_payload'],
+                        p['distance_threshold'],
+                        rtol=p['kde_rtol'],
+                        dir=OUTPUT_DIR,
+                        save_results=True,
+                        dataset_str=p['dataset'])
 
 
 def main():

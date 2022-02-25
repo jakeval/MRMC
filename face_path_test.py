@@ -107,8 +107,10 @@ def test_launcher(p):
                 clf,
                 distance_threshold,
                 confidence_threshold,
-                density_threshold)
-    face.set_graph_from_memory(graph, density_scores, kde_bandwidth, kde_rtol)
+                density_threshold,
+                kde_bandwidth,
+                kde_rtol=kde_rtol)
+    face.fit(dataset, preprocessor, graph, density_scores)
     test = FacePathTestRunner(num_trials,
                               dataset,
                               preprocessor,
@@ -130,12 +132,6 @@ def test_launcher(p):
         path['path_order'] = np.arange(path.shape[0])
         paths_indexed.append(path)
     return paths_indexed
-
-
-def scale_weight_function(dir, immutable_column_indices, rescale_factor):
-    new_dir = dir * rescale_factor
-    new_dir[:,immutable_column_indices] = dir[:,immutable_column_indices]
-    return new_dir
 
 
 def get_params(dataset_str, dataset_poi_indices, seed):

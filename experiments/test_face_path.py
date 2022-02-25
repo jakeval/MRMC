@@ -62,12 +62,9 @@ class FacePathTestRunner:
         transformed_poi = self.preprocessor.transform(poi)
         poi_index = poi.index[0]
 
-        self.face.fit(self.dataset, self.preprocessor)
         if self.immutable_features is not None:
             self.face.add_immutable_condition(poi, self.immutable_features, self.feature_tolerances)
 
-        get_recourse = lambda poi, k_paths: self.preprocessor.transform(
-            self.face.iterate_new_point(poi, k_paths).iloc[[-1]])
         get_recourse = self.get_recourse
 
         paths = recourse_iterator.iterate_recourse(
