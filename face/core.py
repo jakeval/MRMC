@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.neighbors import KernelDensity
 import os
 from scipy import sparse
+from sklearn import metrics
 
 
 LINEAR_APPROXIMATION = True
@@ -13,7 +14,7 @@ def weight_function(z):
 
 
 class Face:
-    def __init__(self, k_paths, clf, distance_threshold, confidence_threshold, density_threshold, kde_bandwidth, kde_rtol=None, weight_function=weight_function):
+    def __init__(self, clf, distance_threshold, confidence_threshold, density_threshold, kde_bandwidth, kde_rtol=None, weight_function=weight_function):
         self.density_estimator = None # N x N x D -> N x N
         self.density_scores = None
         self.clf = clf
@@ -24,7 +25,6 @@ class Face:
         self.graph = None
         self.candidate_mask = None
         self.original_candidate_mask = None
-        self.k_paths = k_paths
         self.X = None
         self.dataset = None
         self.preprocessor = None
@@ -127,11 +127,7 @@ class Face:
         density_estimator = lambda Z: np.exp(kde.score_samples(Z))
         
         # calculate the pairwise distances
-        distances = np.zeros((X.shape[0], X.shape[0]))
-        distances += (X*X).sum(axis=1)[:,None]
-        distances += (X*X).sum(axis=1)[None,:]
-        distances -= 2*(X@X.T)
-        distances = np.sqrt(distances)
+        distances = metrics.pairwise.euclidean_distances(X)
 
         # calculate the neighbor mask
         neighbor_mask = ~(distances > distance_threshold) # true wherever there's an edge
@@ -206,7 +202,7 @@ class Face:
         if self.original_candidate_mask is not None:
             self.candidate_mask = self.original_candidate_mask
 
-    def iterate(self, poi_loc, X=None, graph=None, candidate_mask=None):
+    def iterate(self, poi_loc, k_paths, X=None, graph=None, candidate_mask=None):
         """Perform dijkstra's search on the graph.
 
         poi_loc is not the pandas index, but the numpy index (ie df.index.get_loc(index)).
@@ -224,7 +220,7 @@ class Face:
 
         # find the nearest candidate points
         candidates = np.arange(X.shape[0])[candidate_mask]
-        k = min(self.k_paths, candidates.shape[0])
+        k = min(k_paths, candidates.shape[0])
         sorted_indices = np.argpartition(dist_matrix[candidate_mask], k-1)[:k]
         cf_idx = candidates[sorted_indices]
 
@@ -253,7 +249,7 @@ class Face:
         """
         graph, X, candidate_mask = self.add_new_point(self.graph, poi)
         poi_loc = graph.shape[1] - 1
-        paths = self.iterate(poi_loc, X=X, graph=graph, candidate_mask=candidate_mask)
+        paths = self.iterate(poi_loc, num_cfs, X=X, graph=graph, candidate_mask=candidate_mask)
         return paths
 
     def add_new_point(self, graph, point):

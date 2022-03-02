@@ -1,7 +1,7 @@
 import numpy as np
 from data import data_adapter as da
 from experiments.test_face_path import FacePathTestRunner
-from face.core import Face, immutable_conditions
+from face.core import Face
 from experiments import path_stats, point_stats
 from core import utils
 import multiprocessing
@@ -16,13 +16,13 @@ import os
 sys.path.append(os.getcwd())
 np.random.seed(88557)
 
-NUM_TASKS = 48
+NUM_TASKS = 16
 
 RUN_LOCALLY = False
 INPUT_DIR = '/mnt/nfs/home/jasonvallada/face_graphs'
 OUTPUT_DIR = '/mnt/nfs/home/jasonvallada/face_path_output'
 if RUN_LOCALLY:
-    INPUT_DIR = './face_graphs'
+    INPUT_DIR = '../face_graphs'
     OUTPUT_DIR = '../face_path_output'
     NUM_TASKS = 1
 
@@ -103,8 +103,7 @@ def test_launcher(p):
     kde_bandwidth = p['kde_bandwidth']
     kde_rtol = None if p['kde_rtol'] == 0 else p['kde_rtol']
 
-    face = Face(k_dirs,
-                clf,
+    face = Face(clf,
                 distance_threshold,
                 confidence_threshold,
                 density_threshold,
@@ -236,7 +235,8 @@ def aux_data_from_params(params):
         use_conditions = param_dict['immutable_features']
         awkward_key = f"{dataset}-{bandwidth}-{rtol}-{distance_threshold}-{use_conditions}"
         if awkward_key not in cache:
-            cache[awkward_key] = Face.load_graph(dataset, bandwidth, distance_threshold, False, rtol=rtol, dir=INPUT_DIR)
+            graph, density_scores = Face.load(dataset, bandwidth, distance_threshold, rtol=rtol, dir=INPUT_DIR)
+            cache[awkward_key] = graph, density_scores
         density_scores, graph = cache[awkward_key]
         density_score_list.append(density_scores)
         graph_list.append(graph)
