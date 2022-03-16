@@ -3,44 +3,50 @@ from core import utils
 import pandas as pd
 
 class MRM:
-    def __init__(self, alpha=utils.volcano_alpha, alpha_neg=None, ignore_negatives=True, sparsity=None,
+    def __init__(self, preprocessor = None, alpha=utils.volcano_alpha,  sparsity=None,
                  perturb_dir=utils.priority_dir, weight_function=utils.centroid_normalization,
-                 immutable_column_names=None, check_privacy=False):
+                 immutable_column_names=None, feature_tolerances=None, check_privacy=False):
         self.alpha = alpha
-        self.alpha_neg = alpha_neg
-        self.ignore_negatives = ignore_negatives
         self.weight_function = weight_function
-        self.immutable_column_names = immutable_column_names
+        self.immutable_features = immutable_features
+        self.feature_tolerances = feature_tolerances
+        self.preprocessor = preprocessor
+        self.immutable_column_names = preprocessor.get_feature_names_out(immutable_features)
         self.X = None
         self.Y = None
         self.perturb_dir = perturb_dir
         self.check_privacy = check_privacy
         self.sparsity = sparsity
 
-    def fit(self, X, Y):
-        if self.ignore_negatives:
-            X = X[Y == 1]
-            Y = Y[Y == 1]
+    def filter(self, dataset, poi):
+        if self.immutable_features is not None:
+            filtered_data = da.filter_from_poi(self.dataset, poi, immutable_features=self.immutable_features, feature_tolerances=self.feature_tolerances)
+        X = dataset.drop('Y', axis=1)
+        Y = dataset.Y
+        X = X[Y == 1]
+        Y = Y[Y == 1]
+
+        #The dataset could be empty
+
         if self.immutable_column_names is not None:
             X = X.drop(self.immutable_column_names, axis=1)
         self.X = X
         self.Y = Y
 
-    def transform(self, poi):
+    def get_direction(self, poi):
         if self.immutable_column_names is not None:
             poi = poi.drop(self.immutable_column_names, axis=1)
-        indicator = (self.Y == 1) * 2 - 1
+        # indicator = (self.Y == 1) * 2 - 1
         diff = self.X - poi.to_numpy()
         dist = np.sqrt(np.power(diff, 2).sum(axis=1))
         alpha_val = self.alpha(dist)
-        if not self.ignore_negatives and self.alpha_neg is not None:
-            alpha_val = np.where(indicator == 1, alpha_val, self.alpha_neg(dist))
-        dir = diff.T@(alpha_val * indicator)
+        dir = diff.T@(alpha_val)
         if self.weight_function is not None:
             dir = self.weight_function(dir, poi.to_numpy()[0], self.X.to_numpy())
         original_dir = dir
         index = dir.index
         dir = pd.DataFrame(columns=index, data=[dir])
+        # You need to fix this
         if self.sparsity is not None:
             dir = utils.priority_dir(dir)
         if self.perturb_dir is not None:
@@ -50,9 +56,9 @@ class MRM:
         if self.immutable_column_names is not None:
             dir[self.immutable_column_names] = 0.0
             original_dir[self.immutable_column_names] = 0.0
-        if self.check_privacy:
-            return dir, original_dir
-        return dir
+        # if self.check_privacy:
+        #     return dir, original_dir
+        return dir, original_dir
 
     def filtered_dataset_size(self):
         return self.X[self.Y == 1].shape[0]
