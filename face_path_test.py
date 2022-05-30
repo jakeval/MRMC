@@ -235,8 +235,8 @@ def aux_data_from_params(params):
         use_conditions = param_dict['immutable_features']
         awkward_key = f"{dataset}-{bandwidth}-{rtol}-{distance_threshold}-{use_conditions}"
         if awkward_key not in cache:
-            graph, density_scores = Face.load(dataset, bandwidth, distance_threshold, rtol=rtol, dir=INPUT_DIR)
-            cache[awkward_key] = graph, density_scores
+            density_scores, graph = Face.load(dataset, bandwidth, distance_threshold, rtol=rtol, dir=INPUT_DIR)
+            cache[awkward_key] = density_scores, graph
         density_scores, graph = cache[awkward_key]
         density_score_list.append(density_scores)
         graph_list.append(graph)
