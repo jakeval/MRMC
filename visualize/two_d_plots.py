@@ -1,6 +1,5 @@
 import numpy as np
 from sklearn.decomposition import PCA
-import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib import cm as cm
 from sklearn.pipeline import Pipeline
@@ -23,6 +22,8 @@ class Display2DPaths:
         self.colors = ['lightskyblue', 'mediumseagreen']
         self.marker_cycle = ['s', 'D', '^', 'p', 'X', '+']
         self.small_legend = False
+        self.poi = None
+        self.dirs = None
 
     def do_pca(self, data_to_fit=None):
         pipe = Pipeline(steps=[
@@ -63,6 +64,14 @@ class Display2DPaths:
 
         plot_function(ax)
 
+        if self.poi is not None:
+            poi = self.poi
+            ax.scatter(poi[0,0], poi[0,1], c='red')
+
+        if self.dirs is not None:
+            for i in range(self.dirs.shape[0]):
+                ax.plot([self.poi[0,0], self.poi[0,0] + self.dirs[i,0]], [self.poi[0,1], self.poi[0,1] + self.dirs[i,1]], c='red')
+
         if self.paths is not None:
             color = 'midnightblue'
             for i, poi_path in enumerate(self.paths):
@@ -81,10 +90,13 @@ class Display2DPaths:
                 label=None
             ax.scatter(self.clusters[:,0], self.clusters[:,1], label=label, s=30, marker='x', c=cluster_colors)
             for i, cluster in enumerate(self.clusters):
-                ax.annotate(f"Cluster {i}", cluster + np.array([0.025, 0]), c=color)
+                ax.annotate(f"Cluster {i}", cluster + np.array([0.025, 0]), c='black')
 
         if self.title:
             ax.set_title(self.title)
+
+        if self.use_small_legend or self.use_large_legend:
+            ax.legend()
 
         return fig, ax
 
@@ -105,7 +117,17 @@ class Display2DPaths:
         return self
 
     def set_paths(self, paths):
-        self.paths = paths
+        self.paths = []
+        for path in paths:
+            self.paths.append(path.to_numpy())
+        return self
+
+    def set_poi(self, poi):
+        self.poi = poi.to_numpy()
+        return self
+
+    def set_dirs(self, dirs):
+        self.dirs = dirs.to_numpy()
         return self
 
     def _fit_pca(self):
@@ -117,3 +139,7 @@ class Display2DPaths:
             for path in self.paths:
                 pca_paths.append(self.pca.transform(path))
             self.paths = pca_paths
+        if self.poi is not None:
+            self.poi = self.pca.transform(self.poi)
+        if self.dirs is not None:
+            self.dirs = self.pca.transform(self.dirs)

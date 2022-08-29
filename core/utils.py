@@ -98,6 +98,12 @@ def priority_dir(dir, k=5):
     #sparse_dir.loc[:] = dir_new
     return pd.DataFrame(columns=dir.columns, data=dir_new)
 
+def get_constant_step_size_rescaler(step_size=1):
+    return lambda _, dir: constant_step_size(dir, step_size=step_size)
+
+def normalize_rescaler(mrm, dir):
+    return dir / len(mrm.X)
+
 def constant_step_size(dir, step_size=1):
     normalization = np.linalg.norm(dir.to_numpy())
     if normalization <= MIN_DIRECTION:
