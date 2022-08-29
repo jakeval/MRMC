@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from typing import Any
+
 
 MIN_DIRECTION = 1e-32
 EQ_EPSILON = 1e-10
@@ -11,10 +13,8 @@ def size_normalization(dir, poi, X):
 def cosine_similarity(x1, x2):
     return (x1@x2) / (np.sqrt(x1@x1) * np.sqrt(x2@x2))
 
-"""
-Normalizes direction based on the distance to the data centroid
-"""
 def centroid_normalization(dir, poi, X, alpha=0.7):
+    """Normalizes direction based on the distance to the data centroid."""
     if dir@dir == 0: # if the direction is zero or very near it, return the original direction
         return dir
     centroid = X.mean(axis=0)
@@ -98,12 +98,6 @@ def priority_dir(dir, k=5):
     #sparse_dir.loc[:] = dir_new
     return pd.DataFrame(columns=dir.columns, data=dir_new)
 
-def get_constant_step_size_rescaler(step_size=1):
-    return lambda _, dir: constant_step_size(dir, step_size=step_size)
-
-def normalize_rescaler(mrm, dir):
-    return dir / len(mrm.X)
-
 def constant_step_size(dir, step_size=1):
     normalization = np.linalg.norm(dir.to_numpy())
     if normalization <= MIN_DIRECTION:
@@ -143,3 +137,18 @@ def epsilon_compare(point, df):
         other_diff = (df[other_columns].to_numpy() != point[other_columns].to_numpy())
 
     return numeric_diff & other_diff
+
+
+def random_poi(dataset: pd.DataFrame, label: Any = -1, drop_label: bool = True) -> pd.Series:
+    """Selects a random POI of the given label from the dataset.
+    
+    Args:
+        dataset: The dataset to sample from.
+        label: The label of the point to select.
+        drop_label: Whether to drop the label from the returned POI.
+    """
+    poi = dataset[dataset.Y == label].sample(1)
+    if drop_label:
+        poi = poi.drop("Y", axis=1)
+
+    return poi.iloc[0]

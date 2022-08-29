@@ -18,5 +18,5 @@ class SyntheticModel:
         if type(dataset) == pd.DataFrame:
             X = dataset.to_numpy()
         y_coords = X[:,1]
-        certainties = 0.5 + (y_coords - self.cutoff) / (2*self.width)
-        return certainties.clip(0, 1)
+        certainties = (0.5 + (y_coords - self.cutoff) / (2*self.width)).clip(0, 1)
+        return np.vstack([1 - certainties, certainties]).T

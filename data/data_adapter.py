@@ -1,27 +1,25 @@
 import numpy as np
 import pandas as pd
+from typing import Tuple
 from data import adult_data_adapter as adult_da
 from data import german_data_adapter as german_da
 from data import synthetic_data_adapter as synthetic_da
+from data import data_preprocessor as dp
 
 
-def load_adult_income_dataset(data_dir='../data/adult'):
+def load_adult_income_dataset(data_dir: str = '../data/adult') -> Tuple[pd.DataFrame, pd.DataFrame, dp.Preprocessor]:
+    """Returns training data, test data, and a preprocessor."""
     return adult_da.load_data(data_dir)
 
 
-def load_german_credit_dataset(data_dir='../data/german'):
+def load_german_credit_dataset(data_dir='../data/german') -> Tuple[pd.DataFrame, pd.DataFrame, dp.Preprocessor]:
+    """Returns training data, test data, and a preprocessor."""
     return german_da.load_data(data_dir)
 
 
-def load_synthetic_dataset():
+def load_synthetic_dataset() -> Tuple[pd.DataFrame, dp.Preprocessor]:
+    """Returns a dataset and a preprocessor."""
     return synthetic_da.load_data()
-
-
-def random_poi(dataset, label=-1, drop_label=True):
-    poi = dataset[dataset.Y == label].sample(1)
-    if drop_label:
-        poi = poi.drop("Y", axis=1)
-    return poi
 
 
 def filter_from_poi(dataset, poi, immutable_features=None, feature_tolerances=None):

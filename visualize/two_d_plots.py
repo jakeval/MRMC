@@ -4,12 +4,11 @@ from matplotlib import pyplot as plt
 from matplotlib import cm as cm
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-# import matplotlib.fontmanager as fm
+import pathlib
 
-#matplotlib.rcParams['font.family'] = 'Avenir'
-#plt.rcParams['font.size'] = 18
-#plt.rcParams['axes.linewidth'] = 2
-plt.style.use('style.mplstyle')
+
+plt.style.use(pathlib.Path(__file__).parent / 'style.mplstyle')
+
 
 class Display2DPaths:
     def __init__(self, X, Y, title=None):
@@ -66,11 +65,11 @@ class Display2DPaths:
 
         if self.poi is not None:
             poi = self.poi
-            ax.scatter(poi[0,0], poi[0,1], c='red')
+            ax.scatter(poi[0], poi[1], c='red')
 
         if self.dirs is not None:
             for i in range(self.dirs.shape[0]):
-                ax.plot([self.poi[0,0], self.poi[0,0] + self.dirs[i,0]], [self.poi[0,1], self.poi[0,1] + self.dirs[i,1]], c='red')
+                ax.plot([self.poi[0], self.poi[0] + self.dirs[i,0]], [self.poi[1], self.poi[1] + self.dirs[i,1]], c='red')
 
         if self.paths is not None:
             color = 'midnightblue'
