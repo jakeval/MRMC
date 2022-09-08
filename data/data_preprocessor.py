@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import Any
+from typing import Any, Sequence, Mapping
 import pandas as pd
 import abc
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 class EmbeddedDataFrame(pd.DataFrame):
@@ -35,30 +36,34 @@ class Preprocessor(abc.ABC):
     The preprocessor translates between human-readable and embedded space.
     """
     @abc.abstractmethod
-    def fit(self, dataset: pd.DataFrame) -> Preprocessor:
-        pass
+    def get_label(self) -> str:
+        """Gets the dataset's label column name."""
 
     @abc.abstractmethod
     def transform(self, dataset: pd.DataFrame) -> EmbeddedDataFrame:
         """Transforms data from human-readable format to an embedded numeric space."""
-        pass
 
     @abc.abstractmethod
     def inverse_transform(self, dataset: EmbeddedDataFrame) -> pd.DataFrame:
         """Transforms data from an embedded numeric space to its original human-readable format."""
-        pass
 
     @abc.abstractmethod
     def directions_to_instructions(self, directions: EmbeddedSeries) -> Any:
         """Converts a direction in embedded space to some human-readable instructions format."""
-        pass
 
     @abc.abstractmethod
     def interpret_instructions(self, poi: pd.Series, instructions: Any) -> pd.Series:
         """Returns a new human-readable data point from an original POI and set of instructions.
         
         Interprets the instructions by translating the original human-readable POI."""
-        pass
+
+    @abc.abstractmethod
+    def column_names(self, drop_label=True) -> Sequence[str]:
+        """Returns the column names of the human-readable data."""
+
+    @abc.abstractmethod
+    def embedded_column_names(self, drop_label=True) -> Sequence[str]:
+        """Returns the column names of the data in embedded numeric space."""
 
     def transform_series(self, poi: pd.Series) -> EmbeddedSeries:
         """Transforms data from human-readable format to an embedded numeric space."""
@@ -67,3 +72,125 @@ class Preprocessor(abc.ABC):
     def inverse_transform_series(self, poi: EmbeddedSeries) -> pd.Series:
         """Transforms data from an embedded numeric space to its original human-readable format."""
         return self.inverse_transform(poi.to_frame().T).iloc[0]
+
+
+class NaivePreprocessor(Preprocessor):
+    """A Naive preprocessor which standardizes numeric columns and one hot encodes categorical columns."""
+    def __init__(self, categorical_features: Sequence[str], continuous_features: Sequence[str], label='Y'):
+        self.categorical_features = categorical_features
+        self.continuous_features = continuous_features
+        self.label = label
+
+        self.sc_dict: Mapping[str, StandardScaler] = None
+        self.ohe_dict: Mapping[str, OneHotEncoder] = None
+        self.columns = None
+
+    def get_label(self) -> str:
+        return self.label
+
+    def fit(self, dataset: pd.DataFrame) -> NaivePreprocessor:
+        self.sc_dict = {}
+        self.ohe_dict = {}
+        self.columns = dataset.columns
+        for feature in self.continuous_features:
+            sc = StandardScaler()
+            sc.fit(dataset[[feature]])
+            self.sc_dict[feature] = sc
+        for feature in self.categorical_features:
+            ohe = OneHotEncoder()
+            ohe.fit(dataset[[feature]])
+            self.ohe_dict[feature] = ohe
+        return self
+
+    def transform(self, dataset: pd.DataFrame) -> EmbeddedDataFrame:
+        df = dataset.copy()
+        for feature in self.continuous_features:
+            if feature in df.columns:
+                df[feature] = self.sc_dict[feature].transform(df[[feature]])
+        for feature in self.categorical_features:
+            if feature in df.columns:
+                ohe = self.ohe_dict[feature]
+                feature_columns = ohe.get_feature_names_out([feature])
+                df[feature_columns] = ohe.transform(df[[feature]]).toarray()
+                df = df.drop(feature, axis=1)
+        return df
+
+    def inverse_transform(self, dataset: EmbeddedDataFrame) -> pd.DataFrame:
+        df = dataset.copy()
+        for feature in self.continuous_features:
+            if feature in df.columns:
+                df[feature] = self.sc_dict[feature].inverse_transform(df[[feature]])
+        for feature in self.categorical_features:
+            ohe = self.ohe_dict[feature]
+            feature_columns = ohe.get_feature_names_out([feature])
+            if df.columns.intersection(feature_columns).any():
+                df[feature] = ohe.inverse_transform(df[feature_columns])
+                df = df.drop(feature_columns, axis=1)
+        return df
+
+    def directions_to_instructions(self, directions: EmbeddedSeries) -> EmbeddedSeries:
+        return directions
+
+    def interpret_instructions(self, poi: pd.Series, instructions: EmbeddedSeries) -> pd.Series:
+        poi = self.transform_series(poi)
+        cfe = poi + instructions
+        return self.inverse_transform_series(cfe)
+
+    def column_names(self, drop_label=True) -> Sequence[str]:
+        if drop_label:
+            return self.columns.difference([self.label])
+        else:
+            return self.columns
+
+    def embedded_column_names(self, drop_label=True) -> Sequence[str]:
+        columns = self._get_feature_names_out(self.columns)
+        if drop_label:
+            return [column for column in columns if column != self.label]
+        else:
+            return columns
+
+    def _get_feature_names_out(self, features: Sequence[str]) -> Sequence[str]:
+        features_out = []
+        for feature in features:
+            if feature in self.categorical_features:
+                features_out += list(self.ohe_dict[feature].get_feature_names_out([feature]))
+            else:
+                features_out.append(feature)
+        return features_out
+
+
+class PassthroughPreprocessor(Preprocessor):
+    def __init__(self, label='Y'):
+        self.columns = None
+        self.label = label
+
+    def get_label(self) -> str:
+        return self.label
+
+    def fit(self, dataset: pd.DataFrame) -> PassthroughPreprocessor:
+        self.columns = dataset.columns
+        return self
+
+    def transform(self, dataset: pd.DataFrame) -> EmbeddedDataFrame:
+        return dataset
+
+    def inverse_transform(self, dataset: EmbeddedDataFrame) -> pd.DataFrame:
+        return dataset
+
+    def directions_to_instructions(self, directions: EmbeddedSeries) -> EmbeddedSeries:
+        return directions
+
+    def interpret_instructions(self, poi: pd.Series, instructions: EmbeddedSeries) -> pd.Series:
+        return poi + instructions
+
+    def column_names(self, drop_label=True) -> Sequence[str]:
+        if drop_label:
+            return self.columns.difference([self.label])
+        else:
+            return self.columns
+
+    def embedded_column_names(self, drop_label=True) -> Sequence[str]:
+        if drop_label:
+            return self.columns.difference([self.label])
+        else:
+            return self.columns

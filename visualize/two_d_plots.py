@@ -1,17 +1,20 @@
 import numpy as np
+from typing import Sequence
 from sklearn.decomposition import PCA
 from matplotlib import pyplot as plt
 from matplotlib import cm as cm
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 import pathlib
+import pandas as pd
+from data import data_preprocessor as dp
 
 
 plt.style.use(pathlib.Path(__file__).parent / 'style.mplstyle')
 
 
 class Display2DPaths:
-    def __init__(self, X, Y, title=None):
+    def __init__(self, X, Y, positive_label=1, title=None):
         self.X = X
         self.Y = Y
         self.title = title
@@ -23,6 +26,7 @@ class Display2DPaths:
         self.small_legend = False
         self.poi = None
         self.dirs = None
+        self.positive_label = positive_label
 
     def do_pca(self, data_to_fit=None):
         pipe = Pipeline(steps=[
@@ -30,12 +34,26 @@ class Display2DPaths:
             ('reduce_dim', PCA(2))
         ])
         X = data_to_fit if data_to_fit is not None else self.X
-        pipe.fit(self.X)
+        pipe.fit(X)
         self.pca = pipe
         return self
 
+    def inverse_pca(self, poi: Sequence[float], index: Sequence[str]) -> dp.EmbeddedSeries:
+        if not self.pca:
+            return poi
+        poi = self.pca.inverse_transform([poi])
+        return pd.Series(index=index, data=poi[0])
+
+    def forward_pca(self, poi: Sequence[float]) -> Sequence[float]:
+        if not self.pca:
+            return poi
+        return self.pca.transform([poi])[0]
+
     def heatmap(self):
-        heatmap_plot = lambda ax: ax.hexbin(self.X[:,0], self.X[:,1], C=self.Y, gridsize=60, bins=None, alpha=0.6)
+        c = self.Y.copy()
+        c[c != self.positive_label] = 0
+        c[c == self.positive_label] = 1
+        heatmap_plot = lambda ax: ax.hexbin(self.X[:,0], self.X[:,1], C=c, gridsize=60, bins=None, alpha=0.6)
         fig, ax = self._plot_in_2d(heatmap_plot)
 
         cb = fig.colorbar(cm.ScalarMappable(), ax=ax)
@@ -45,8 +63,8 @@ class Display2DPaths:
 
     def scatter(self, ax=None):
         def scatter_plot(ax):
-            pos = self.X[self.Y == 1]
-            neg = self.X[self.Y == -1]
+            pos = self.X[self.Y == self.positive_label]
+            neg = self.X[self.Y != self.positive_label]
             cp, cn = self.colors
             ax.scatter(pos[:,0], pos[:,1], alpha=0.6, label="Positive Class", c=cp, s=16)
             ax.scatter(neg[:,0], neg[:,1], alpha=0.6, label="Negative Class", c=cn, s=16)
@@ -69,7 +87,7 @@ class Display2DPaths:
 
         if self.dirs is not None:
             for i in range(self.dirs.shape[0]):
-                ax.plot([self.poi[0], self.poi[0] + self.dirs[i,0]], [self.poi[1], self.poi[1] + self.dirs[i,1]], c='red')
+                ax.plot([self.poi[0], self.dirs[i,0]], [self.poi[1], self.dirs[i,1]], c='red')
 
         if self.paths is not None:
             color = 'midnightblue'
@@ -125,8 +143,8 @@ class Display2DPaths:
         self.poi = poi.to_numpy()
         return self
 
-    def set_dirs(self, dirs):
-        self.dirs = dirs.to_numpy()
+    def set_dirs(self, dirs, poi):
+        self.dirs = poi.to_numpy() + dirs.to_numpy()
         return self
 
     def _fit_pca(self):
@@ -138,7 +156,7 @@ class Display2DPaths:
             for path in self.paths:
                 pca_paths.append(self.pca.transform(path))
             self.paths = pca_paths
-        if self.poi is not None:
-            self.poi = self.pca.transform(self.poi)
         if self.dirs is not None:
             self.dirs = self.pca.transform(self.dirs)
+        if self.poi is not None:
+            self.poi = self.forward_pca(self.poi)

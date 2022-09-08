@@ -139,7 +139,7 @@ def epsilon_compare(point, df):
     return numeric_diff & other_diff
 
 
-def random_poi(dataset: pd.DataFrame, label: Any = -1, drop_label: bool = True) -> pd.Series:
+def random_poi(dataset: pd.DataFrame, column = 'Y', label: Any = -1, drop_label: bool = True) -> pd.Series:
     """Selects a random POI of the given label from the dataset.
     
     Args:
@@ -147,8 +147,8 @@ def random_poi(dataset: pd.DataFrame, label: Any = -1, drop_label: bool = True) 
         label: The label of the point to select.
         drop_label: Whether to drop the label from the returned POI.
     """
-    poi = dataset[dataset.Y == label].sample(1)
+    poi = dataset[dataset[column] == label].sample(1)
     if drop_label:
-        poi = poi.drop("Y", axis=1)
+        poi = poi.drop(column, axis=1)
 
     return poi.iloc[0]

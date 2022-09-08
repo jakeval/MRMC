@@ -61,6 +61,8 @@ class RecourseIterator:
         """Generates a recourse path for the model recourse direction given by dir_index."""
         path = [poi.to_frame().T]
         for i in range(max_iterations):
+            if poi.isnull().any():
+                raise RuntimeError(f"The iterated point has NaN values after {i} iterations. The point is:\n{poi}")
             if self.certainty_cutoff and self.check_model_certainty(self.preprocessor.transform(poi)) > self.certainty_cutoff:
                 break
             instructions = self.recourse_method.get_kth_recourse_instructions(poi, dir_index)
