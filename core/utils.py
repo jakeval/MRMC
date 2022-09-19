@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from data import data_preprocessor as dp
 from typing import Any
 
 
@@ -23,7 +24,7 @@ def centroid_normalization(dir, poi, X, alpha=0.7):
     dir = (alpha * dir * centroid_dist) / np.sqrt(dir@dir)
     return dir
 
-def scale_weight_function(dir, rescale_factor):
+def rescale_dir(dir: dp.EmbeddedSeries, rescale_factor: float):
     new_dir = dir * rescale_factor
     return new_dir
 
@@ -31,6 +32,14 @@ def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
     beta = np.sqrt(2*np.log(1.25/delta))
     stdev = (beta*C**2)/epsilon
     return dir + np.random.normal(0, stdev, size=dir.shape)
+
+def randomly_perturb_dir(dir: dp.EmbeddedSeries, ratio: float):
+    norm = np.linalg.norm(dir)
+    noise = np.random.normal(0, 1, len(dir))
+    noise = (noise / np.linalg.norm(noise)) * ratio * norm
+    new_dir = dir + noise
+    new_dir = (new_dir / np.linalg.norm(new_dir)) * norm
+    return new_dir
 
 def random_perturb_dir(preprocessor, scale, categorical_prob, p1, dir, num_features, cat_features, immutable_features=None, immutable_column_indices=None):
     """Randomly perturb a direction.
