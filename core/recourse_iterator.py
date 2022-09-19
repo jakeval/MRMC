@@ -2,7 +2,7 @@ from typing import Protocol, Sequence
 import pandas as pd
 import numpy as np
 from recourse_methods.base_type import RecourseMethod
-from data import data_adapter as da
+from models import base_model
 from data import data_preprocessor as dp
 
 
@@ -13,7 +13,7 @@ class CertaintyChecker(Protocol):
         pass
 
 
-def wrap_model(model, positive_index=1) -> CertaintyChecker:
+def wrap_model(model: base_model.BaseModel, positive_index: int = 1) -> CertaintyChecker:
     """Returns a CertaintyChecker function from an sklearn model."""
     def check_certainty(poi: pd.Series) -> float:
         proba = model.predict_proba(poi.to_frame().T.to_numpy())
@@ -63,7 +63,7 @@ class RecourseIterator:
         for i in range(max_iterations):
             if poi.isnull().any():
                 raise RuntimeError(f"The iterated point has NaN values after {i} iterations. The point is:\n{poi}")
-            if self.certainty_cutoff and self.check_model_certainty(self.preprocessor.transform(poi)) > self.certainty_cutoff:
+            if self.certainty_cutoff and self.check_model_certainty(self.preprocessor.transform_series(poi)) > self.certainty_cutoff:
                 break
             instructions = self.recourse_method.get_kth_recourse_instructions(poi, dir_index)
             poi = self.preprocessor.interpret_instructions(poi, instructions)
