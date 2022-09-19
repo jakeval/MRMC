@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import numpy as np
 from core import utils
 import pandas as pd
-from data import data_adapter as da
 from data import data_preprocessor as dp
 from recourse_methods.base_type import RecourseMethod
 from sklearn.cluster import KMeans
