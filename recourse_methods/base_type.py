@@ -7,6 +7,10 @@ class RecourseMethod(abc.ABC):
     """An abstract base class for recourse methods."""
 
     @abc.abstractmethod
+    def get_all_recourse_directions(self, poi: dp.EmbeddedSeries) -> dp.EmbeddedDataFrame:
+        """Generates different recourse directions for the poi for each of the k_directions."""
+
+    @abc.abstractmethod
     def get_all_recourse_instructions(self, poi: pd.Series) -> Sequence[Any]:
         """Generates different recourse instructions for the poi for each of the k_directions."""
 
