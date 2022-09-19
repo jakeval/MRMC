@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import Any, Sequence, Mapping
+from typing import Any, Sequence, Mapping, Optional
 import pandas as pd
 import abc
+from core import utils
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
@@ -76,7 +77,12 @@ class Preprocessor(abc.ABC):
 
 class NaivePreprocessor(Preprocessor):
     """A Naive preprocessor which standardizes numeric columns and one hot encodes categorical columns."""
-    def __init__(self, categorical_features: Sequence[str], continuous_features: Sequence[str], label='Y'):
+    def __init__(self,
+                 categorical_features: Sequence[str],
+                 continuous_features: Sequence[str],
+                 perturb_ratio: Optional[float] = None,
+                 rescale_ratio: Optional[float] = None,
+                 label='Y'):
         self.categorical_features = categorical_features
         self.continuous_features = continuous_features
         self.label = label
@@ -84,6 +90,8 @@ class NaivePreprocessor(Preprocessor):
         self.sc_dict: Mapping[str, StandardScaler] = None
         self.ohe_dict: Mapping[str, OneHotEncoder] = None
         self.columns = None
+        self.perturb_ratio = perturb_ratio
+        self.rescale_ratio = rescale_ratio
 
     def get_label(self) -> str:
         return self.label
@@ -132,6 +140,10 @@ class NaivePreprocessor(Preprocessor):
         return directions
 
     def interpret_instructions(self, poi: pd.Series, instructions: EmbeddedSeries) -> pd.Series:
+        if self.perturb_ratio:
+            instructions = utils.randomly_perturb_dir(instructions, self.perturb_ratio)
+        if self.rescale_ratio:
+            instructions = utils.rescale_dir(instructions, self.rescale_ratio)
         poi = self.transform_series(poi)
         cfe = poi + instructions
         return self.inverse_transform_series(cfe)
