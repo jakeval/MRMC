@@ -4,6 +4,7 @@ from typing import Tuple, Optional
 from data.adult_income import adult_data_adapter as adult_da
 from data import german_data_adapter as german_da
 from data.synthetic import synthetic_data_adapter as synthetic_da
+from data.uci_heart_disease import uci_heart_disease_adapter as uci_heart_disease_da
 from data import data_preprocessor as dp
 
 
@@ -18,6 +19,14 @@ def load_adult_income_dataset(data_dir: Optional[str] = None) -> Tuple[pd.DataFr
 def load_german_credit_dataset(data_dir='../data/german') -> Tuple[pd.DataFrame, pd.DataFrame, dp.Preprocessor]:
     """Returns training data, test data, and a preprocessor."""
     return german_da.load_data(data_dir)
+
+
+def load_uci_heart_disease_dataset(data_dir: Optional[str] = None) -> Tuple[pd.DataFrame, dp.Preprocessor]:
+    """Returns the training data and a preprocessor."""
+    if data_dir is not None:
+        return uci_heart_disease_da.load_data(data_dir)
+    else:
+        return uci_heart_disease_da.load_data()
 
 
 def load_synthetic_dataset() -> Tuple[pd.DataFrame, dp.Preprocessor]:
