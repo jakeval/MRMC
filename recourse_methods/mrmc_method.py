@@ -23,7 +23,7 @@ def get_volcano_alpha(cutoff=0.5, degree=2) -> AlphaFunction:
         degree: The degree of the exponential."""
     def volcano_alpha(dist: np.ndarray) -> np.ndarray:
         nonlocal cutoff, degree
-        return np.where(dist <= cutoff, 1/cutoff**degree, 1/dist**degree)
+        return 1/np.where(dist <= cutoff, cutoff, dist)**degree
     return volcano_alpha
 
 
