@@ -41,6 +41,10 @@ class DiCE(base_type.RecourseMethod):
         directions are generated in embedded space and interpreted as instructions
         in the original data format.
 
+        The failure modes for this class are identical to those for the DiCE method.
+        Namely, for some points and optimizer parameter settings, DiCE will return
+        counterfactual examples which do not cross the decision boundary.
+
         Args:
             k_directions: The number of recourse directions to generate.
             preprocessor: The dataset preprocessor.
@@ -62,7 +66,7 @@ class DiCE(base_type.RecourseMethod):
             outcome_name=label_column
         )
         clf = pipeline.Pipeline(steps=[('preprocessor', preprocessor),
-                                       ('tonumpy', ToNumpy()),
+                                       ('tonumpy', ToNumPy()),
                                        ('classifier', model)])
         m = dice_ml.Model(model=clf, backend=model_backend)
         dice_args = {
