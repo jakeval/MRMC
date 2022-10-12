@@ -7,7 +7,10 @@ from dice_ml import constants
 from sklearn import pipeline
 
 
-class ToNumpy:
+class ToNumPy:
+    """This is a temporary class used until model handling is refactored.
+
+    It is used in an sklearn pipeline to convert pandas DataFrames to NumPy arrays."""
     def __init__(self):
         pass
 
@@ -32,7 +35,12 @@ class DiCE(base_type.RecourseMethod):
                  dice_kwargs: Optional[Mapping[str, Any]] = None,
                  dice_cfe_kwargs: Optional[Mapping[str, Any]] = None):
         """Constructs a new DiCE recourse method.
-        
+
+        The Preprocessor translates between the original data format (potentially
+        with categorical features) and a continuous embedded space. Recourse
+        directions are generated in embedded space and interpreted as instructions
+        in the original data format.
+
         Args:
             k_directions: The number of recourse directions to generate.
             preprocessor: The dataset preprocessor.
@@ -66,14 +74,30 @@ class DiCE(base_type.RecourseMethod):
         self.dice = dice_ml.Dice(**dice_args)
 
     def get_all_recourse_directions(self, poi: dp.EmbeddedSeries) -> dp.EmbeddedDataFrame:
-        """Generates different recourse directions for the poi for each of the k_directions."""
+        """Generates different recourse directions for the poi for each of the k_directions.
+
+        Args:
+            poi: The Point of Interest (POI) to find recourse directions for.
+
+        Returns:
+            A DataFrame containing recourse directions for the POI."""
         poi = self.preprocessor.inverse_transform_series(poi)
         cfes = self._generate_counterfactuals(poi, self.k_directions)
         directions = self._counterfactuals_to_directions(poi, cfes)
         return directions
 
     def get_all_recourse_instructions(self, poi: pd.Series) -> Sequence[Any]:
-        """Generates different recourse instructions for the poi for each of the k_directions."""
+        """Generates different recourse instructions for the poi for each of the k_directions.
+
+        Whereas recourse directions are vectors in embedded space, instructions are
+        human-readable guides for how to follow those directions in the original
+        data space.
+
+        Args:
+            poi: The Point of Interest (POI) to find recourse instructions for.
+
+        Returns:
+            A Sequence recourse instructions for the POI."""
         cfes = self._generate_counterfactuals(poi, self.k_directions)
         directions = self._counterfactuals_to_directions(poi, cfes)
         instructions = []
@@ -83,13 +107,25 @@ class DiCE(base_type.RecourseMethod):
         return instructions
 
     def get_kth_recourse_instructions(self, poi: pd.Series, dir_index: int) -> Any:
-        """Generates a single set of recourse instructions for the kth direction."""
+        """Generates a single set of recourse instructions for the kth direction.
+
+        Args:
+            poi: The Point of Interest (POI) to get the kth recourse instruction for.
+
+        Returns:
+            Instructions for the POI to achieve the recourse."""
         cfes = self._generate_counterfactuals(poi, 1)
         directions = self._counterfactuals_to_directions(poi, cfes)
         return self.preprocessor.directions_to_instructions(directions.iloc[0])
 
     def _generate_counterfactuals(self, poi: pd.Series, num_cfes: int) -> pd.DataFrame:
-        """Generates DiCE counterfactual examples for the requested POI."""
+        """Generates DiCE counterfactual examples for the requested POI.
+
+        Args:
+            poi: The Point of Interest to generate counterfactual examples for.
+
+        Returns:
+            A DataFrame of counterfactual examples."""
         cfe_args = {
             'query_instances': poi.to_frame().T,
             'total_CFs': num_cfes,
@@ -101,7 +137,14 @@ class DiCE(base_type.RecourseMethod):
         return self.dice.generate_counterfactuals(**cfe_args).cf_examples_list[0].final_cfs_df.drop(self.label_column, axis=1)
 
     def _counterfactuals_to_directions(self, poi: pd.Series, cfes: pd.DataFrame) -> dp.EmbeddedDataFrame:
-        """Converts a DataFrame of counterfactual points to a DataFrame of Embedded directions pointing from the POI to the CFEs."""
+        """Converts a DataFrame of counterfactual points to a DataFrame of Embedded directions pointing from the POI to the CFEs.
+
+        Args:
+            poi: The Point of Interest (POI) the counterfactual examples were generated for.
+            cfes: The counterfactual examples generated for the POI.
+
+        Returns:
+            A DataFrame of recourse directions in embedded space."""
         poi = self.preprocessor.transform_series(poi)
         cfes = self.preprocessor.transform(cfes)
         dirs = cfes - poi
