@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from typing import Tuple, Optional
+from data.credit_card_default import credit_card_default_adapter as credit_card_default_da
 from data.adult_income import adult_data_adapter as adult_da
 from data import german_data_adapter as german_da
 from data.synthetic import synthetic_data_adapter as synthetic_da
@@ -27,6 +28,21 @@ def load_uci_heart_disease_dataset(data_dir: Optional[str] = None) -> Tuple[pd.D
         return uci_heart_disease_da.load_data(data_dir)
     else:
         return uci_heart_disease_da.load_data()
+
+
+def load_credit_card_default_dataset(only_continuous: bool = True, data_dir: Optional[str] = None) -> Tuple[pd.DataFrame, dp.Preprocessor]:
+    """Returns the training data and a preprocessor for the Credit Card Default dataset.
+
+    Args:
+        only_continuous: Whether to drop or recategorize categorical variables, leaving only continuous features.
+        data_dir: An override for the directory to load the data from (or download it to if unavailable).
+
+    Returns:
+        The Credit Card Default dataset and a fitted preprocessor."""
+    if data_dir is not None:
+        return credit_card_default_da.load_data(only_continuous=only_continuous, data_dir=data_dir)
+    else:
+        return credit_card_default_da.load_data(only_continuous=only_continuous)
 
 
 def load_synthetic_dataset() -> Tuple[pd.DataFrame, dp.Preprocessor]:
