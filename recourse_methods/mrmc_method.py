@@ -3,6 +3,7 @@ from typing import Any, Protocol, Sequence
 from dataclasses import dataclass
 import numpy as np
 from core import utils
+from models import base_model
 import pandas as pd
 from data import data_preprocessor as dp
 from recourse_methods.base_type import RecourseMethod
@@ -79,6 +80,20 @@ class MRM:
         if len(X) == 0:
             raise ValueError("Dataset is empty after excluding non-positive outcome examples.")
         return X
+
+    def filter_data(self, confidence_threshold: float, model: base_model.BaseModel) -> MRM:
+        """Filters the recourse dataset to include only high-confidence points.
+
+        Args:
+            confidence_threshold: All examples that do not achieve at least
+                                  this model confidence are removed.
+            model: The model to use for generating model confidence.
+
+        Returns:
+            Itself. The filtering is done mutably, so the returned version is not a copy."""
+        p = model.predict_proba(self.X)
+        self.X = self.X[p >= confidence_threshold]
+        return self
 
     def get_unnormalized_direction(self, poi: dp.EmbeddedSeries) -> dp.EmbeddedSeries:
         """Returns an unnormalized recourse direction."""
@@ -159,6 +174,20 @@ class MRMC(RecourseMethod):
                 rescale_direction=rescale_direction)
             mrms.append(mrm)
         self.mrms: Sequence[MRM] = mrms
+
+    def filter_data(self, confidence_threshold: float, model: base_model.BaseModel) -> MRMC:
+        """Filters the recourse dataset to include only high-confidence points.
+
+        Args:
+            confidence_threshold: All examples that do not achieve at least
+                                  this model confidence are removed.
+            model: The model to use for generating model confidence.
+
+        Returns:
+            Itself. The filtering is done mutably, so the returned version is not a copy."""
+        for mrm in self.mrms:
+            mrm.filter_data(confidence_threshold, model)
+            return self
 
     def cluster_data(self, X: dp.EmbeddedDataFrame, k_directions: int) -> Clusters:
         """Clusters the data using k-means clustering."""
