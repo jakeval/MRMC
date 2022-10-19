@@ -1,21 +1,28 @@
-from typing import Protocol, Sequence
+from typing import Protocol, Sequence, Optional
 import pandas as pd
-import numpy as np
 from recourse_methods.base_type import RecourseMethod
 from models import base_model
-from data import data_preprocessor as dp
+from data.adapters import adapter_types
 
 
 class CertaintyChecker(Protocol):
     """Returns the model certainty as a 1-dimensional array."""
     def check_certainty(poi: pd.Series) -> float:
         """Returns the model certainty as a 1-dimensional array."""
-        pass
 
 
 def wrap_model(model: base_model.BaseModel, positive_index: int = 1) -> CertaintyChecker:
-    """Returns a CertaintyChecker function from an sklearn model."""
+    """Returns a CertaintyChecker function from an sklearn model.
+    
+    Args:
+        model: An ML model satisfying the BaseModel interface.
+        positive_index: which index of the predict_proba() results corresponds
+            to a positive outcome.
+            
+    Returns:
+        A function for checking model certainty on a Point of Interest."""
     def check_certainty(poi: pd.Series) -> float:
+        """Returns model certainty on a Point of Interest (POI)."""
         proba = model.predict_proba(poi.to_frame().T.to_numpy())
         return proba[0,positive_index]
     return check_certainty
@@ -25,29 +32,39 @@ class RecourseIterator:
     """Class for iterating recourse."""
     def __init__(self,
                  recourse_method: RecourseMethod,
-                 preprocessor: dp.Preprocessor,
-                 certainty_cutoff: float = None,
-                 check_certainty: CertaintyChecker = None):
+                 adapter: adapter_types.RecourseAdapter,
+                 certainty_cutoff: Optional[float] = None,
+                 check_certainty: Optional[CertaintyChecker] = None):
         """Creates a new recourse iterator.
 
         Args:
             recourse_method: The recourse method to use.
-            preprocessor: The preprocessor.
-            certainty_cutoff: If not None, stop iterating early if the model certainty reaches the cutoff.
-            check_certainty: If not None, the function used to compute model certainty.
+            adapter: The dataset-recourse adapter.
+            certainty_cutoff: If not None, stop iterating early if the model
+                certainty reaches the cutoff.
+            check_certainty: If not None, the function used to compute model
+                certainty.
         """
         self.recourse_method = recourse_method
         self.certainty_cutoff = certainty_cutoff
         self.check_certainty = check_certainty
-        self.preprocessor = preprocessor
+        self.adapter = adapter
 
     def iterate_k_recourse_paths(self, poi: pd.Series, max_iterations: int) -> Sequence[pd.DataFrame]:
-        """Generates one recourse path for each of the model recourse directions."""
+        """Generates one recourse path for each of the model recourse directions.
+        
+        Args:
+            poi: The Point of Interest (POI) to generate recourse paths for.
+            max_iterations: The maximum number of steps in each path.
+            
+        Returns:
+            A sequence of DataFrames where each DataFrame is a path and each row
+            of a given DataFrame is a single step in the path."""
         all_instructions = self.recourse_method.get_all_recourse_instructions(poi)
         # Start the paths from the POI
         cfes = []
         for instructions in all_instructions:
-            cfe = self.preprocessor.interpret_instructions(poi, instructions)
+            cfe = self.adapter.interpret_instructions(poi, instructions)
             cfes.append(cfe)
         paths = []
         # Finish the paths by iterating one path at a time
@@ -58,17 +75,23 @@ class RecourseIterator:
         return paths
 
     def iterate_recourse_path(self, poi: pd.Series, dir_index: int, max_iterations: int) -> pd.DataFrame:
-        """Generates a recourse path for the model recourse direction given by dir_index."""
+        """Generates a recourse path for the model recourse direction given by
+            dir_index.
+
+        Args:
+            poi: The Point of Interest (POI) to generate a recourse path for.
+            dir_index: The index of the path to generate.
+            max_iterations: The maximum number of steps in the path.
+
+        Returns:
+            A DataFrame where each row of the DataFrame is a step in the path."""
         path = [poi.to_frame().T]
         for i in range(max_iterations):
             if poi.isnull().any():
                 raise RuntimeError(f"The iterated point has NaN values after {i} iterations. The point is:\n{poi}")
-            if self.certainty_cutoff and self.check_model_certainty(self.preprocessor.transform_series(poi)) > self.certainty_cutoff:
+            if self.certainty_cutoff and self.check_certainty(self.adapter.transform_series(poi)) > self.certainty_cutoff:
                 break
             instructions = self.recourse_method.get_kth_recourse_instructions(poi, dir_index)
-            poi = self.preprocessor.interpret_instructions(poi, instructions)
+            poi = self.adapter.interpret_instructions(poi, instructions)
             path.append(poi.to_frame().T)
         return pd.concat(path).reset_index(drop=True)
-
-    def check_model_certainty(self, poi: dp.EmbeddedSeries) -> float:
-        return self.check_certainty(poi)

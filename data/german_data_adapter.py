@@ -6,6 +6,8 @@ from sklearn.preprocessing import OneHotEncoder
 import os
 
 
+# @TODO(jakeval): Dataset loading is refactored as-needed. Either remove this or
+#                 refactor it once it is needed.
 class GermanPreprocessor:
     def __init__(self, categorical_features, continuous_features):
         self.categorical_features = categorical_features

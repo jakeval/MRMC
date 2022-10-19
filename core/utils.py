@@ -1,29 +1,13 @@
 import numpy as np
 import pandas as pd
-from data import data_preprocessor as dp
-from typing import Any, Mapping, Sequence
+from data.adapters import adapter_types
+from typing import Any
 
 
 MIN_DIRECTION = 1e-32
 EQ_EPSILON = 1e-10
 
-
-def recategorize_feature(column: pd.Series, inverse_category_dict: Mapping[str, Sequence[str]]) -> pd.Series:
-    """Returns a Series where some values are remapped to others.
-
-    Given a dictionary like {'new_val': [val1, val2]}, val1 and val2 are relabeled as new_val in the new Series.
-    
-    Args:
-        column: The series of data to remap.
-        inverse_category_dict: The remapping dict formatted as described above.
-        
-    Returns:
-        A new series with remapped values."""
-    new_column = column.copy()
-    for key, val_list in inverse_category_dict.items():
-        for val in val_list:
-            new_column = np.where(new_column == val, key, new_column)
-    return new_column
+# TODO(@jakeval): Most functions here are no longer used and should be cleaned.
 
 
 def size_normalization(dir, poi, X):
@@ -42,7 +26,7 @@ def centroid_normalization(dir, poi, X, alpha=0.7):
     dir = (alpha * dir * centroid_dist) / np.sqrt(dir@dir)
     return dir
 
-def rescale_dir(dir: dp.EmbeddedSeries, rescale_factor: float):
+def rescale_dir(dir: adapter_types.EmbeddedSeries, rescale_factor: float):
     new_dir = dir * rescale_factor
     return new_dir
 
@@ -51,7 +35,7 @@ def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
     stdev = (beta*C**2)/epsilon
     return dir + np.random.normal(0, stdev, size=dir.shape)
 
-def randomly_perturb_dir(dir: dp.EmbeddedSeries, ratio: float):
+def randomly_perturb_dir(dir: adapter_types.EmbeddedSeries, ratio: float):
     norm = np.linalg.norm(dir)
     noise = np.random.normal(0, 1, len(dir))
     noise = (noise / np.linalg.norm(noise)) * ratio * norm
@@ -59,6 +43,8 @@ def randomly_perturb_dir(dir: dp.EmbeddedSeries, ratio: float):
     new_dir = (new_dir / np.linalg.norm(new_dir)) * norm
     return new_dir
 
+
+# TODO(@jakeval) This function is deprecated and should be marked as such.
 def random_perturb_dir(preprocessor, scale, categorical_prob, p1, dir, num_features, cat_features, immutable_features=None, immutable_column_indices=None):
     """Randomly perturb a direction.
 
@@ -166,11 +152,13 @@ def epsilon_compare(point, df):
     return numeric_diff & other_diff
 
 
-def random_poi(dataset: pd.DataFrame, column = 'Y', label: Any = -1, drop_label: bool = True) -> pd.Series:
+def random_poi(dataset: pd.DataFrame, column = 'Y', label: Any = -1,
+        drop_label: bool = True) -> pd.Series:
     """Selects a random POI of the given label from the dataset.
     
     Args:
         dataset: The dataset to sample from.
+        column: The name of the label column.
         label: The label of the point to select.
         drop_label: Whether to drop the label from the returned POI.
     """

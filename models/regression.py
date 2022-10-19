@@ -8,6 +8,18 @@ def get_accuracy(y_pred, y_true):
     return correct_count / (correct_count + incorrect_count)
 
 
+# TODO(@jakeval): This is used by the *_quick_results demos but will be refactored.
+def simple_model(dataset, preprocessor, positive_label):
+    X = preprocessor.transform(dataset.drop(preprocessor.label, axis=1)).to_numpy()
+    y = dataset[preprocessor.label].to_numpy().copy()
+    positive_mask = y == positive_label
+    y[positive_mask] = 1
+    y[~positive_mask] = -1
+    lr = LogisticRegression()
+    lr.fit(X, y)
+    return lr
+
+
 def train_model(dataset, testset, preprocessor):
     dataset, testset = dataset.copy(), testset.copy()
     c_list = [1e-4, 1e-3, 1e-2, 1e1, 1e0, 1e1, 1e2]

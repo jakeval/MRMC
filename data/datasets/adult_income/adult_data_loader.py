@@ -5,7 +5,8 @@ import os
 from data import data_preprocessor as dp
 import pathlib
 
-
+# @TODO(jakeval): Dataset loading is refactored as-needed. Either remove this or
+#                 refactor it once it is needed.
 COLUMN_NAMES = 'age,workclass,fnlwgt,education,education-num,marital-status,occupation,relationship,race,sex,capital-gain,capital-loss,hours-per-week,native-country,income'.split(',')
 TRAIN_URL = 'https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data'
 TEST_URL = 'https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test'

@@ -1,12 +1,13 @@
 from typing import Sequence, Optional, Mapping, Any
 from recourse_methods import base_type
 import pandas as pd
-from data import data_preprocessor as dp
+from data.adapters import adapter_types
 import dice_ml
 from dice_ml import constants
 from sklearn import pipeline
 
 
+# TODO(@jakeval): remove this when the model code is refactored.
 class ToNumPy:
     """This is a temporary class used until model handling is refactored.
 
@@ -26,7 +27,7 @@ class DiCE(base_type.RecourseMethod):
 
     def __init__(self,
                  k_directions: int,
-                 preprocessor: dp.Preprocessor,
+                 adapter: adapter_types.RecourseAdapter,
                  dataset: pd.DataFrame,
                  continuous_features: Sequence[str],
                  model: Any,
@@ -36,10 +37,10 @@ class DiCE(base_type.RecourseMethod):
                  dice_cfe_kwargs: Optional[Mapping[str, Any]] = None):
         """Constructs a new DiCE recourse method.
 
-        The Preprocessor translates between the original data format (potentially
+        The adapter translates between the original data format (potentially
         with categorical features) and a continuous embedded space. Recourse
-        directions are generated in embedded space and interpreted as instructions
-        in the original data format.
+        directions are generated in embedded space and interpreted as
+        instructions in the original data format.
 
         The failure modes for this class are identical to those for the DiCE method.
         Namely, for some points and optimizer parameter settings, DiCE will return
@@ -47,7 +48,7 @@ class DiCE(base_type.RecourseMethod):
 
         Args:
             k_directions: The number of recourse directions to generate.
-            preprocessor: The dataset preprocessor.
+            adapter: The dataset adapter.
             dataset: The dataset to perform recourse over.
             continuous_features: A list of the dataset's continuous features.
             model: An ML model satisfying one of the DiCE model backends.
@@ -57,7 +58,7 @@ class DiCE(base_type.RecourseMethod):
             dice_recourse_kwargs: Optional arguments to pass to DiCE on counterfactual explanation generation.
         """
         self.k_directions = k_directions
-        self.preprocessor = preprocessor
+        self.adapter = adapter
         self.dice_cfe_kwargs = dice_cfe_kwargs
         self.label_column = label_column
         d = dice_ml.Data(
@@ -65,7 +66,7 @@ class DiCE(base_type.RecourseMethod):
             continuous_features=continuous_features,
             outcome_name=label_column
         )
-        clf = pipeline.Pipeline(steps=[('preprocessor', preprocessor),
+        clf = pipeline.Pipeline(steps=[('adapter', adapter),
                                        ('tonumpy', ToNumPy()),
                                        ('classifier', model)])
         m = dice_ml.Model(model=clf, backend=model_backend)
@@ -77,7 +78,7 @@ class DiCE(base_type.RecourseMethod):
             dice_args.update(dice_kwargs)
         self.dice = dice_ml.Dice(**dice_args)
 
-    def get_all_recourse_directions(self, poi: dp.EmbeddedSeries) -> dp.EmbeddedDataFrame:
+    def get_all_recourse_directions(self, poi: adapter_types.EmbeddedSeries) -> adapter_types.EmbeddedDataFrame:
         """Generates different recourse directions for the poi for each of the k_directions.
 
         Args:
@@ -85,7 +86,7 @@ class DiCE(base_type.RecourseMethod):
 
         Returns:
             A DataFrame containing recourse directions for the POI."""
-        poi = self.preprocessor.inverse_transform_series(poi)
+        poi = self.adapter.inverse_transform_series(poi)
         cfes = self._generate_counterfactuals(poi, self.k_directions)
         directions = self._counterfactuals_to_directions(poi, cfes)
         return directions
@@ -106,7 +107,7 @@ class DiCE(base_type.RecourseMethod):
         directions = self._counterfactuals_to_directions(poi, cfes)
         instructions = []
         for i in range(len(cfes)):
-            instruction = self.preprocessor.directions_to_instructions(directions.iloc[i])
+            instruction = self.adapter.directions_to_instructions(directions.iloc[i])
             instructions.append(instruction)
         return instructions
 
@@ -120,7 +121,7 @@ class DiCE(base_type.RecourseMethod):
             Instructions for the POI to achieve the recourse."""
         cfes = self._generate_counterfactuals(poi, 1)
         directions = self._counterfactuals_to_directions(poi, cfes)
-        return self.preprocessor.directions_to_instructions(directions.iloc[0])
+        return self.adapter.directions_to_instructions(directions.iloc[0])
 
     def _generate_counterfactuals(self, poi: pd.Series, num_cfes: int) -> pd.DataFrame:
         """Generates DiCE counterfactual examples for the requested POI.
@@ -140,7 +141,7 @@ class DiCE(base_type.RecourseMethod):
             cfe_args.update(self.dice_cfe_kwargs)
         return self.dice.generate_counterfactuals(**cfe_args).cf_examples_list[0].final_cfs_df.drop(self.label_column, axis=1)
 
-    def _counterfactuals_to_directions(self, poi: pd.Series, cfes: pd.DataFrame) -> dp.EmbeddedDataFrame:
+    def _counterfactuals_to_directions(self, poi: pd.Series, cfes: pd.DataFrame) -> adapter_types.EmbeddedDataFrame:
         """Converts a DataFrame of counterfactual points to a DataFrame of Embedded directions pointing from the POI to the CFEs.
 
         Args:
@@ -149,7 +150,7 @@ class DiCE(base_type.RecourseMethod):
 
         Returns:
             A DataFrame of recourse directions in embedded space."""
-        poi = self.preprocessor.transform_series(poi)
-        cfes = self.preprocessor.transform(cfes)
+        poi = self.adapter.transform_series(poi)
+        cfes = self.adapter.transform(cfes)
         dirs = cfes - poi
         return dirs

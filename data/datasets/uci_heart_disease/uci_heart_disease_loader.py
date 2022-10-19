@@ -1,10 +1,12 @@
 import pandas as pd
-import numpy as np
 from typing import Union, Tuple, Mapping, Sequence
 import os
-from data import data_preprocessor as dp
+from data.datasets import data_loader
 import pathlib
 
+
+# @TODO(jakeval): Dataset loading is refactored as-needed. Either remove this or
+#                 refactor it once it is needed.
 COLUMN_NAMES = 'age,sex,cp,trestbps,chol,fbs,restecg,thalach,exang,oldpeak,slope,ca,thal,num'.split(',')
 URL = 'https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data'
 DATA_FILENAME = 'processed.cleveland.data'

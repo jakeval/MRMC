@@ -7,7 +7,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 import pathlib
 import pandas as pd
-from data import data_preprocessor as dp
+from data.adapters import adapter_types
 
 
 plt.style.use(pathlib.Path(__file__).parent / 'style.mplstyle')
@@ -38,7 +38,7 @@ class Display2DPaths:
         self.pca = pipe
         return self
 
-    def inverse_pca(self, poi: Sequence[float], index: Sequence[str]) -> dp.EmbeddedSeries:
+    def inverse_pca(self, poi: Sequence[float], index: Sequence[str]) -> adapter_types.EmbeddedSeries:
         if not self.pca:
             return poi
         poi = self.pca.inverse_transform([poi])

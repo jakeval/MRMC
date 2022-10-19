@@ -1,3 +1,4 @@
 .env
 __pycache__
 *.icloud
+data/datasets/*/raw_data
