@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from core.mrmc import MRM, MRMCIterator
 from sklearn.cluster import KMeans
 import pandas as pd
-from data.adult_data_adapter import AdultPreprocessor
+from data.adult_income.adult_data_adapter import AdultPreprocessor
 from data import data_adapter as da
 from core.mrmc import utils
 
