@@ -1,0 +1,5 @@
+{
+    "name": "debug_model",
+    "dataset": "credit_card_default",
+    "type": "logistic_regression"
+}

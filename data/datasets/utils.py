@@ -3,6 +3,12 @@ import pandas as pd
 import numpy as np
 
 
+
+def get_data_loader(dataset, **loader_args):
+    if dataset == None:
+        pass
+
+
 def recategorize_feature(
     column: pd.Series,
     inverse_category_dict: Mapping[str, Sequence[str]]) -> pd.Series:
