@@ -1,4 +1,4 @@
 .env
 __pycache__
 *.icloud
-*-checkpoint.ipynb
+*.ipynb_checkpoints
