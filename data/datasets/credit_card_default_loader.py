@@ -5,6 +5,16 @@ from data.datasets import utils
 
 
 DATASET_NAME = "credit_card_default"
+_DATASET_INFO = base_loader.DatasetInfo(
+    continuous_features=["LIMIT_BAL", "AGE"]
+    + [f"PAY_{i}" for i in range(1, 7)]
+    + [f"BILL_AMT{i}" for i in range(1, 7)]
+    + [f"PAY_AMT{i}" for i in range(1, 7)],
+    ordinal_features=[],
+    categorical_features=[],
+    label_name="Y",
+    positive_label=0,
+)
 _SOURCE_TARGET_COLUMN = "default payment next month"
 _URL = (
     "https://archive.ics.uci.edu/ml/machine-learning-databases/00350/"
@@ -44,14 +54,7 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
                              turns the categorical PAY_* columns into
                              continuous columns."""
         super().__init__(
-            continuous_features=["LIMIT_BAL", "AGE"]
-            + [f"PAY_{i}" for i in range(1, 7)]
-            + [f"BILL_AMT{i}" for i in range(1, 7)]
-            + [f"PAY_AMT{i}" for i in range(1, 7)],
-            ordinal_features=[],
-            categorical_features=[],
-            label_name="Y",
-            positive_label=0,
+            dataset_info=_DATASET_INFO,
             data_dir=data_dir,
             dataset_name=DATASET_NAME,
         )
