@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
-from data import data_preprocessor as dp
+from data import recourse_adapter
 from typing import Any, Mapping, Sequence
+
+
+# TODO(@jakeval): Most functions here are no longer used and should be removed.
+#                 The remaining functions should be retouched.
 
 
 MIN_DIRECTION = 1e-32
@@ -42,7 +46,7 @@ def centroid_normalization(dir, poi, X, alpha=0.7):
     dir = (alpha * dir * centroid_dist) / np.sqrt(dir@dir)
     return dir
 
-def rescale_dir(dir: dp.EmbeddedSeries, rescale_factor: float):
+def rescale_dir(dir: recourse_adapter.EmbeddedSeries, rescale_factor: float):
     new_dir = dir * rescale_factor
     return new_dir
 
@@ -51,7 +55,7 @@ def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
     stdev = (beta*C**2)/epsilon
     return dir + np.random.normal(0, stdev, size=dir.shape)
 
-def randomly_perturb_dir(dir: dp.EmbeddedSeries, ratio: float):
+def randomly_perturb_dir(dir: recourse_adapter.EmbeddedSeries, ratio: float):
     norm = np.linalg.norm(dir)
     noise = np.random.normal(0, 1, len(dir))
     noise = (noise / np.linalg.norm(noise)) * ratio * norm
@@ -59,7 +63,7 @@ def randomly_perturb_dir(dir: dp.EmbeddedSeries, ratio: float):
     new_dir = (new_dir / np.linalg.norm(new_dir)) * norm
     return new_dir
 
-def random_perturb_dir(preprocessor, scale, categorical_prob, p1, dir, num_features, cat_features, immutable_features=None, immutable_column_indices=None):
+def random_perturb_dir(adapter, scale, categorical_prob, p1, dir, num_features, cat_features, immutable_features=None, immutable_column_indices=None):
     """Randomly perturb a direction.
 
     Continuous variables are perturbed with random noise.
@@ -75,7 +79,7 @@ def random_perturb_dir(preprocessor, scale, categorical_prob, p1, dir, num_featu
     for feature in cat_features:
         # set the original category to -1 and a new category to +1
         if np.random.random() <= categorical_prob:
-            ohe_columns = preprocessor.get_feature_names_out([feature])
+            ohe_columns = adapter.get_feature_names_out([feature])
             p1_cat = ohe_columns[np.argmax(p1[ohe_columns].to_numpy())]
             unselected_categories = ohe_columns
             if (new_dir[ohe_columns].to_numpy() == 0).all():

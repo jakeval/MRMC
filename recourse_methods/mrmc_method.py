@@ -5,7 +5,7 @@ import numpy as np
 from core import utils
 from models import base_model
 import pandas as pd
-from data import data_preprocessor as dp
+from data import recourse_adapter
 from recourse_methods.base_type import RecourseMethod
 from sklearn.cluster import KMeans
 
@@ -48,7 +48,7 @@ class MRM:
     """Monotone Recourse Measures generates recourse directions."""
     def __init__(self,
                  dataset: pd.DataFrame,
-                 preprocessor: dp.Preprocessor,
+                 adapter: recourse_adapter.RecourseAdapter,
                  label_column: str = 'Y',
                  positive_label: Any = 1,
                  alpha: AlphaFunction = get_volcano_alpha(),
@@ -57,26 +57,26 @@ class MRM:
         
         Args:
             dataset: The dataset to provide recourse over.
-            preprocessor: The dataset's preprocessor.
+            adapter: The dataset's adapter.
             label_column: The columb providing binary classification outcomes.
             positive_label: The value of a positive classification outcome.
             alpha: The alpha function to use during recourse generation.
             rescale_direction: A function for rescaling the recourse."""
-        self.X = MRM.process_data(dataset, preprocessor, label_column, positive_label)
-        self.preprocessor = preprocessor
+        self.X = MRM.process_data(dataset, adapter, label_column, positive_label)
+        self.adapter = adapter
         self.alpha = alpha
         self.rescale_direction = rescale_direction
 
     @staticmethod
     def process_data(dataset: pd.DataFrame,
-                     preprocessor: dp.Preprocessor,
+                     adapter: recourse_adapter.RecourseAdapter,
                      label_column: str,
-                     positive_label: Any) -> dp.EmbeddedDataFrame:
+                     positive_label: Any) -> recourse_adapter.EmbeddedDataFrame:
         """Processes the dataset for MRM.
 
         It filters out negative outcomes and transforms the data to a numeric embedded space."""
         positive_dataset = dataset[dataset[label_column] == positive_label]
-        X = preprocessor.transform(positive_dataset.drop(label_column, axis=1))
+        X = adapter.transform(positive_dataset.drop(label_column, axis=1))
         if len(X) == 0:
             raise ValueError("Dataset is empty after excluding non-positive outcome examples.")
         return X
@@ -95,15 +95,15 @@ class MRM:
         self.X = self.X[p >= confidence_threshold]
         return self
 
-    def get_unnormalized_direction(self, poi: dp.EmbeddedSeries) -> dp.EmbeddedSeries:
+    def get_unnormalized_direction(self, poi: recourse_adapter.EmbeddedSeries) -> recourse_adapter.EmbeddedSeries:
         """Returns an unnormalized recourse direction."""
         diff = (self.X - poi).to_numpy()
         dist = np.sqrt(np.power(diff, 2).sum(axis=1))
         alpha_val = self.alpha(dist)
         dir = diff.T @ alpha_val
-        return dp.EmbeddedSeries(index=poi.index, data=dir)
+        return recourse_adapter.EmbeddedSeries(index=poi.index, data=dir)
 
-    def get_recourse_direction(self, poi: dp.EmbeddedSeries) -> dp.EmbeddedSeries:
+    def get_recourse_direction(self, poi: recourse_adapter.EmbeddedSeries) -> recourse_adapter.EmbeddedSeries:
         """Returns the recourse direction in embedded numeric space."""
         direction = self.get_unnormalized_direction(poi)
         if self.rescale_direction:
@@ -112,8 +112,8 @@ class MRM:
 
     def get_recourse_instructions(self, poi: pd.Series) -> Any:
         """Returns recourse instructions for a given POI."""
-        direction = self.get_recourse_direction(self.preprocessor.transform_series(poi))
-        return self.preprocessor.directions_to_instructions(direction)
+        direction = self.get_recourse_direction(self.adapter.transform_series(poi))
+        return self.adapter.directions_to_instructions(direction)
 
 
 @dataclass
@@ -132,7 +132,7 @@ class MRMC(RecourseMethod):
     """A class for MRM with clustering."""
     def __init__(self,
                  k_directions: int,
-                 preprocessor: dp.Preprocessor,
+                 adapter: recourse_adapter.RecourseAdapter,
                  dataset: pd.DataFrame,
                  label_column: str = 'Y',
                  positive_label: Any = 1,
@@ -145,7 +145,7 @@ class MRMC(RecourseMethod):
         
         Args:
             k_directions: The number of clusters (and recourse directions) to generate.
-            preprocessor: The dataset preprocessor.
+            adapter: The dataset adapter.
             dataset: The dataset to perform recourse over.
             label_column: The column containing binary classification outputs.
             positive_label: The value of a positive classification.
@@ -153,7 +153,7 @@ class MRMC(RecourseMethod):
             rescale_direction: The rescaling function each MRM should use.
             clusters: The cluster data to use. If None, performs k-means clustering.
         """
-        X = MRM.process_data(dataset, preprocessor, label_column, positive_label)
+        X = MRM.process_data(dataset, adapter, label_column, positive_label)
         self.k_directions = k_directions
         if not clusters:
             clusters = self.cluster_data(X, self.k_directions)
@@ -167,7 +167,7 @@ class MRMC(RecourseMethod):
             dataset_cluster = dataset.loc[X_cluster.index]
             mrm = MRM(
                 dataset=dataset_cluster,
-                preprocessor=preprocessor,
+                adapter=adapter,
                 label_column=label_column,
                 positive_label=positive_label,
                 alpha=alpha,
@@ -189,7 +189,7 @@ class MRMC(RecourseMethod):
             mrm.filter_data(confidence_threshold, model)
             return self
 
-    def cluster_data(self, X: dp.EmbeddedDataFrame, k_directions: int) -> Clusters:
+    def cluster_data(self, X: recourse_adapter.EmbeddedDataFrame, k_directions: int) -> Clusters:
         """Clusters the data using k-means clustering."""
         km = KMeans(n_clusters=k_directions)
         cluster_assignments = km.fit_predict(X.to_numpy())
@@ -208,7 +208,7 @@ class MRMC(RecourseMethod):
             raise RuntimeError(f'Data was assigned to clusters {cluster_sizes.index}, but expected clusters {range(k_directions)}')
         return True
 
-    def get_all_recourse_directions(self, poi: dp.EmbeddedSeries) -> dp.EmbeddedDataFrame:
+    def get_all_recourse_directions(self, poi: recourse_adapter.EmbeddedSeries) -> recourse_adapter.EmbeddedDataFrame:
         """Generates different recourse directions for the poi for each of the k_directions."""
         directions = []
         for mrm in self.mrms:
@@ -227,7 +227,7 @@ class MRMC(RecourseMethod):
         return self.mrms[dir_index].get_recourse_instructions(poi)
 
 
-def check_dirs(poi: dp.EmbeddedSeries, dirs: dp.EmbeddedDataFrame, cluster_centers: np.ndarray) -> np.ndarray:
+def check_dirs(poi: recourse_adapter.EmbeddedSeries, dirs: recourse_adapter.EmbeddedDataFrame, cluster_centers: np.ndarray) -> np.ndarray:
     """Convenience function for verifying the directions generated by MRMC.
 
     Returns the dot product between the normalized directions and the normalized difference vector

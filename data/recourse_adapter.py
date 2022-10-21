@@ -31,10 +31,10 @@ class EmbeddedSeries(pd.Series):
         return True
 
 
-class Preprocessor(abc.ABC):
-    """An abstract base class for dataset preprocessors.
+class RecourseAdapter(abc.ABC):
+    """An abstract base class for dataset adapters.
     
-    The preprocessor translates between human-readable and embedded space.
+    The adapter translates between human-readable and embedded space.
     """
     @abc.abstractmethod
     def get_label(self) -> str:
@@ -75,8 +75,8 @@ class Preprocessor(abc.ABC):
         return self.inverse_transform(poi.to_frame().T).iloc[0]
 
 
-class NaivePreprocessor(Preprocessor):
-    """A Naive preprocessor which standardizes numeric columns and one hot encodes categorical columns."""
+class NaiveAdapter(RecourseAdapter):
+    """A Naive adapter which standardizes numeric columns and one hot encodes categorical columns."""
     def __init__(self,
                  categorical_features: Sequence[str],
                  continuous_features: Sequence[str],
@@ -96,7 +96,7 @@ class NaivePreprocessor(Preprocessor):
     def get_label(self) -> str:
         return self.label
 
-    def fit(self, dataset: pd.DataFrame) -> NaivePreprocessor:
+    def fit(self, dataset: pd.DataFrame) -> NaiveAdapter:
         self.sc_dict = {}
         self.ohe_dict = {}
         self.columns = dataset.columns
@@ -171,7 +171,7 @@ class NaivePreprocessor(Preprocessor):
         return features_out
 
 
-class PassthroughPreprocessor(Preprocessor):
+class PassthroughAdapter(RecourseAdapter):
     def __init__(self, label='Y'):
         self.columns = None
         self.label = label
@@ -179,7 +179,7 @@ class PassthroughPreprocessor(Preprocessor):
     def get_label(self) -> str:
         return self.label
 
-    def fit(self, dataset: pd.DataFrame) -> PassthroughPreprocessor:
+    def fit(self, dataset: pd.DataFrame) -> PassthroughAdapter:
         self.columns = dataset.columns
         return self
 
