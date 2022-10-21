@@ -17,14 +17,9 @@ def load_credit_card_default_dataset(
 
     Returns:
         The Credit Card Default dataset."""
-    if data_dir is not None:
-        return credit_card_default_loader.load_data(
-            only_continuous=only_continuous, data_dir=data_dir
-        )
-    else:
-        return credit_card_default_loader.load_data(
-            only_continuous=only_continuous
-        )
+    return credit_card_default_loader.CreditCardDefaultLoader(
+        only_continuous=only_continuous, data_dir=data_dir
+    ).load_data()
 
 
 # TODO(@jakeval): This will be removed in a later PR

@@ -5,8 +5,9 @@ import abc
 import os
 import pathlib
 
-
-_DEFAULT_DATA_DIR = pathlib(__file__).parent.parent / "raw_data"
+_DEFAULT_DATA_DIR = (
+    pathlib.Path(os.path.normpath(__file__)).parent.parent.parent / "raw_data"
+)
 
 
 @dataclass
@@ -88,6 +89,8 @@ class DataLoader(abc.ABC):
         Args:
             data: The DataFrame to save.
             dataset_filepath: The filepath to save the data to."""
+        if not os.path.exists(pathlib.Path(dataset_filepath).parent):
+            os.makedirs(pathlib.Path(dataset_filepath).parent)
         data.to_csv(dataset_filepath, header=True, index=False)
 
     def load_local_data(self, dataset_filepath: str) -> pd.DataFrame:
