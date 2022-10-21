@@ -5,9 +5,28 @@ import abc
 import os
 import pathlib
 
+
 _DEFAULT_DATA_DIR = (
     pathlib.Path(os.path.normpath(__file__)).parent.parent.parent / "raw_data"
 )
+
+
+@dataclass
+class DatasetInfo:
+    """An attribute class containing useful info on dataset columns.
+
+    Attributes:
+        continuous_features: The names of the dataset's continuous features.
+        ordinal_features: The names of the dataset's ordinal features.
+        categorical_features: The names of the dataset's categorical features.
+        label_name: The name of the dataset's label column.
+        positive_label: The label value for positive outcomes."""
+
+    continuous_features: Sequence[str]
+    ordinal_features: Sequence[str]
+    categorical_features: Sequence[str]
+    label_name: str
+    positive_label: Any
 
 
 @dataclass
@@ -24,20 +43,12 @@ class DataLoader(abc.ABC):
     record the types of each column.
 
     Attributes:
-        continuous_features: The names of the dataset's continuous features.
-        ordinal_features: The names of the dataset's ordinal features.
-        categorical_features: The names of the dataset's categorical features.
-        label_name: The name of the dataset's label column.
-        positive_label: The label value for positive outcomes.
+        dataset_info: Information about the dataset's columns.
         data_dir: The local directory this dataset is saved to.
         dataset_name: The name of the dataset. Data is saved to
             data_dir/dataset_name/"""
 
-    continuous_features: Sequence[str]
-    ordinal_features: Sequence[str]
-    categorical_features: Sequence[str]
-    label_name: str
-    positive_label: Any
+    dataset_info: DatasetInfo
     data_dir: str
     dataset_name: str
 
