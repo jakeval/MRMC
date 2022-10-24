@@ -1,7 +1,7 @@
 from typing import Protocol, Sequence
 import pandas as pd
 from recourse_methods.base_type import RecourseMethod
-from models import base_model
+from models import model_interface
 from data import recourse_adapter
 
 
@@ -19,13 +19,13 @@ class CertaintyChecker(Protocol):
         pass
 
 
-# TODO(@jakeval): Remove this during the model refactor.
+#  TODO(@jakeval): Remove this during the model refactor.
 def wrap_model(
-    model: base_model.BaseModel, positive_index: int = 1
+    model: model_interface.Model, positive_index: int = 1
 ) -> CertaintyChecker:
     """Returns a CertaintyChecker function from an sklearn model.
 
-    The BaseModel defines predict_proba() which returns an N by C array where
+    The Model defines predict_proba() which returns an N by C array where
     the i-th row corresponds to the i-th data point and the j-th column
     corresponds to the probability of class label j.
 
