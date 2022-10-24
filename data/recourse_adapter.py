@@ -60,7 +60,10 @@ class RecourseAdapter(abc.ABC):
 
     Attributes:
         label_name: The name of the label feature.
-        positive_label: The value of the label for the positive class."""
+        positive_label: The value of the label for the positive class.
+        negative_label: The value of the label for the positive class. This is
+            inferred automatically when the adapter's .fit() function is
+            called."""
 
     label_name: str
     positive_label: Any
@@ -160,7 +163,7 @@ class RecourseAdapter(abc.ABC):
 
         Returns:
             Itself. Fitting is done mutably."""
-        labels = dataset[self.positive_label]
+        labels = dataset[self.label_name]
         self.negative_label = labels[labels != self.positive_label].iloc[0]
         return self
 
@@ -176,7 +179,7 @@ class RecourseAdapter(abc.ABC):
         Returns:
             A series of the same length as labels with values 1 and -1."""
         y = np.where(labels == self.positive_label, 1, -1)
-        return pd.Series(y)
+        return pd.Series(y, index=labels.index)
 
     def inverse_transform_label(self, y: EmbeddedSeries) -> pd.Series:
         """Transforms -1/1 encoded labels to their original human-readable
@@ -192,7 +195,7 @@ class RecourseAdapter(abc.ABC):
             A series of the same length as y with its original human-readable
             values."""
         labels = np.where(y == 1, self.positive_label, self.negative_label)
-        return pd.Series(labels)
+        return pd.Series(labels, index=y.index)
 
     def transform_series(self, poi: pd.Series) -> EmbeddedSeries:
         """Transforms data from human-readable format to an embedded continuous
