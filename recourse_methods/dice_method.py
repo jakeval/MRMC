@@ -3,25 +3,7 @@ from recourse_methods import base_type
 import pandas as pd
 from data import recourse_adapter
 import dice_ml
-from dice_ml import constants
-from sklearn import pipeline
-
-
-# TODO(@jakeval): This will be refactored with the model update.
-class ToNumPy:
-    """This is a temporary class used until model handling is refactored.
-
-    It is used in an sklearn pipeline to convert pandas DataFrames to NumPy
-    arrays."""
-
-    def __init__(self):
-        pass
-
-    def fit(self, X, y):
-        pass
-
-    def transform(self, X):
-        return X.to_numpy()
+from models import model_interface
 
 
 class DiCE(base_type.RecourseMethod):
@@ -33,8 +15,8 @@ class DiCE(base_type.RecourseMethod):
         adapter: recourse_adapter.RecourseAdapter,
         dataset: pd.DataFrame,
         continuous_features: Sequence[str],
-        model: Any,
-        model_backend: constants.BackEndTypes,
+        model: model_interface.Model,
+        desired_confidence: Optional[float] = None,
         dice_kwargs: Optional[Mapping[str, Any]] = None,
         dice_cfe_kwargs: Optional[Mapping[str, Any]] = None,
     ):
@@ -64,23 +46,18 @@ class DiCE(base_type.RecourseMethod):
         """
         self.k_directions = k_directions
         self.adapter = adapter
+        dice_cfe_kwargs = dice_cfe_kwargs or {}
+        if desired_confidence:
+            dice_cfe_kwargs["stopping_threshold"] = desired_confidence
         self.dice_cfe_kwargs = dice_cfe_kwargs
         d = dice_ml.Data(
             dataframe=dataset,
             continuous_features=continuous_features,
             outcome_name=adapter.label_name,
         )
-        clf = pipeline.Pipeline(
-            steps=[
-                ("adapter", adapter),
-                ("tonumpy", ToNumPy()),
-                ("classifier", model),
-            ]
-        )
-        m = dice_ml.Model(model=clf, backend=model_backend)
         dice_args = {
             "data_interface": d,
-            "model_interface": m,
+            "model_interface": model.to_dice_model(),
         }
         if dice_kwargs:
             dice_args.update(dice_kwargs)
@@ -165,7 +142,7 @@ class DiCE(base_type.RecourseMethod):
         return (
             self.dice.generate_counterfactuals(**cfe_args)
             .cf_examples_list[0]
-            .final_cfs_df.drop(self.label_column, axis=1)
+            .final_cfs_df.drop(self.adapter.label_name, axis=1)
         )
 
     def _counterfactuals_to_directions(

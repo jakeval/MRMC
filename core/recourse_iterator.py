@@ -1,47 +1,8 @@
-from typing import Protocol, Sequence
+from typing import Sequence, Optional
 import pandas as pd
 from recourse_methods.base_type import RecourseMethod
 from models import model_interface
 from data import recourse_adapter
-
-
-class CertaintyChecker(Protocol):
-    """Returns the model certainty as a 1-dimensional array."""
-
-    def check_certainty(poi: pd.Series) -> float:
-        """Returns the model certainty as a 1-dimensional array.
-
-        Args:
-            poi: The point of interest (POI) to check model certainty for.
-
-        Returns:
-            The model's reported probability of a positive outcome."""
-        pass
-
-
-#  TODO(@jakeval): Remove this during the model refactor.
-def wrap_model(
-    model: model_interface.Model, positive_index: int = 1
-) -> CertaintyChecker:
-    """Returns a CertaintyChecker function from an sklearn model.
-
-    The Model defines predict_proba() which returns an N by C array where
-    the i-th row corresponds to the i-th data point and the j-th column
-    corresponds to the probability of class label j.
-
-    Args:
-        model: The model to use for checking positive outcome probability.
-        positive_index: The index of the positive outcome in the class label
-            list.
-
-    Returns:
-        A CertaintyChecker function reporting model certainty on POIs."""
-
-    def check_certainty(poi: pd.Series) -> float:
-        proba = model.predict_proba(poi.to_frame().T.to_numpy())
-        return proba[0, positive_index]
-
-    return check_certainty
 
 
 class RecourseIterator:
@@ -51,8 +12,8 @@ class RecourseIterator:
         self,
         recourse_method: RecourseMethod,
         adapter: recourse_adapter.RecourseAdapter,
-        certainty_cutoff: float = None,
-        check_certainty: CertaintyChecker = None,
+        certainty_cutoff: Optional[float] = None,
+        model: Optional[model_interface.Model] = None,
     ):
         """Creates a new recourse iterator.
 
@@ -61,12 +22,12 @@ class RecourseIterator:
             adapter: The adapter.
             certainty_cutoff: If not None, stop iterating early if the model
                 certainty reaches the cutoff.
-            check_certainty: If not None, the function used to compute model
-                certainty.
+            model: The model to use to check positive outcome certainty if
+                certainty_cutoff is not None.
         """
         self.recourse_method = recourse_method
         self.certainty_cutoff = certainty_cutoff
-        self.check_certainty = check_certainty
+        self.model = model
         self.adapter = adapter
 
     def iterate_k_recourse_paths(
@@ -125,7 +86,7 @@ class RecourseIterator:
                 )
             if (
                 self.certainty_cutoff
-                and self.check_certainty(self.adapter.transform_series(poi))
+                and self.model.predict_pos_proba_series(poi)
                 > self.certainty_cutoff
             ):
                 break
