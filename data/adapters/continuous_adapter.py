@@ -17,7 +17,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         self,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label="Y",
+        label_name="Y",
+        positive_label=1,
     ):
         """Creates a new StandardizingAdapter.
 
@@ -28,17 +29,12 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
             label: The name of the class label feature."""
-        self.label = label
-
+        super().__init__(label_name=label_name, positive_label=positive_label)
         self.sc_dict: Mapping[str, StandardScaler] = None
         self.columns = None
         self.continuous_features = None
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
-
-    def get_label(self) -> str:
-        """Gets the dataset's label column name."""
-        return self.label
 
     def fit(self, dataset: pd.DataFrame) -> StandardizingAdapter:
         """Fits the adapter to a dataset.
@@ -48,8 +44,11 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             Itself. Fitting is done mutably."""
+        super().fit(dataset)
         self.columns = dataset.columns
-        self.continuous_features = dataset.columns.difference([self.label])
+        self.continuous_features = dataset.columns.difference(
+            [self.label_name]
+        )
         self.sc_dict = {}
         for feature in self.continuous_features:
             sc = StandardScaler()
@@ -69,7 +68,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             Transformed data."""
-        df = dataset.copy()
+        df = super().transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.sc_dict[feature].transform(df[[feature]])
@@ -87,7 +86,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             Inverse transformed data."""
-        df = dataset.copy()
+        df = super().inverse_transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.sc_dict[feature].inverse_transform(
@@ -153,7 +152,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         Returns:
             A list of the column names."""
         if drop_label:
-            return self.columns.difference([self.label])
+            return self.columns.difference([self.label_name])
         else:
             return self.columns
 
@@ -167,6 +166,6 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         Returns:
             A list of the column names."""
         if drop_label:
-            return self.columns.difference([self.label])
+            return self.columns.difference([self.label_name])
         else:
             return self.columns

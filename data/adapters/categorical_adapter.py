@@ -19,7 +19,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         continuous_features: Sequence[str],
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label="Y",
+        label_name="Y",
+        positive_label=1,
     ):
         """Creates a new OneHotAdapter.
 
@@ -32,19 +33,15 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
             label: The name of the class label feature."""
+        super().__init__(label_name=label_name, positive_label=positive_label)
         self.categorical_features = categorical_features
         self.continuous_features = continuous_features
-        self.label = label
 
         self.sc_dict: Mapping[str, StandardScaler] = None
         self.ohe_dict: Mapping[str, OneHotEncoder] = None
         self.columns = None
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
-
-    def get_label(self) -> str:
-        """Gets the dataset's label column name."""
-        return self.label
 
     def fit(self, dataset: pd.DataFrame) -> OneHotAdapter:
         """Fits the adapter to a dataset.
@@ -54,6 +51,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             Itself. Fitting is done mutably."""
+        super().fit(dataset)
         self.sc_dict = {}
         self.ohe_dict = {}
         self.columns = dataset.columns
@@ -78,7 +76,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             Transformed data."""
-        df = dataset.copy()
+        df = super().transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.sc_dict[feature].transform(df[[feature]])
@@ -101,7 +99,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             Inverse transformed data."""
-        df = dataset.copy()
+        df = super().inverse_transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.sc_dict[feature].inverse_transform(
