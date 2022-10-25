@@ -129,8 +129,16 @@ class ModelTrainer(abc.ABC):
 
         The results have format
         {
-            'train_accuracy': train_accuracy,
-            'test_accuracy': test_accuracy
+            "train": {
+                "positive_accuracy": float,
+                "negative_accuracy": float,
+                "total_accuracy": float
+            },
+            "test": {
+                "positive_accuracy": float,
+                "negative_accuracy": float,
+                "total_accuracy": float
+            }
         }
 
         Args:
@@ -142,11 +150,47 @@ class ModelTrainer(abc.ABC):
         Returns:
             A dictionary containing results as described above."""
         results = {"train_accuracy": None, "test_accuracy": None}
-        results["train_accuracy"] = self._get_accuracy(
+        results = {
+            "train": {
+                "positive_accuracy": None,
+                "negative_accuracy": None,
+                "total_accuracy": None,
+            },
+            "test": {
+                "positive_accuracy": None,
+                "negative_accuracy": None,
+                "total_accuracy": None,
+            },
+        }
+        train_pos_mask = (
+            train[dataset_info.label_name] == dataset_info.positive_label
+        )
+        test_pos_mask = (
+            test[dataset_info.label_name] == dataset_info.positive_label
+        )
+
+        results["train"]["total_accuracy"] = self._get_accuracy(
             model.predict(train), train[dataset_info.label_name]
         )
-        results["test_accuracy"] = self._get_accuracy(
+        results["train"]["positive_accuracy"] = self._get_accuracy(
+            model.predict(train[train_pos_mask]),
+            train.loc[train_pos_mask, dataset_info.label_name],
+        )
+        results["train"]["negative_accuracy"] = self._get_accuracy(
+            model.predict(train[~train_pos_mask]),
+            train.loc[~train_pos_mask, dataset_info.label_name],
+        )
+
+        results["test"]["total_accuracy"] = self._get_accuracy(
             model.predict(test), test[dataset_info.label_name]
+        )
+        results["test"]["positive_accuracy"] = self._get_accuracy(
+            model.predict(test[test_pos_mask]),
+            test.loc[test_pos_mask, dataset_info.label_name],
+        )
+        results["test"]["negative_accuracy"] = self._get_accuracy(
+            model.predict(test[~test_pos_mask]),
+            test.loc[~test_pos_mask, dataset_info.label_name],
         )
         return results
 
