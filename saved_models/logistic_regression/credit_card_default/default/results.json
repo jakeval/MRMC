@@ -1,0 +1,1 @@
+{"train": {"positive_accuracy": 0.8409950006096818, "negative_accuracy": 0.5578512396694215, "total_accuracy": 0.779}, "test": {"positive_accuracy": 0.8277793737431772, "negative_accuracy": 0.5799803729146222, "total_accuracy": 0.7716666666666666}}
