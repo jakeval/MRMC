@@ -3,6 +3,7 @@ import pandas as pd
 import joblib
 import os
 from data.datasets import base_loader
+from data import data_loader
 from data.adapters import continuous_adapter, categorical_adapter
 from data import recourse_adapter
 from models.core import model_trainer
@@ -18,7 +19,11 @@ class LogisticRegression(model_trainer.ModelTrainer):
 
     Uses the SKLearn LogisticRegression class."""
 
-    def __init__(self, dataset_name, model_name):
+    def __init__(
+        self,
+        dataset_name: data_loader.DatasetName,
+        model_name: model_constants.ModelName,
+    ):
         """Creates a new LogisticRegression class.
 
         Args:
