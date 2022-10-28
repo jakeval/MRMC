@@ -36,8 +36,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         self.continuous_features = continuous_features
         self.label = label
 
-        self.sc_dict: Mapping[str, StandardScaler] = None
-        self.ohe_dict: Mapping[str, OneHotEncoder] = None
+        self.standard_scaler_dict: Mapping[str, StandardScaler] = None
+        self.onehot_dict: Mapping[str, OneHotEncoder] = None
         self.columns = None
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
@@ -54,17 +54,17 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             Itself. Fitting is done mutably."""
-        self.sc_dict = {}
-        self.ohe_dict = {}
+        self.standard_scaler_dict = {}
+        self.onehot_dict = {}
         self.columns = dataset.columns
         for feature in self.continuous_features:
-            sc = StandardScaler()
-            sc.fit(dataset[[feature]])
-            self.sc_dict[feature] = sc
+            standard_scaler = StandardScaler()
+            standard_scaler.fit(dataset[[feature]])
+            self.standard_scaler_dict[feature] = standard_scaler
         for feature in self.categorical_features:
-            ohe = OneHotEncoder()
-            ohe.fit(dataset[[feature]])
-            self.ohe_dict[feature] = ohe
+            onehot_encoder = OneHotEncoder()
+            onehot_encoder.fit(dataset[[feature]])
+            self.onehot_dict[feature] = onehot_encoder
         return self
 
     def transform(
@@ -81,12 +81,18 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
-                df[feature] = self.sc_dict[feature].transform(df[[feature]])
+                df[feature] = self.standard_scaler_dict[feature].transform(
+                    df[[feature]]
+                )
         for feature in self.categorical_features:
             if feature in df.columns:
-                ohe = self.ohe_dict[feature]
-                feature_columns = ohe.get_feature_names_out([feature])
-                df[feature_columns] = ohe.transform(df[[feature]]).toarray()
+                onehot_encoder = self.onehot_dict[feature]
+                feature_columns = onehot_encoder.get_feature_names_out(
+                    [feature]
+                )
+                df[feature_columns] = onehot_encoder.transform(
+                    df[[feature]]
+                ).toarray()
                 df = df.drop(feature, axis=1)
         return df
 
@@ -104,14 +110,16 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
-                df[feature] = self.sc_dict[feature].inverse_transform(
-                    df[[feature]]
-                )
+                df[feature] = self.standard_scaler_dict[
+                    feature
+                ].inverse_transform(df[[feature]])
         for feature in self.categorical_features:
-            ohe = self.ohe_dict[feature]
-            feature_columns = ohe.get_feature_names_out([feature])
+            onehot_encoder = self.onehot_dict[feature]
+            feature_columns = onehot_encoder.get_feature_names_out([feature])
             if df.columns.intersection(feature_columns).any():
-                df[feature] = ohe.inverse_transform(df[feature_columns])
+                df[feature] = onehot_encoder.inverse_transform(
+                    df[feature_columns]
+                )
                 df = df.drop(feature_columns, axis=1)
         return df
 
@@ -160,8 +168,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         if self.rescale_ratio:
             instructions = utils.rescale_dir(instructions, self.rescale_ratio)
         poi = self.transform_series(poi)
-        cfe = poi + instructions
-        return self.inverse_transform_series(cfe)
+        counterfactual = poi + instructions
+        return self.inverse_transform_series(counterfactual)
 
     def column_names(self, drop_label=True) -> Sequence[str]:
         """Returns the column names of the human-readable data.
@@ -197,7 +205,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         for feature in features:
             if feature in self.categorical_features:
                 features_out += list(
-                    self.ohe_dict[feature].get_feature_names_out([feature])
+                    self.onehot_dict[feature].get_feature_names_out([feature])
                 )
             else:
                 features_out.append(feature)
