@@ -32,7 +32,7 @@ class RecourseMethod(abc.ABC):
             A Sequence recourse instructions for the POI."""
 
     @abc.abstractmethod
-    def get_kth_recourse_instructions(self, poi: pd.Series, dir_index: int) -> Any:
+    def get_kth_recourse_instructions(self, poi: pd.Series, direction_index: int) -> Any:
         """Generates a single set of recourse instructions for the kth direction.
 
         Args:
