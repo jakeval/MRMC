@@ -1,14 +1,14 @@
 import abc
 from typing import Sequence, Any
 import pandas as pd
-from data import data_preprocessor as dp
+from data import recourse_adapter
 
 
 class RecourseMethod(abc.ABC):
     """An abstract base class for recourse methods."""
 
     @abc.abstractmethod
-    def get_all_recourse_directions(self, poi: dp.EmbeddedSeries) -> dp.EmbeddedDataFrame:
+    def get_all_recourse_directions(self, poi: recourse_adapter.EmbeddedSeries) -> recourse_adapter.EmbeddedDataFrame:
         """Generates different recourse directions for the poi for each of the k_directions.
 
         Args:
@@ -32,7 +32,7 @@ class RecourseMethod(abc.ABC):
             A Sequence recourse instructions for the POI."""
 
     @abc.abstractmethod
-    def get_kth_recourse_instructions(self, poi: pd.Series, dir_index: int) -> Any:
+    def get_kth_recourse_instructions(self, poi: pd.Series, direction_index: int) -> Any:
         """Generates a single set of recourse instructions for the kth direction.
 
         Args:

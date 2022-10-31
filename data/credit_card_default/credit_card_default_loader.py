@@ -44,7 +44,7 @@ import pandas as pd
 import numpy as np
 from typing import Union, Tuple
 import os
-from data import data_preprocessor as dp
+from data import recourse_adapter
 import pathlib
 from core import utils
 
@@ -57,7 +57,7 @@ RELATIVE_DATA_DIR = 'raw_data'
 ABSOLUTE_DATA_DIR = pathlib.Path(__file__).parent / RELATIVE_DATA_DIR
 
 
-def load_data(only_continuous: bool = True, data_dir: Union[str, pathlib.Path] = ABSOLUTE_DATA_DIR) -> Tuple[pd.DataFrame, dp.Preprocessor]:
+def load_data(only_continuous: bool = True, data_dir: Union[str, pathlib.Path] = ABSOLUTE_DATA_DIR) -> Tuple[pd.DataFrame, recourse_adapter.RecourseAdapter]:
     """Loads the UCI Credit Card Default dataset.
 
     If available locally as a csv at data_dir, loads it from there. Otherwise downloads it."""
@@ -70,7 +70,7 @@ def load_data(only_continuous: bool = True, data_dir: Union[str, pathlib.Path] =
     data_df = process_data(data, only_continuous)
 
     continuous_features = data_df.columns
-    return data_df, dp.NaivePreprocessor([], continuous_features, label='Y').fit(data_df)
+    return data_df, recourse_adapter.NaiveAdapter([], continuous_features, label='Y').fit(data_df)
 
 
 def download_data(data_dir: str) -> pd.DataFrame:

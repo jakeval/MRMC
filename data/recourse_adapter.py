@@ -31,10 +31,10 @@ class EmbeddedSeries(pd.Series):
         return True
 
 
-class Preprocessor(abc.ABC):
-    """An abstract base class for dataset preprocessors.
+class RecourseAdapter(abc.ABC):
+    """An abstract base class for dataset adapters.
     
-    The preprocessor translates between human-readable and embedded space.
+    The adapter translates between human-readable and embedded space.
     """
     @abc.abstractmethod
     def get_label(self) -> str:
@@ -75,8 +75,8 @@ class Preprocessor(abc.ABC):
         return self.inverse_transform(poi.to_frame().T).iloc[0]
 
 
-class NaivePreprocessor(Preprocessor):
-    """A Naive preprocessor which standardizes numeric columns and one hot encodes categorical columns."""
+class NaiveAdapter(RecourseAdapter):
+    """A Naive adapter which standardizes numeric columns and one hot encodes categorical columns."""
     def __init__(self,
                  categorical_features: Sequence[str],
                  continuous_features: Sequence[str],
@@ -87,8 +87,8 @@ class NaivePreprocessor(Preprocessor):
         self.continuous_features = continuous_features
         self.label = label
 
-        self.sc_dict: Mapping[str, StandardScaler] = None
-        self.ohe_dict: Mapping[str, OneHotEncoder] = None
+        self.standard_scaler_dict: Mapping[str, StandardScaler] = None
+        self.onehot_dict: Mapping[str, OneHotEncoder] = None
         self.columns = None
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
@@ -96,30 +96,30 @@ class NaivePreprocessor(Preprocessor):
     def get_label(self) -> str:
         return self.label
 
-    def fit(self, dataset: pd.DataFrame) -> NaivePreprocessor:
-        self.sc_dict = {}
-        self.ohe_dict = {}
+    def fit(self, dataset: pd.DataFrame) -> NaiveAdapter:
+        self.standard_scaler_dict = {}
+        self.onehot_dict = {}
         self.columns = dataset.columns
         for feature in self.continuous_features:
             sc = StandardScaler()
             sc.fit(dataset[[feature]])
-            self.sc_dict[feature] = sc
+            self.standard_scaler_dict[feature] = sc
         for feature in self.categorical_features:
-            ohe = OneHotEncoder()
-            ohe.fit(dataset[[feature]])
-            self.ohe_dict[feature] = ohe
+            onehot_encoder = OneHotEncoder()
+            onehot_encoder.fit(dataset[[feature]])
+        self.onehot_dict[feature] = onehot_encoder
         return self
 
     def transform(self, dataset: pd.DataFrame) -> EmbeddedDataFrame:
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
-                df[feature] = self.sc_dict[feature].transform(df[[feature]])
+                df[feature] = self.standard_scaler_dict[feature].transform(df[[feature]])
         for feature in self.categorical_features:
             if feature in df.columns:
-                ohe = self.ohe_dict[feature]
-                feature_columns = ohe.get_feature_names_out([feature])
-                df[feature_columns] = ohe.transform(df[[feature]]).toarray()
+                onehot_encoder = self.onehot_dict[feature]
+                feature_columns = onehot_encoder.get_feature_names_out([feature])
+                df[feature_columns] = onehot_encoder.transform(df[[feature]]).toarray()
                 df = df.drop(feature, axis=1)
         return df
 
@@ -127,12 +127,12 @@ class NaivePreprocessor(Preprocessor):
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
-                df[feature] = self.sc_dict[feature].inverse_transform(df[[feature]])
+                df[feature] = self.standard_scaler_dict[feature].inverse_transform(df[[feature]])
         for feature in self.categorical_features:
-            ohe = self.ohe_dict[feature]
-            feature_columns = ohe.get_feature_names_out([feature])
+            onehot_encoder = self.onehot_dict[feature]
+            feature_columns = onehot_encoder.get_feature_names_out([feature])
             if df.columns.intersection(feature_columns).any():
-                df[feature] = ohe.inverse_transform(df[feature_columns])
+                df[feature] = onehot_encoder.inverse_transform(df[feature_columns])
                 df = df.drop(feature_columns, axis=1)
         return df
 
@@ -145,8 +145,8 @@ class NaivePreprocessor(Preprocessor):
         if self.rescale_ratio:
             instructions = utils.rescale_dir(instructions, self.rescale_ratio)
         poi = self.transform_series(poi)
-        cfe = poi + instructions
-        return self.inverse_transform_series(cfe)
+        counterfactual = poi + instructions
+        return self.inverse_transform_series(counterfactual)
 
     def column_names(self, drop_label=True) -> Sequence[str]:
         if drop_label:
@@ -165,13 +165,13 @@ class NaivePreprocessor(Preprocessor):
         features_out = []
         for feature in features:
             if feature in self.categorical_features:
-                features_out += list(self.ohe_dict[feature].get_feature_names_out([feature]))
+                features_out += list(self.onehot_dict[feature].get_feature_names_out([feature]))
             else:
                 features_out.append(feature)
         return features_out
 
 
-class PassthroughPreprocessor(Preprocessor):
+class PassthroughAdapter(RecourseAdapter):
     def __init__(self, label='Y'):
         self.columns = None
         self.label = label
@@ -179,7 +179,7 @@ class PassthroughPreprocessor(Preprocessor):
     def get_label(self) -> str:
         return self.label
 
-    def fit(self, dataset: pd.DataFrame) -> PassthroughPreprocessor:
+    def fit(self, dataset: pd.DataFrame) -> PassthroughAdapter:
         self.columns = dataset.columns
         return self
 
