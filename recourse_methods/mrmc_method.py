@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol, Sequence, Optional
 from dataclasses import dataclass
 import numpy as np
 from core import utils
@@ -144,7 +144,7 @@ class MRM:
         Returns:
             Itself. The filtering is done mutably, so the returned version is
             not a copy."""
-        p = model.predict_proba(self.X)
+        p = model.predict_pos_proba(self.X)
         self.X = self.X[p >= confidence_threshold]
         return self
 
@@ -223,6 +223,7 @@ class MRMC(RecourseMethod):
         alpha: AlphaFunction = get_volcano_alpha(),
         rescale_direction: RecourseRescaler = normalize_rescaler,
         clusters: Clusters = None,
+        cluster_seed: Optional[int] = None,
     ):
         """Creates a new MRMC instance.
 
@@ -238,11 +239,15 @@ class MRMC(RecourseMethod):
             rescale_direction: The rescaling function each MRM should use.
             clusters: The cluster data to use. If None, performs k-means
                 clustering.
+            cluster_seed: The optional random seed to cluster data if clusters
+                is None.
         """
         X = MRM.process_data(dataset, adapter)
         self.k_directions = k_directions
         if not clusters:
-            clusters = self.cluster_data(X, self.k_directions)
+            clusters = MRMC.cluster_data(
+                X, self.k_directions, cluster_seed=cluster_seed
+            )
         self.clusters = clusters
         self.validate_cluster_assignments(
             clusters.cluster_assignments, self.k_directions
@@ -282,17 +287,21 @@ class MRMC(RecourseMethod):
             mrm.filter_data(confidence_threshold, model)
             return self
 
+    @staticmethod
     def cluster_data(
-        self, X: recourse_adapter.EmbeddedDataFrame, k_directions: int
+        X: recourse_adapter.EmbeddedDataFrame,
+        k_directions: int,
+        cluster_seed: Optional[int] = None,
     ) -> Clusters:
         """Clusters the data using k-means clustering.
 
         Args:
             X: The data to cluster in embedded continuous space.
             k_directions: The number of clusters to generate.
+            cluster_seed: The optional random seed to use for clustering.
         Returns:
             The data Clusters."""
-        km = KMeans(n_clusters=k_directions)
+        km = KMeans(n_clusters=k_directions, random_state=cluster_seed)
         cluster_assignments = km.fit_predict(X.to_numpy())
         cluster_assignments = np.vstack(
             [X.index.to_numpy(), cluster_assignments]
