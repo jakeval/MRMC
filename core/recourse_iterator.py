@@ -81,7 +81,7 @@ class RecourseIterator:
                 raise RuntimeError(
                     (
                         f"The iterated point has NaN values after {i} "
-                        "iterations. The point is:\n{poi}"
+                        f"iterations. The point is:\n{poi}"
                     )
                 )
             if (

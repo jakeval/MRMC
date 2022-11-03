@@ -175,10 +175,8 @@ def save_dataframes(result_list):
     index_dfs, data_dfs = list(zip(*result_list))
     index_df = pd.concat(index_dfs).reset_index(drop=True)
     data_df = pd.concat(data_dfs).reset_index(drop=True)
-    print(data_df)
-    print(index_df)
-    index_df.to_csv("./index_df.csv")
-    data_df.to_csv("./data_df.csv")
+    index_df.to_csv("./index_df.csv", index=False)
+    data_df.to_csv("./data_df.csv", index=False)
 
 
 if __name__ == "__main__":
