@@ -181,6 +181,10 @@ class MRM:
         direction = self.get_unnormalized_direction(poi)
         if self.rescale_direction:
             direction = self.rescale_direction(self, direction)
+        if direction.isnull().any():
+            raise RuntimeError(
+                f"Generated a recourse direction with NaN values. The poi is {poi} and the direction is {direction}"
+            )
         return direction
 
     def get_recourse_instructions(self, poi: pd.Series) -> Any:
