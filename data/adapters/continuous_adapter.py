@@ -132,9 +132,17 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         Returns:
             A new POI translated from the original by the recourse
             instructions."""
+        if instructions.isnull().any():
+            raise RuntimeError(
+                f"Instructions have null values. POI is {poi} and instructions are {instructions}"
+            )
         if self.perturb_ratio:
             instructions = utils.randomly_perturb_dir(
                 instructions, self.perturb_ratio
+            )
+        if instructions.isnull().any():
+            raise RuntimeError(
+                f"Instructions have null values after random noise. POI is {poi} and instructions are {instructions}"
             )
         if self.rescale_ratio:
             instructions = utils.rescale_dir(instructions, self.rescale_ratio)
