@@ -65,11 +65,17 @@ def privacy_perturb_dir(dir, epsilon=0.1, delta=0.01, C=1):
 
 
 def randomly_perturb_dir(dir: recourse_adapter.EmbeddedSeries, ratio: float):
+    if ratio == 0:
+        return dir
     norm = np.linalg.norm(dir)
     noise = np.random.normal(0, 1, len(dir))
     noise = (noise / np.linalg.norm(noise)) * ratio * norm
     new_dir = dir + noise
     new_dir = (new_dir / np.linalg.norm(new_dir)) * norm
+    if new_dir.isnull().any():
+        raise RuntimeError(
+            f"Noise created NaN values. Ratio is {ratio}, original direction is {dir} and new direction is {new_dir}"
+        )
     return new_dir
 
 
