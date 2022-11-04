@@ -42,7 +42,7 @@ LOCAL_NUM_PROCESSES = 4
 RANDOM_SEED = 1924374
 
 STEP_SIZES = [0.5]
-CONFIDENCE_CUTOFFS = [0.75]
+CONFIDENCE_CUTOFFS = [0.6]
 NOISE_RATIOS = [0, 0.1, 0.2, 0.3, 0.4, 0.5]
 VOLCANO_DEGREES = [2]
 VOLCANO_CUTOFFS = [0.2]
@@ -134,7 +134,9 @@ def run_trial(test_id, trial_id, seed, experiment_config):
             experiment_config["step_size"]
         ),
         cluster_seed=seed,
-    ).filter_data(experiment_config["confidence_cutoff"], model)
+        confidence_threshold=experiment_config["confidence_cutoff"],
+        model=model,
+    )
 
     iterator = recourse_iterator.RecourseIterator(
         adapter=adapter,

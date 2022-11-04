@@ -91,6 +91,8 @@ class MRM:
         adapter: recourse_adapter.RecourseAdapter,
         alpha: AlphaFunction = get_volcano_alpha(),
         rescale_direction: RecourseRescaler = normalize_rescaler,
+        confidence_threshold: Optional[int] = None,
+        model: Optional[int] = None,
     ):
         """Creates an MRM instance.
 
@@ -100,6 +102,8 @@ class MRM:
             alpha: The alpha function to use during recourse generation.
             rescale_direction: A function for rescaling the recourse."""
         self.X = MRM.process_data(dataset, adapter)
+        if confidence_threshold:
+            self.filter_data(confidence_threshold, model)
         self.adapter = adapter
         self.alpha = alpha
         self.rescale_direction = rescale_direction
@@ -226,8 +230,10 @@ class MRMC(RecourseMethod):
         dataset: pd.DataFrame,
         alpha: AlphaFunction = get_volcano_alpha(),
         rescale_direction: RecourseRescaler = normalize_rescaler,
-        clusters: Clusters = None,
+        clusters: Optional[Clusters] = None,
         cluster_seed: Optional[int] = None,
+        confidence_threshold: Optional[float] = None,
+        model: Optional[model_interface.Model] = None,
     ):
         """Creates a new MRMC instance.
 
@@ -247,6 +253,8 @@ class MRMC(RecourseMethod):
                 is None.
         """
         X = MRM.process_data(dataset, adapter)
+        if confidence_threshold:
+            X = MRMC.filter_data(X, confidence_threshold, model)
         self.k_directions = k_directions
         if not clusters:
             clusters = MRMC.cluster_data(
@@ -274,9 +282,12 @@ class MRMC(RecourseMethod):
             mrms.append(mrm)
         self.mrms: Sequence[MRM] = mrms
 
+    @staticmethod
     def filter_data(
-        self, confidence_threshold: float, model: model_interface.Model
-    ) -> MRMC:
+        X: recourse_adapter.EmbeddedDataFrame,
+        confidence_threshold: float,
+        model: model_interface.Model,
+    ) -> recourse_adapter.EmbeddedDataFrame:
         """Filters the recourse dataset to include only high-confidence points.
 
         Args:
@@ -287,9 +298,8 @@ class MRMC(RecourseMethod):
         Returns:
             Itself. The filtering is done mutably, so the returned version is
             not a copy."""
-        for mrm in self.mrms:
-            mrm.filter_data(confidence_threshold, model)
-            return self
+        p = model.predict_pos_proba(X)
+        return X[p >= confidence_threshold]
 
     @staticmethod
     def cluster_data(
