@@ -133,10 +133,20 @@ def run_trial(test_id, trial_id, seed, experiment_config):
         rescale_direction=mrmc_method.get_constant_step_size_rescaler(
             experiment_config["step_size"]
         ),
-        cluster_seed=seed,
+        cluster_seed=experiment_config["cluster_seed"],
         confidence_threshold=experiment_config["confidence_cutoff"],
         model=model,
     )
+
+    clusters = mrmc.clusters.cluster_centers
+    cluster_df = pd.DataFrame(
+        data=clusters,
+        columns=dataset.drop(dataset_info.label_name, axis=1).columns,
+    )
+
+    cluster_df["path_id"] = np.arange(experiment_config["num_paths"])
+    cluster_df["trial_id"] = trial_id
+    cluster_df["test_id"] = test_id
 
     iterator = recourse_iterator.RecourseIterator(
         adapter=adapter,
@@ -170,15 +180,17 @@ def run_trial(test_id, trial_id, seed, experiment_config):
     for k, v in experiment_config.items():
         index_df[k] = [v]
     data_df = pd.concat(paths).reset_index(drop=True)
-    return index_df, data_df
+    return index_df, data_df, cluster_df
 
 
 def save_dataframes(result_list):
-    index_dfs, data_dfs = list(zip(*result_list))
+    index_dfs, data_dfs, cluster_dfs = list(zip(*result_list))
     index_df = pd.concat(index_dfs).reset_index(drop=True)
     data_df = pd.concat(data_dfs).reset_index(drop=True)
+    cluster_df = pd.concat(cluster_dfs).reset_index(drop=True)
     index_df.to_csv("./index_df.csv", index=False)
     data_df.to_csv("./data_df.csv", index=False)
+    cluster_df.to_csv("./cluster_df.csv", index=False)
 
 
 if __name__ == "__main__":
