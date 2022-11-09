@@ -114,7 +114,7 @@ def get_params(
 
 
 def partition_trials(trial_param_list, max_processes):
-    indices = np.arange(0, max_processes)
+    indices = np.arange(0, len(trial_param_list))
     np.random.default_rng(seed=RANDOM_SEED).shuffle(indices)
     trial_partitions = [
         {
@@ -123,13 +123,13 @@ def partition_trials(trial_param_list, max_processes):
         }
         for i in range(max_processes)
     ]
-    for trial_idx, partition_idx in zip(
-        indices,
-        list(range(max_processes)) * (1 + (len(indices) // max_processes)),
-    ):
+    partition_idx = 0
+    for trial_idx in indices:
         trial_partitions[partition_idx]["trial_param_list"].append(
             trial_param_list[trial_idx]
         )
+        partition_idx = (partition_idx + 1) % max_processes
+
     return trial_partitions
 
 
