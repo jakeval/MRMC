@@ -254,7 +254,9 @@ class MRMC(RecourseMethod):
         """
         X = MRM.process_data(dataset, adapter)
         if confidence_threshold:
-            X = MRMC.filter_data(X, confidence_threshold, model)
+            X = MRMC.filter_data(
+                adapter.inverse_transform(X), confidence_threshold, model
+            )
         self.k_directions = k_directions
         if not clusters:
             clusters = MRMC.cluster_data(
@@ -284,7 +286,7 @@ class MRMC(RecourseMethod):
 
     @staticmethod
     def filter_data(
-        X: recourse_adapter.EmbeddedDataFrame,
+        X: pd.DataFrame,
         confidence_threshold: float,
         model: model_interface.Model,
     ) -> recourse_adapter.EmbeddedDataFrame:
@@ -299,7 +301,7 @@ class MRMC(RecourseMethod):
             Itself. The filtering is done mutably, so the returned version is
             not a copy."""
         p = model.predict_pos_proba(X)
-        return X[p >= confidence_threshold]
+        return X[p > confidence_threshold]
 
     @staticmethod
     def cluster_data(
