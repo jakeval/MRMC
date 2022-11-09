@@ -21,7 +21,7 @@ import os
 #  Append MRMC/. to the path to fix imports.
 sys.path.append(os.path.join(os.getcwd(), ".."))
 
-from typing import Sequence, Tuple, Mapping, Any
+from typing import Sequence, Mapping, Any
 import argparse
 import subprocess
 import json
@@ -29,13 +29,6 @@ import json
 import numpy as np
 import pandas as pd
 from sklearn import model_selection
-
-from recourse_methods import mrmc_method
-from core import recourse_iterator, utils
-from data import data_loader
-from data.adapters import continuous_adapter
-from models.core import logistic_regression
-from models import model_constants
 
 
 LOCAL_NUM_TRIALS = 5
@@ -154,7 +147,7 @@ def launch_process(trial_param_list, process_folder, run_locally):
         json.dump(process_config, f)
     if not run_locally:
         process_cmd = (
-            "srun -N 1 -n 1 --exclusive python run_trial.py"
+            "srun -N 1 -n 1 --exclusive python run_trial.py "
             f"--config {process_config_filename}"
         )
     else:
