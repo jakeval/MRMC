@@ -35,11 +35,40 @@ LOCAL_NUM_TRIALS = 5
 LOCAL_NUM_PROCESSES = 4
 RANDOM_SEED = 1924374
 
+
 CONFIDENCE_CUTOFFS = [0.5, 0.7]
-NOISE_RATIOS = [0, 0.5, 1, 1.5]
-RESCALE_RATIOS = [1, 0.8, 0.6]
+NOISE_RATIOS = [0]
+RESCALE_RATIOS = [1, 0.9, 0.8]
 NUM_PATHS = [3]
 MAX_ITERATIONS = [30]
+
+
+STEP_SIZES = [0.5]
+VOLCANO_DEGREES = [2]
+VOLCANO_CUTOFFS = [0.2]
+CLUSTER_SEEDS = [10288294]
+
+
+DICE_CONFIG = {
+    "confidence_cutoff": CONFIDENCE_CUTOFFS,
+    "noise_ratio": NOISE_RATIOS,
+    "rescale_ratio": RESCALE_RATIOS,
+    "num_paths": NUM_PATHS,
+    "max_iterations": MAX_ITERATIONS,
+}
+
+
+MRMC_CONFIG = {
+    "step_size": STEP_SIZES,
+    "confidence_cutoff": CONFIDENCE_CUTOFFS,
+    "noise_ratio": NOISE_RATIOS,
+    "rescale_ratio": RESCALE_RATIOS,
+    "volcano_degree": VOLCANO_DEGREES,
+    "volcano_cutoff": VOLCANO_CUTOFFS,
+    "num_paths": NUM_PATHS,
+    "cluster_seed": CLUSTER_SEEDS,
+    "max_iterations": MAX_ITERATIONS,
+}
 
 
 parser = argparse.ArgumentParser(description="Run an MRMC experiment.")
@@ -73,19 +102,22 @@ parser.add_argument(
     help="Whether to run locally without SLURM.",
     default=False,
 )
+parser.add_argument(
+    "--method",
+    type=str,
+    help="Which method to run. dice or mrmc.",
+)
 
 
 def get_params(
+    method: str,
     num_trials: int,
 ) -> Sequence[Mapping[str, Any]]:
     seeds = np.random.default_rng(RANDOM_SEED).integers(10000, size=num_trials)
-    base_config = {
-        "confidence_cutoff": CONFIDENCE_CUTOFFS,
-        "noise_ratio": NOISE_RATIOS,
-        "rescale_ratio": RESCALE_RATIOS,
-        "num_paths": NUM_PATHS,
-        "max_iterations": MAX_ITERATIONS,
-    }
+    if method == "dice":
+        base_config = DICE_CONFIG
+    elif method == "mrmc":
+        base_config = MRMC_CONFIG
 
     experiment_configs = model_selection.ParameterGrid(base_config)
     experiment_params = []
@@ -127,7 +159,7 @@ def partition_trials(trial_param_list, max_processes):
     return trial_partitions
 
 
-def launch_process(trial_param_list, process_folder, run_locally):
+def launch_process(method, trial_param_list, process_folder, run_locally):
     if not os.path.exists(process_folder):
         os.makedirs(process_folder)
     process_config_filename = os.path.join(
@@ -139,18 +171,25 @@ def launch_process(trial_param_list, process_folder, run_locally):
     }
     with open(process_config_filename, "w") as f:
         json.dump(process_config, f)
+
+    if method == "dice":
+        process_name = "run_dice_trials.py"
+    elif method == "mrmc":
+        process_name = "run_mrmc_trials.py"
     if not run_locally:
         process_cmd = (
-            "srun -N 1 -n 1 --exclusive python run_trial.py "
+            f"srun -N 1 -n 1 --exclusive python {process_name} "
             f"--config {process_config_filename}"
         )
     else:
-        process_cmd = f"python run_trial.py --config {process_config_filename}"
+        process_cmd = (
+            f"python {process_name} --config " f"{process_config_filename}"
+        )
 
     return subprocess.Popen([process_cmd], shell=True), process_folder
 
 
-def merge_results(all_results, process_results_folder):
+def merge_results(method, all_results, process_results_folder):
     def merge_dataframe(all_results, process_df_name):
         df = pd.read_csv(
             os.path.join(process_results_folder, process_df_name + ".csv")
@@ -162,27 +201,32 @@ def merge_results(all_results, process_results_folder):
                 drop=True
             )
 
+    if method == "mrmc":
+        df_names = ["index_df", "cluster_df", "data_df"]
+    elif method == "dice":
+        df_names = ["index_df", "data_df"]
+
     return dict(
         [
             (df_name, merge_dataframe(all_results, df_name))
-            for df_name in ["index_df", "data_df"]
+            for df_name in df_names
         ]
     )
 
 
-def save_results(index_df, data_df):
-    index_df.to_csv("./index_df.csv", index=False)
-    data_df.to_csv("./data_df.csv", index=False)
+def save_results(df_dict):
+    for df_name, df in df_dict.items():
+        df.to_csv(f"./{df_name}.csv", index=False)
 
 
-def run_processes(max_processes, trial_param_list, run_locally):
+def run_processes(method, max_processes, trial_param_list, run_locally):
     trial_param_partitions = partition_trials(trial_param_list, max_processes)
 
     running_processes = {}
 
     for partition in trial_param_partitions:
         p, process_folder = launch_process(
-            run_locally=run_locally, **partition
+            method, run_locally=run_locally, **partition
         )
         running_processes[p] = process_folder
 
@@ -194,7 +238,9 @@ def run_processes(max_processes, trial_param_list, run_locally):
             if process.poll() is not None:
                 if process.poll() != 0:
                     raise RuntimeError("One of the processes failed!")
-                results = merge_results(results, running_processes[process])
+                results = merge_results(
+                    method, results, running_processes[process]
+                )
                 terminated_processes.append(process)
         for process in terminated_processes:
             del running_processes[process]
@@ -204,7 +250,7 @@ def run_processes(max_processes, trial_param_list, run_locally):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    trial_param_list = get_params(args.n_trials)
+    trial_param_list = get_params(args.method, args.n_trials)
     if args.max_trials is not None:
         print(f"Generated args for {len(trial_param_list)} trials.")
         trial_param_list = trial_param_list[: args.max_trials]
@@ -212,5 +258,7 @@ if __name__ == "__main__":
         f"Running {len(trial_param_list)} trials across {args.n_procs} tasks."
     )
     if not args.dry_run:
-        results = run_processes(args.n_procs, trial_param_list, args.local)
-        save_results(**results)
+        results = run_processes(
+            args.method, args.n_procs, trial_param_list, args.local
+        )
+        save_results(results)
