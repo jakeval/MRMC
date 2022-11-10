@@ -11,7 +11,7 @@ from data import data_loader
 from data.adapters import continuous_adapter
 from models.core import logistic_regression
 from models import model_constants
-from recourse_methods import mrmc_method
+from recourse_methods import dice_method
 from core import recourse_iterator
 from core import utils
 
@@ -45,7 +45,7 @@ def merge_results(results, trial_results):
     return dict(
         [
             (df_name, merge_dataframe(results, trial_results, df_name))
-            for df_name in ["index_df", "cluster_df", "data_df"]
+            for df_name in ["index_df", "data_df"]
         ]
     )
 
@@ -65,35 +65,18 @@ def run_trial(test_id, trial_id, seed, recourse_config):
         model_name=model_constants.ModelName.DEFAULT,
     ).load_model()
 
-    mrmc = mrmc_method.MRMC(
+    dice = dice_method.DiCE(
         k_directions=recourse_config["num_paths"],
         adapter=adapter,
         dataset=dataset,
-        alpha=mrmc_method.get_volcano_alpha(
-            cutoff=recourse_config["volcano_cutoff"],
-            degree=recourse_config["volcano_degree"],
-        ),
-        rescale_direction=mrmc_method.get_constant_step_size_rescaler(
-            recourse_config["step_size"]
-        ),
-        cluster_seed=recourse_config["cluster_seed"],
-        confidence_threshold=recourse_config["confidence_cutoff"],
+        continuous_features=dataset_info.continuous_features,
         model=model,
+        desired_confidence=recourse_config["confidence_cutoff"],
     )
-
-    clusters = mrmc.clusters.cluster_centers
-    cluster_df = pd.DataFrame(
-        data=clusters,
-        columns=dataset.drop(dataset_info.label_name, axis=1).columns,
-    )
-
-    cluster_df["path_id"] = np.arange(recourse_config["num_paths"])
-    cluster_df["trial_id"] = trial_id
-    cluster_df["test_id"] = test_id
 
     iterator = recourse_iterator.RecourseIterator(
         adapter=adapter,
-        recourse_method=mrmc,
+        recourse_method=dice,
         certainty_cutoff=recourse_config["confidence_cutoff"],
         model=model,
     )
@@ -123,7 +106,7 @@ def run_trial(test_id, trial_id, seed, recourse_config):
     for k, v in recourse_config.items():
         index_df[k] = [v]
     data_df = pd.concat(paths).reset_index(drop=True)
-    return {"index_df": index_df, "cluster_df": cluster_df, "data_df": data_df}
+    return {"index_df": index_df, "data_df": data_df}
 
 
 def run_process(trial_param_list, process_folder):

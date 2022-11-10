@@ -35,13 +35,9 @@ LOCAL_NUM_TRIALS = 5
 LOCAL_NUM_PROCESSES = 4
 RANDOM_SEED = 1924374
 
-STEP_SIZES = [0.5]
 CONFIDENCE_CUTOFFS = [0.5, 0.6, 0.7, 0.8]
 NOISE_RATIOS = [0, 0.1, 0.2, 0.3, 0.4, 0.5]
-VOLCANO_DEGREES = [2]
-VOLCANO_CUTOFFS = [0.2]
 NUM_PATHS = [3]
-CLUSTER_SEEDS = [10288294]
 MAX_ITERATIONS = [30]
 
 
@@ -83,13 +79,9 @@ def get_params(
 ) -> Sequence[Mapping[str, Any]]:
     seeds = np.random.default_rng(RANDOM_SEED).integers(10000, size=num_trials)
     base_config = {
-        "step_size": STEP_SIZES,
         "confidence_cutoff": CONFIDENCE_CUTOFFS,
         "noise_ratio": NOISE_RATIOS,
-        "volcano_degree": VOLCANO_DEGREES,
-        "volcano_cutoff": VOLCANO_CUTOFFS,
         "num_paths": NUM_PATHS,
-        "cluster_seed": CLUSTER_SEEDS,
         "max_iterations": MAX_ITERATIONS,
     }
 
@@ -171,15 +163,14 @@ def merge_results(all_results, process_results_folder):
     return dict(
         [
             (df_name, merge_dataframe(all_results, df_name))
-            for df_name in ["index_df", "cluster_df", "data_df"]
+            for df_name in ["index_df", "data_df"]
         ]
     )
 
 
-def save_results(index_df, cluster_df, data_df):
+def save_results(index_df, data_df):
     index_df.to_csv("./index_df.csv", index=False)
     data_df.to_csv("./data_df.csv", index=False)
-    cluster_df.to_csv("./cluster_df.csv", index=False)
 
 
 def run_processes(max_processes, trial_param_list, run_locally):
