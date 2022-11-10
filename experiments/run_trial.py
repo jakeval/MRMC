@@ -56,6 +56,7 @@ def run_trial(test_id, trial_id, seed, recourse_config):
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=recourse_config["noise_ratio"],
+        rescale_ratio=recourse_config["rescale_ratio"],
         label_name=dataset_info.label_name,
         positive_label=dataset_info.positive_label,
     ).fit(dataset)

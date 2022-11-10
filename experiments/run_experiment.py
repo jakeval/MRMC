@@ -35,8 +35,9 @@ LOCAL_NUM_TRIALS = 5
 LOCAL_NUM_PROCESSES = 4
 RANDOM_SEED = 1924374
 
-CONFIDENCE_CUTOFFS = [0.5, 0.6, 0.7, 0.8]
-NOISE_RATIOS = [0, 0.1, 0.2, 0.3, 0.4, 0.5]
+CONFIDENCE_CUTOFFS = [0.5, 0.7]
+NOISE_RATIOS = [0, 0.5, 1, 1.5]
+RESCALE_RATIOS = [1, 0.8, 0.6]
 NUM_PATHS = [3]
 MAX_ITERATIONS = [30]
 
@@ -81,6 +82,7 @@ def get_params(
     base_config = {
         "confidence_cutoff": CONFIDENCE_CUTOFFS,
         "noise_ratio": NOISE_RATIOS,
+        "rescale_ratio": RESCALE_RATIOS,
         "num_paths": NUM_PATHS,
         "max_iterations": MAX_ITERATIONS,
     }
