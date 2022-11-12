@@ -10,8 +10,8 @@ def load_credit_card_default_dataset(
     """Returns the training data for the Credit Card Default dataset.
 
     Args:
-        only_continuous_vars: Whether to drop or recategorize categorical variables,
-            leaving only continuous features.
+        only_continuous_vars: Whether to drop or recategorize categorical
+            variables, leaving only continuous features.
         data_dir: An override for the directory to load the data from (or
             download it to if unavailable).
 
