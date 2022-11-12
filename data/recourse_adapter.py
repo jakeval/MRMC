@@ -3,6 +3,11 @@ import pandas as pd
 import abc
 
 
+# TODO(@jakeval): Reconsider this class's responsibilities -- it does too much.
+# It should only translate between embedded and native data formats. Generating
+# instructions and taking actions should be done separately.
+
+
 class EmbeddedDataFrame(pd.DataFrame):
     """A wrapper around DataFrame for continuous data.
 
