@@ -2,8 +2,12 @@ from __future__ import annotations
 from data import recourse_adapter
 from typing import Sequence, Optional, Mapping
 from core import utils
-from sklearn.preprocessing import StandardScaler
+from sklearn import preprocessing
 import pandas as pd
+
+
+# TODO(@jakeval): Reduce code duplication between this file and
+# categorical_adpater.py
 
 
 class StandardizingAdapter(recourse_adapter.RecourseAdapter):
@@ -17,7 +21,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         self,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label="Y",
+        label: str = "Y",
     ):
         """Creates a new StandardizingAdapter.
 
@@ -30,7 +34,9 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             label: The name of the class label feature."""
         self.label = label
 
-        self.standard_scaler_dict: Mapping[str, StandardScaler] = None
+        self.standard_scaler_dict: Mapping[
+            str, preprocessing.StandardScaler
+        ] = None
         self.columns = None
         self.continuous_features = None
         self.perturb_ratio = perturb_ratio
@@ -52,7 +58,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         self.continuous_features = dataset.columns.difference([self.label])
         self.standard_scaler_dict = {}
         for feature in self.continuous_features:
-            standard_scaler = StandardScaler()
+            standard_scaler = preprocessing.StandardScaler()
             standard_scaler.fit(dataset[[feature]])
             self.standard_scaler_dict[feature] = standard_scaler
         return self

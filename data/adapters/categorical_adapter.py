@@ -2,8 +2,12 @@ from __future__ import annotations
 from data import recourse_adapter
 from typing import Sequence, Optional, Mapping
 from core import utils
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn import preprocessing
 import pandas as pd
+
+
+# TODO(@jakeval): Reduce code duplication between this file and
+# continuous_adpater.py
 
 
 class OneHotAdapter(recourse_adapter.RecourseAdapter):
@@ -19,7 +23,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         continuous_features: Sequence[str],
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label="Y",
+        label: str = "Y",
     ):
         """Creates a new OneHotAdapter.
 
@@ -36,8 +40,10 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         self.continuous_features = continuous_features
         self.label = label
 
-        self.standard_scaler_dict: Mapping[str, StandardScaler] = None
-        self.onehot_dict: Mapping[str, OneHotEncoder] = None
+        self.standard_scaler_dict: Mapping[
+            str, preprocessing.StandardScaler
+        ] = None
+        self.onehot_dict: Mapping[str, preprocessing.OneHotEncoder] = None
         self.columns = None
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
@@ -58,11 +64,11 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         self.onehot_dict = {}
         self.columns = dataset.columns
         for feature in self.continuous_features:
-            standard_scaler = StandardScaler()
+            standard_scaler = preprocessing.StandardScaler()
             standard_scaler.fit(dataset[[feature]])
             self.standard_scaler_dict[feature] = standard_scaler
         for feature in self.categorical_features:
-            onehot_encoder = OneHotEncoder()
+            onehot_encoder = preprocessing.OneHotEncoder()
             onehot_encoder.fit(dataset[[feature]])
             self.onehot_dict[feature] = onehot_encoder
         return self
