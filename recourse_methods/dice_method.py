@@ -7,6 +7,7 @@ from dice_ml import constants
 from sklearn import pipeline
 
 
+# TODO(@jakeval): This will be refactored with the model update.
 class ToNumPy:
     """This is a temporary class used until model handling is refactored.
 

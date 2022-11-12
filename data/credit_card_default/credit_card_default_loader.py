@@ -41,23 +41,29 @@ Dataset Features:
 
 
 import pandas as pd
-import numpy as np
 from typing import Union, Tuple
 import os
 from data import recourse_adapter
+from data.adapters import continuous_adapter
 import pathlib
 from core import utils
 
 
-# TODO(@jakeval): The dataset adapter classes all look similar. Can they be abstracted?
-TARGET_COLUMN = 'default payment next month'
-URL = 'https://archive.ics.uci.edu/ml/machine-learning-databases/00350/default%20of%20credit%20card%20clients.xls'
-DATA_FILENAME = 'default_of_credit_card_clients.csv'
-RELATIVE_DATA_DIR = 'raw_data'
+# TODO(@jakeval): This file will be refactored to implement an ABC (and remove
+# the big file-level comment).
+
+
+TARGET_COLUMN = "default payment next month"
+URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/00350/default%20of%20credit%20card%20clients.xls"
+DATA_FILENAME = "default_of_credit_card_clients.csv"
+RELATIVE_DATA_DIR = "raw_data"
 ABSOLUTE_DATA_DIR = pathlib.Path(__file__).parent / RELATIVE_DATA_DIR
 
 
-def load_data(only_continuous: bool = True, data_dir: Union[str, pathlib.Path] = ABSOLUTE_DATA_DIR) -> Tuple[pd.DataFrame, recourse_adapter.RecourseAdapter]:
+def load_data(
+    only_continuous: bool = True,
+    data_dir: Union[str, pathlib.Path] = ABSOLUTE_DATA_DIR,
+) -> Tuple[pd.DataFrame, recourse_adapter.RecourseAdapter]:
     """Loads the UCI Credit Card Default dataset.
 
     If available locally as a csv at data_dir, loads it from there. Otherwise downloads it."""
@@ -69,8 +75,7 @@ def load_data(only_continuous: bool = True, data_dir: Union[str, pathlib.Path] =
 
     data_df = process_data(data, only_continuous)
 
-    continuous_features = data_df.columns
-    return data_df, recourse_adapter.NaiveAdapter([], continuous_features, label='Y').fit(data_df)
+    return data_df, continuous_adapter.StandardizingAdapter().fit(data_df)
 
 
 def download_data(data_dir: str) -> pd.DataFrame:
@@ -78,7 +83,9 @@ def download_data(data_dir: str) -> pd.DataFrame:
 
     if not os.path.exists(data_dir):
         os.mkdir(data_dir)
-    data.to_csv(os.path.join(data_dir, DATA_FILENAME), header=True, index=False)
+    data.to_csv(
+        os.path.join(data_dir, DATA_FILENAME), header=True, index=False
+    )
     return data
 
 
@@ -87,16 +94,22 @@ def load_local_data(data_dir: str) -> pd.DataFrame:
     return data
 
 
-def process_data(df: pd.DataFrame, only_continuous: bool = True) -> pd.DataFrame:
+def process_data(
+    df: pd.DataFrame, only_continuous: bool = True
+) -> pd.DataFrame:
     """Processes the adult dataset.
 
     Drops marriage and education columns. Renames PAY_0 and the label column. Groups PAY_* = 0, -1, -2 into one category."""
-    df = df.set_index('ID').drop(columns=['MARRIAGE','EDUCATION']).rename(columns={TARGET_COLUMN: 'Y', 'PAY_0': 'PAY_1'})
+    df = (
+        df.set_index("ID")
+        .drop(columns=["MARRIAGE", "EDUCATION"])
+        .rename(columns={TARGET_COLUMN: "Y", "PAY_0": "PAY_1"})
+    )
     if only_continuous:
-        pay_mapping = {
-            0: [-1, -2]
-        }
-        for pay_column in [f'PAY_{i}' for i in range(1, 7)]:
-            df[pay_column] = utils.recategorize_feature(df[pay_column], pay_mapping)
-        df.drop(columns=['SEX'])
+        pay_mapping = {0: [-1, -2]}
+        for pay_column in [f"PAY_{i}" for i in range(1, 7)]:
+            df[pay_column] = utils.recategorize_feature(
+                df[pay_column], pay_mapping
+            )
+        df.drop(columns=["SEX"])
     return df
