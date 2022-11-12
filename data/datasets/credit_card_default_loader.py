@@ -35,12 +35,12 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
         PAY_AMT[1-6]"""
 
     def __init__(
-        self, only_continuous: bool = True, data_dir: Optional[str] = None
+        self, only_continuous_vars: bool = True, data_dir: Optional[str] = None
     ):
         """Creates a data loader for the UCI Credit Card Default dataset.
 
         Args:
-            only_continuous: If True, drops the categorical SEX column and
+            only_continuous_vars: If True, drops the categorical SEX column and
                              turns the categorical PAY_* columns into
                              continuous columns."""
         super().__init__(
@@ -55,7 +55,7 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
             data_dir=data_dir,
             dataset_name=DATASET_NAME,
         )
-        self.only_continuous = only_continuous
+        self.only_continuous_vars = only_continuous_vars
 
     def download_data(self) -> pd.DataFrame:
         return pd.read_excel(_URL, header=1)
@@ -64,9 +64,9 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
         """Processes the Credit Card Default dataset.
 
         Drops the MARRIAGE and EDUCATION columns. Renames the PAY_0 column to
-        PAY_1. if self.only_continuous is True, drops the SEX column and sets
-        the values (0, -1, -2) of the PAY_* columns to 0 to make the column
-        continuous instead of categorical.
+        PAY_1. if self.only_continuous_vars is True, drops the SEX column and
+        sets the values (0, -1, -2) of the PAY_* columns to 0 to make the
+        column continuous instead of categorical.
 
         Args:
             data: The data to process.
@@ -78,7 +78,7 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
             .drop(columns=["MARRIAGE", "EDUCATION"])
             .rename(columns={_SOURCE_TARGET_COLUMN: "Y", "PAY_0": "PAY_1"})
         )
-        if self.only_continuous:
+        if self.only_continuous_vars:
             pay_mapping = {0: [-1, -2]}
             for pay_column in [f"PAY_{i}" for i in range(1, 7)]:
                 data[pay_column] = utils.recategorize_feature(
