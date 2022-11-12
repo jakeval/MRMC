@@ -28,11 +28,18 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
             which is also included in the data. The column is dropped for this
             reason.
         AGE: Numerical age in years.
-        PAY_[1-6]: A values -2, -1, and 0 indicate that the bill was paid on
-            on time. Values 1 through 9 indicate how many months late the
-            payment was.
-        BILL_AMT[1-6]
-        PAY_AMT[1-6]"""
+        PAY_[1-6]: The columns PAY_1, PAY_2, ..., PAY_6 correspond to
+            information about the past 6 months. Values -2, -1, and 0 indicate
+            that the bill was paid on on time. Values 1 through 9 indicate how
+            many months late the payment was.
+        BILL_AMT[1-6]: The columns BILL_AMT1, BILL_AMT2, ..., BILL_AMT6
+            correspond to information about the past 6 months. Each column
+            value indicates the amount in dollars of the credit card bill for
+            that month.
+        PAY_AMT[1-6]: The columns PAY_AMT1, PAY_AMT2, ..., PAY_AMT6
+            correspond to information about the past 6 months. Each column
+            value indicates the amount in dollars that the customer paid for
+            that month."""
 
     def __init__(
         self, only_continuous_vars: bool = True, data_dir: Optional[str] = None
