@@ -5,6 +5,9 @@ import abc
 import os
 import pathlib
 
+
+# This is the default directory that data will be saved to and loaded from. It
+# evaluates to MRMC/raw_data/.
 _DEFAULT_DATA_DIR = (
     pathlib.Path(os.path.normpath(__file__)).parent.parent.parent / "raw_data"
 )

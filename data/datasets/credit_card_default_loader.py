@@ -25,7 +25,7 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
             dropped for this reason.
         MARRIAGE: A categorical variable. The dataset source includes
             descriptions for values 1, 2, and 3, but does not explain value 0
-            which is also incldued in the data. The column is dropped for this
+            which is also included in the data. The column is dropped for this
             reason.
         AGE: Numerical age in years.
         PAY_[1-6]: A values -2, -1, and 0 indicate that the bill was paid on
