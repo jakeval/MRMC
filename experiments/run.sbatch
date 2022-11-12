@@ -15,4 +15,4 @@ export OMP_NUM_THREADS=2
 
 source $1/../.env/bin/activate
 
-srun -N 1 -n 1 --exclusive python $1/run_experiment.py --n_trials 30 --n_procs 31 --max_trials 320
+srun -N 1 -n 1 --exclusive python $1/run_experiment.py --method mrmc --n_trials 30 --n_procs 31
