@@ -5,12 +5,12 @@ from data.datasets import credit_card_default_loader
 
 
 def load_credit_card_default_dataset(
-    only_continuous: bool = True, data_dir: Optional[str] = None
+    only_continuous_vars: bool = True, data_dir: Optional[str] = None
 ) -> pd.DataFrame:
     """Returns the training data for the Credit Card Default dataset.
 
     Args:
-        only_continuous: Whether to drop or recategorize categorical variables,
+        only_continuous_vars: Whether to drop or recategorize categorical variables,
             leaving only continuous features.
         data_dir: An override for the directory to load the data from (or
             download it to if unavailable).
@@ -18,7 +18,7 @@ def load_credit_card_default_dataset(
     Returns:
         The Credit Card Default dataset."""
     return credit_card_default_loader.CreditCardDefaultLoader(
-        only_continuous=only_continuous, data_dir=data_dir
+        only_continuous_vars=only_continuous_vars, data_dir=data_dir
     ).load_data()
 
 
