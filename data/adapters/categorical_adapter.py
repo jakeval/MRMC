@@ -11,7 +11,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
     standardizes continuous data to have mean 0 and standard deviation 1.
 
     The adapter also optionally simulates rescaling the recourse or adding
-    random noise while interpreting recourse instructions."""
+    random noise while interpreting recourse instructions.
+"""
 
     def __init__(
         self,
@@ -31,7 +32,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
                 instructions.
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
-            label: The name of the class label feature."""
+            label: The name of the class label feature.
+        """
         self.categorical_features = categorical_features
         self.continuous_features = continuous_features
         self.label = label
@@ -53,7 +55,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
             dataset: The data to fit.
 
         Returns:
-            Itself. Fitting is done mutably."""
+            Itself. Fitting is done mutably.
+        """
         self.sc_dict = {}
         self.ohe_dict = {}
         self.columns = dataset.columns
@@ -77,7 +80,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
             dataset: The data to transform.
 
         Returns:
-            Transformed data."""
+            Transformed data.
+        """
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
@@ -100,7 +104,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
             dataset: The data to inverse transform.
 
         Returns:
-            Inverse transformed data."""
+            Inverse transformed data.
+        """
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
@@ -127,7 +132,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
             directions: The continuous recourse directions to convert.
 
         Returns:
-            Human-readable instructions describing the recourse directions."""
+            Human-readable instructions describing the recourse directions.
+        """
         return directions
 
     def interpret_instructions(
@@ -152,7 +158,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             A new POI translated from the original by the recourse
-            instructions."""
+            instructions.
+        """
         if self.perturb_ratio:
             instructions = utils.randomly_perturb_dir(
                 instructions, self.perturb_ratio
@@ -171,7 +178,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
                 output.
 
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
         if drop_label:
             return self.columns.difference([self.label])
         else:
@@ -185,7 +193,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
                 output.
 
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
         columns = self._get_feature_names_out(self.columns)
         if drop_label:
             return [column for column in columns if column != self.label]

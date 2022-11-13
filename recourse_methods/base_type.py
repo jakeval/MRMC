@@ -18,7 +18,8 @@ class RecourseMethod(abc.ABC):
             poi: The Point of Interest (POI) to find recourse directions for.
 
         Returns:
-            A DataFrame containing recourse directions for the POI."""
+            A DataFrame containing recourse directions for the POI.
+        """
 
     @abc.abstractmethod
     def get_all_recourse_instructions(self, poi: pd.Series) -> Sequence[Any]:
@@ -33,7 +34,8 @@ class RecourseMethod(abc.ABC):
             poi: The Point of Interest (POI) to find recourse instructions for.
 
         Returns:
-            A Sequence recourse instructions for the POI."""
+            A Sequence recourse instructions for the POI.
+        """
 
     @abc.abstractmethod
     def get_kth_recourse_instructions(
@@ -47,4 +49,5 @@ class RecourseMethod(abc.ABC):
             instruction for.
 
         Returns:
-            Instructions for the POI to achieve the recourse."""
+            Instructions for the POI to achieve the recourse.
+        """

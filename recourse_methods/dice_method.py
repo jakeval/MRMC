@@ -12,7 +12,8 @@ class ToNumPy:
     """This is a temporary class used until model handling is refactored.
 
     It is used in an sklearn pipeline to convert pandas DataFrames to NumPy
-    arrays."""
+    arrays.
+    """
 
     def __init__(self):
         pass
@@ -99,7 +100,8 @@ class DiCE(base_type.RecourseMethod):
             poi: The Point of Interest (POI) to find recourse directions for.
 
         Returns:
-            A DataFrame containing recourse directions for the POI."""
+            A DataFrame containing recourse directions for the POI.
+        """
         poi = self.adapter.inverse_transform_series(poi)
         cfes = self._generate_counterfactuals(poi, self.k_directions)
         directions = self._counterfactuals_to_directions(poi, cfes)
@@ -117,7 +119,9 @@ class DiCE(base_type.RecourseMethod):
             poi: The Point of Interest (POI) to find recourse instructions for.
 
         Returns:
-            A Sequence recourse instructions for the POI."""
+            A Sequence recourse instructions for the POI.
+        
+    """
         cfes = self._generate_counterfactuals(poi, self.k_directions)
         directions = self._counterfactuals_to_directions(poi, cfes)
         instructions = []
@@ -139,7 +143,8 @@ class DiCE(base_type.RecourseMethod):
                 instruction for.
 
         Returns:
-            Instructions for the POI to achieve the recourse."""
+            Instructions for the POI to achieve the recourse.
+        """
         cfes = self._generate_counterfactuals(poi, 1)
         directions = self._counterfactuals_to_directions(poi, cfes)
         return self.adapter.directions_to_instructions(directions.iloc[0])
@@ -153,7 +158,8 @@ class DiCE(base_type.RecourseMethod):
             poi: The Point of Interest to generate counterfactual examples for.
 
         Returns:
-            A DataFrame of counterfactual examples."""
+            A DataFrame of counterfactual examples.
+        """
         cfe_args = {
             "query_instances": poi.to_frame().T,
             "total_CFs": num_cfes,
@@ -180,7 +186,8 @@ class DiCE(base_type.RecourseMethod):
             cfes: The counterfactual examples (CFEs) generated for the POI.
 
         Returns:
-            A DataFrame of recourse directions in embedded space."""
+            A DataFrame of recourse directions in embedded space.
+        """
         poi = self.adapter.transform_series(poi)
         cfes = self.adapter.transform(cfes)
         dirs = cfes - poi

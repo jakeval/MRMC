@@ -8,7 +8,8 @@ class EmbeddedDataFrame(pd.DataFrame):
 
     Recourse directions are generated in embedded continuous space. DataFrames
     with categorical directions must be converted to EmbeddedDataFrames before
-    directional recourse can be generated."""
+    directional recourse can be generated.
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -28,7 +29,8 @@ class EmbeddedSeries(pd.Series):
 
     Recourse directions are generated in embedded continuous space. Series
     with categorical directions must be converted to EmbeddedSeries before
-    directional recourse can be generated."""
+    directional recourse can be generated.
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -49,7 +51,8 @@ class RecourseAdapter(abc.ABC):
     space and continuous embedded space where recourse directions are
     generated. It also iterates recourse by converting directions in embedded
     space to human-readable instructions and interpreting recourse instructions
-    as a hypothetical user would."""
+    as a hypothetical user would.
+    """
 
     @abc.abstractmethod
     def get_label(self) -> str:
@@ -65,7 +68,8 @@ class RecourseAdapter(abc.ABC):
             dataset: The data to transform.
 
         Returns:
-            Transformed data."""
+            Transformed data.
+        """
 
     @abc.abstractmethod
     def inverse_transform(self, dataset: EmbeddedDataFrame) -> pd.DataFrame:
@@ -76,7 +80,8 @@ class RecourseAdapter(abc.ABC):
             dataset: The data to inverse transform.
 
         Returns:
-            Inverse transformed data."""
+            Inverse transformed data.
+        """
 
     @abc.abstractmethod
     def directions_to_instructions(self, directions: EmbeddedSeries) -> Any:
@@ -87,7 +92,8 @@ class RecourseAdapter(abc.ABC):
             directions: The continuous recourse directions to convert.
 
         Returns:
-            Human-readable instructions describing the recourse directions."""
+            Human-readable instructions describing the recourse directions.
+        """
 
     @abc.abstractmethod
     def interpret_instructions(
@@ -104,7 +110,8 @@ class RecourseAdapter(abc.ABC):
 
         Returns:
             A new POI translated from the original by the recourse
-            instructions."""
+            instructions.
+        """
 
     @abc.abstractmethod
     def column_names(self, drop_label=True) -> Sequence[str]:
@@ -115,7 +122,8 @@ class RecourseAdapter(abc.ABC):
                 output.
 
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
 
     @abc.abstractmethod
     def embedded_column_names(self, drop_label=True) -> Sequence[str]:
@@ -125,7 +133,8 @@ class RecourseAdapter(abc.ABC):
             drop_label: Whether the label column should be excluded in the
                 output.
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
 
     def transform_series(self, poi: pd.Series) -> EmbeddedSeries:
         """Transforms data from human-readable format to an embedded continuous
@@ -135,7 +144,8 @@ class RecourseAdapter(abc.ABC):
             dataset: The data to transform.
 
         Returns:
-            Transformed data."""
+            Transformed data.
+        """
         return self.transform(poi.to_frame().T).iloc[0]
 
     def inverse_transform_series(self, poi: EmbeddedSeries) -> pd.Series:
@@ -145,5 +155,6 @@ class RecourseAdapter(abc.ABC):
             dataset: The data to inverse transform.
 
         Returns:
-            Inverse transformed data."""
+            Inverse transformed data.
+        """
         return self.inverse_transform(poi.to_frame().T).iloc[0]

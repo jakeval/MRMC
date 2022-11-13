@@ -15,7 +15,8 @@ class CertaintyChecker(Protocol):
             poi: The point of interest (POI) to check model certainty for.
 
         Returns:
-            The model's reported probability of a positive outcome."""
+            The model's reported probability of a positive outcome.
+        """
         pass
 
 
@@ -35,7 +36,8 @@ def wrap_model(
             list.
 
     Returns:
-        A CertaintyChecker function reporting model certainty on POIs."""
+        A CertaintyChecker function reporting model certainty on POIs.
+    """
 
     def check_certainty(poi: pd.Series) -> float:
         proba = model.predict_proba(poi.to_frame().T.to_numpy())
@@ -81,7 +83,8 @@ class RecourseIterator:
 
         Returns:
             A sequence of DataFrames where each DataFrame is a path and each
-            row of a given DataFrame is a single step in the path."""
+            row of a given DataFrame is a single step in the path.
+        """
         all_instructions = self.recourse_method.get_all_recourse_instructions(
             poi
         )
@@ -113,7 +116,8 @@ class RecourseIterator:
             max_iterations: The maximum number of steps in the path.
         Returns:
             A DataFrame where each row of the DataFrame is a step in the
-            path."""
+            path.
+        """
         path = [poi.to_frame().T]
         for i in range(max_iterations):
             if poi.isnull().any():

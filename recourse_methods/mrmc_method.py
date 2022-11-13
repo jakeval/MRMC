@@ -18,7 +18,8 @@ def get_volcano_alpha(cutoff=0.5, degree=2) -> AlphaFunction:
         degree: The degree of the exponential.
 
     Returns:
-        An alpha function initialized by cutoff and degree."""
+        An alpha function initialized by cutoff and degree.
+    """
 
     def volcano_alpha(dist: np.ndarray) -> np.ndarray:
         nonlocal cutoff, degree
@@ -37,7 +38,8 @@ def normalize_rescaler(
         dir: The direction to normalize.
 
     Returns:
-        A normalized copy of dir."""
+        A normalized copy of dir.
+    """
     return dir / len(mrm.X)
 
 
@@ -48,7 +50,8 @@ def get_constant_step_size_rescaler(step_size: float = 1) -> RecourseRescaler:
         step_size: The step size to rescale to.
 
     Returns:
-        A constant step size RecourseRescaler function."""
+        A constant step size RecourseRescaler function.
+    """
     return lambda _, dir: utils.constant_step_size(dir, step_size=step_size)
 
 
@@ -65,7 +68,8 @@ class RecourseRescaler(Protocol):
             dir: The recourse direction to rescale.
 
         Returns:
-            A rescaled recourse direction."""
+            A rescaled recourse direction.
+        """
 
 
 class AlphaFunction(Protocol):
@@ -79,7 +83,8 @@ class AlphaFunction(Protocol):
             dist: The list of distances.
 
         Returns:
-            A list of weights of the same size as dist."""
+            A list of weights of the same size as dist.
+        """
 
 
 class MRM:
@@ -102,7 +107,8 @@ class MRM:
             label_column: The columb providing binary classification outcomes.
             positive_label: The value of a positive classification outcome.
             alpha: The alpha function to use during recourse generation.
-            rescale_direction: A function for rescaling the recourse."""
+            rescale_direction: A function for rescaling the recourse.
+        """
         self.X = MRM.process_data(
             dataset, adapter, label_column, positive_label
         )
@@ -129,7 +135,8 @@ class MRM:
             positive_label: The label value for positive outcomes.
 
         Returns:
-            A processed dataset."""
+            A processed dataset.
+        """
         positive_dataset = dataset[dataset[label_column] == positive_label]
         X = adapter.transform(positive_dataset.drop(label_column, axis=1))
         if len(X) == 0:
@@ -150,7 +157,8 @@ class MRM:
 
         Returns:
             Itself. The filtering is done mutably, so the returned version is
-            not a copy."""
+            not a copy.
+        """
         p = model.predict_proba(self.X)
         self.X = self.X[p >= confidence_threshold]
         return self
@@ -165,7 +173,8 @@ class MRM:
             poi: The Point of Interest (POI) to generate an MRM direction for.
 
         Returns:
-            An MRM direction in embedded space."""
+            An MRM direction in embedded space.
+        """
         diff = (self.X - poi).to_numpy()
         dist = np.sqrt(np.power(diff, 2).sum(axis=1))
         alpha_val = self.alpha(dist)
@@ -184,7 +193,8 @@ class MRM:
             poi: The Point of Interest (POI) to generate an MRM direction for.
 
         Returns:
-            A possibly normalized MRM direction in embedded space."""
+            A possibly normalized MRM direction in embedded space.
+        """
         direction = self.get_unnormalized_direction(poi)
         if self.rescale_direction:
             direction = self.rescale_direction(self, direction)
@@ -198,7 +208,8 @@ class MRM:
 
         Returns:
             Instructions for how to translate the POI based on an MRM
-            direction."""
+            direction.
+        """
         direction = self.get_recourse_direction(
             self.adapter.transform_series(poi)
         )
@@ -290,7 +301,8 @@ class MRMC(RecourseMethod):
 
         Returns:
             Itself. The filtering is done mutably, so the returned version is
-            not a copy."""
+            not a copy.
+        """
         for mrm in self.mrms:
             mrm.filter_data(confidence_threshold, model)
             return self
@@ -304,7 +316,8 @@ class MRMC(RecourseMethod):
             X: The data to cluster in embedded continuous space.
             k_directions: The number of clusters to generate.
         Returns:
-            The data Clusters."""
+            The data Clusters.
+        """
         km = KMeans(n_clusters=k_directions)
         cluster_assignments = km.fit_predict(X.to_numpy())
         cluster_assignments = np.vstack(
@@ -362,7 +375,8 @@ class MRMC(RecourseMethod):
                 for.
 
         Returns:
-            A dataframe where each row is a different recourse direction."""
+            A dataframe where each row is a different recourse direction.
+        """
         directions = []
         for mrm in self.mrms:
             directions.append(mrm.get_recourse_direction(poi).to_frame().T)
@@ -377,7 +391,8 @@ class MRMC(RecourseMethod):
                 for.
 
         Returns:
-            A list where each element is a different recourse instruction."""
+            A list where each element is a different recourse instruction.
+        """
         instructions = []
         for mrm in self.mrms:
             instructions.append(mrm.get_recourse_instructions(poi))
@@ -395,7 +410,8 @@ class MRMC(RecourseMethod):
             dir_index: Which set of instructions to generate.
 
         Returns:
-            A set of recourse instructions for the POI."""
+            A set of recourse instructions for the POI.
+        """
         return self.mrms[dir_index].get_recourse_instructions(poi)
 
 
@@ -421,7 +437,8 @@ def check_dirs(
 
     Returns:
         An array where each element is the dot product between a recourse
-        direction and its corresponding cluster center."""
+        direction and its corresponding cluster center.
+    """
     expected_dirs = cluster_centers - poi.to_numpy()
     expected_dirs = (
         expected_dirs / np.linalg.norm(expected_dirs, axis=1)[:, None]
