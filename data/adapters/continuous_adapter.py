@@ -1,9 +1,13 @@
 from __future__ import annotations
 from data import recourse_adapter
-from typing import Sequence, Optional, Mapping
+from typing import Sequence, Optional, Mapping, Any
 from core import utils
-from sklearn.preprocessing import StandardScaler
+from sklearn import preprocessing
 import pandas as pd
+
+
+# TODO(@jakeval): Reduce code duplication between this file and
+# categorical_adpater.py
 
 
 class StandardizingAdapter(recourse_adapter.RecourseAdapter):
@@ -11,14 +15,15 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
     standard deviation 1.
 
     The adapter also optionally simulates rescaling the recourse or adding
-    random noise while interpreting recourse instructions."""
+    random noise while interpreting recourse instructions.
+    """
 
     def __init__(
         self,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label_name="Y",
-        positive_label=1,
+        label_name: str = "Y",
+        positive_label: Any = 1,
     ):
         """Creates a new StandardizingAdapter.
 
@@ -28,9 +33,14 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 instructions.
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
-            label: The name of the class label feature."""
+            label_name: The name of the class label feature.
+            positive_label: The label value of the positive class.
+        """
         super().__init__(label_name=label_name, positive_label=positive_label)
-        self.sc_dict: Mapping[str, StandardScaler] = None
+
+        self.standard_scaler_dict: Mapping[
+            str, preprocessing.StandardScaler
+        ] = None
         self.columns = None
         self.continuous_features = None
         self.perturb_ratio = perturb_ratio
@@ -43,17 +53,18 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             dataset: The data to fit.
 
         Returns:
-            Itself. Fitting is done mutably."""
+            Itself. Fitting is done mutably.
+        """
         super().fit(dataset)
         self.columns = dataset.columns
         self.continuous_features = dataset.columns.difference(
             [self.label_name]
         )
-        self.sc_dict = {}
+        self.standard_scaler_dict = {}
         for feature in self.continuous_features:
-            sc = StandardScaler()
-            sc.fit(dataset[[feature]])
-            self.sc_dict[feature] = sc
+            standard_scaler = preprocessing.StandardScaler()
+            standard_scaler.fit(dataset[[feature]])
+            self.standard_scaler_dict[feature] = standard_scaler
         return self
 
     def transform(
@@ -67,11 +78,14 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             dataset: The data to transform.
 
         Returns:
-            Transformed data."""
+            Transformed data.
+        """
         df = super().transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
-                df[feature] = self.sc_dict[feature].transform(df[[feature]])
+                df[feature] = self.standard_scaler_dict[feature].transform(
+                    df[[feature]]
+                )
         return df
 
     def inverse_transform(
@@ -85,13 +99,14 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             dataset: The data to inverse transform.
 
         Returns:
-            Inverse transformed data."""
+            Inverse transformed data.
+        """
         df = super().inverse_transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
-                df[feature] = self.sc_dict[feature].inverse_transform(
-                    df[[feature]]
-                )
+                df[feature] = self.standard_scaler_dict[
+                    feature
+                ].inverse_transform(df[[feature]])
         return df
 
     def directions_to_instructions(
@@ -106,7 +121,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             directions: The continuous recourse directions to convert.
 
         Returns:
-            Human-readable instructions describing the recourse directions."""
+            Human-readable instructions describing the recourse directions.
+        """
         return directions
 
     def interpret_instructions(
@@ -131,7 +147,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             A new POI translated from the original by the recourse
-            instructions."""
+            instructions.
+        """
         if self.perturb_ratio:
             instructions = utils.randomly_perturb_dir(
                 instructions, self.perturb_ratio
@@ -139,8 +156,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         if self.rescale_ratio:
             instructions = utils.rescale_dir(instructions, self.rescale_ratio)
         poi = self.transform_series(poi)
-        cfe = poi + instructions
-        return self.inverse_transform_series(cfe)
+        counterfactual = poi + instructions
+        return self.inverse_transform_series(counterfactual)
 
     def column_names(self, drop_label=True) -> Sequence[str]:
         """Returns the column names of the human-readable data.
@@ -150,7 +167,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 output.
 
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
         if drop_label:
             return self.columns.difference([self.label_name])
         else:
@@ -164,7 +182,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 output.
 
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
         if drop_label:
             return self.columns.difference([self.label_name])
         else:

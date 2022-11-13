@@ -19,7 +19,8 @@ class RecourseIterator:
 
         Args:
             recourse_method: The recourse method to use.
-            adapter: The adapter.
+            adapter: A RecourseAdapter object to transform the data between
+                human-readable and embedded space.
             certainty_cutoff: If not None, stop iterating early if the model
                 certainty reaches the cutoff.
             model: The model to use to check positive outcome certainty if
@@ -42,20 +43,23 @@ class RecourseIterator:
 
         Returns:
             A sequence of DataFrames where each DataFrame is a path and each
-            row of a given DataFrame is a single step in the path."""
+            row of a given DataFrame is a single step in the path.
+        """
         all_instructions = self.recourse_method.get_all_recourse_instructions(
             poi
         )
         # Start the paths from the POI
-        cfes = []
+        counterfactuals = []
         for instructions in all_instructions:
-            cfe = self.adapter.interpret_instructions(poi, instructions)
-            cfes.append(cfe)
+            counterfactual = self.adapter.interpret_instructions(
+                poi, instructions
+            )
+            counterfactuals.append(counterfactual)
         paths = []
         # Finish the paths by iterating one path at a time
-        for dir_index, cfe in enumerate(cfes):
+        for direction_index, counterfactual in enumerate(counterfactuals):
             rest_of_path = self.iterate_recourse_path(
-                cfe, dir_index, max_iterations - 1
+                counterfactual, direction_index, max_iterations - 1
             )
             path = pd.concat([poi.to_frame().T, rest_of_path]).reset_index(
                 drop=True
@@ -64,17 +68,19 @@ class RecourseIterator:
         return paths
 
     def iterate_recourse_path(
-        self, poi: pd.Series, dir_index: int, max_iterations: int
+        self, poi: pd.Series, direction_index: int, max_iterations: int
     ) -> pd.DataFrame:
         """Generates a recourse path for the model recourse direction given by
-            dir_index.
+        dir_index.
+
         Args:
             poi: The Point of Interest (POI) to generate a recourse path for.
-            dir_index: The index of the path to generate.
+            direction_index: The index of the path to generate.
             max_iterations: The maximum number of steps in the path.
         Returns:
             A DataFrame where each row of the DataFrame is a step in the
-            path."""
+            path.
+        """
         path = [poi.to_frame().T]
         for i in range(max_iterations):
             if poi.isnull().any():
@@ -91,7 +97,7 @@ class RecourseIterator:
             ):
                 break
             instructions = self.recourse_method.get_kth_recourse_instructions(
-                poi, dir_index
+                poi, direction_index
             )
             poi = self.adapter.interpret_instructions(poi, instructions)
             path.append(poi.to_frame().T)

@@ -6,6 +6,8 @@ import os
 import pathlib
 
 
+# This is the default directory that data will be saved to and loaded from. It
+# evaluates to MRMC/raw_data/.
 _DEFAULT_DATA_DIR = (
     pathlib.Path(os.path.normpath(__file__)).parent.parent.parent / "raw_data"
 )
@@ -20,7 +22,8 @@ class DatasetInfo:
         ordinal_features: The names of the dataset's ordinal features.
         categorical_features: The names of the dataset's categorical features.
         label_name: The name of the dataset's label column.
-        positive_label: The label value for positive outcomes."""
+        positive_label: The label value for positive outcomes.
+    """
 
     continuous_features: Sequence[str]
     ordinal_features: Sequence[str]
@@ -46,7 +49,8 @@ class DataLoader(abc.ABC):
         dataset_info: Information about the dataset's columns.
         data_dir: The local directory this dataset is saved to.
         dataset_name: The name of the dataset. Data is saved to
-            data_dir/dataset_name/"""
+            data_dir/dataset_name/
+    """
 
     dataset_info: DatasetInfo
     data_dir: str
@@ -57,7 +61,8 @@ class DataLoader(abc.ABC):
         """Downloads the data from the internet.
 
         Returns:
-            A DataFrame containing the downloaded data."""
+            A DataFrame containing the downloaded data.
+        """
 
     @abc.abstractmethod
     def process_data(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -70,7 +75,8 @@ class DataLoader(abc.ABC):
             data: The data to process.
 
         Returns:
-            A processed DataFrame."""
+            A processed DataFrame.
+        """
 
     def load_data(self) -> pd.DataFrame:
         """Loads the data from the internet or local disk.
@@ -99,7 +105,8 @@ class DataLoader(abc.ABC):
 
         Args:
             data: The DataFrame to save.
-            dataset_filepath: The filepath to save the data to."""
+            dataset_filepath: The filepath to save the data to.
+        """
         if not os.path.exists(pathlib.Path(dataset_filepath).parent):
             os.makedirs(pathlib.Path(dataset_filepath).parent)
         data.to_csv(dataset_filepath, header=True, index=False)
@@ -111,5 +118,6 @@ class DataLoader(abc.ABC):
             dataset_filepath: The filepath to load the csv data from.
 
         Returns:
-            A DataFrame containing the csv data stored at dataset_filepath."""
+            A DataFrame containing the csv data stored at dataset_filepath.
+        """
         return pd.read_csv(dataset_filepath)
