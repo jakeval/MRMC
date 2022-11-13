@@ -62,7 +62,7 @@ class RecourseAdapter(abc.ABC):
     space to human-readable instructions and interpreting recourse instructions
     as a hypothetical user would.
 
-    The RecourseAdapter also transforms a dataset's label column to -1/1
+    The RecourseAdapter also transforms a dataset's label column to {-1, 1}
     encoding where -1 is the negative class and 1 is the positive class.
 
     Attributes:
