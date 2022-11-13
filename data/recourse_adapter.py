@@ -6,12 +6,18 @@ import numpy as np
 import abc
 
 
+# TODO(@jakeval): Reconsider this class's responsibilities -- it does too much.
+# It should only translate between embedded and native data formats. Generating
+# instructions and taking actions should be done separately.
+
+
 class EmbeddedDataFrame(pd.DataFrame):
     """A wrapper around DataFrame for continuous data.
 
     Recourse directions are generated in embedded continuous space. DataFrames
     with categorical directions must be converted to EmbeddedDataFrames before
-    directional recourse can be generated."""
+    directional recourse can be generated.
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -31,7 +37,8 @@ class EmbeddedSeries(pd.Series):
 
     Recourse directions are generated in embedded continuous space. Series
     with categorical directions must be converted to EmbeddedSeries before
-    directional recourse can be generated."""
+    directional recourse can be generated.
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -63,7 +70,8 @@ class RecourseAdapter(abc.ABC):
         positive_label: The value of the label for the positive class.
         negative_label: The value of the label for the positive class. This is
             inferred automatically when the adapter's .fit() function is
-            called."""
+            called.
+    """
 
     label_name: str
     positive_label: Any
@@ -81,7 +89,8 @@ class RecourseAdapter(abc.ABC):
             dataset: The data to transform.
 
         Returns:
-            Transformed data."""
+            Transformed data.
+        """
         df = dataset.copy()
         if self.label_name in df.columns:
             df[self.label_name] = self.transform_label(df[self.label_name])
@@ -96,7 +105,8 @@ class RecourseAdapter(abc.ABC):
             dataset: The data to inverse transform.
 
         Returns:
-            Inverse transformed data."""
+            Inverse transformed data.
+        """
         df = dataset.copy()
         if self.label_name in df.columns:
             df[self.label_name] = self.inverse_transform_label(
@@ -113,7 +123,8 @@ class RecourseAdapter(abc.ABC):
             directions: The continuous recourse directions to convert.
 
         Returns:
-            Human-readable instructions describing the recourse directions."""
+            Human-readable instructions describing the recourse directions.
+        """
 
     @abc.abstractmethod
     def interpret_instructions(
@@ -130,7 +141,8 @@ class RecourseAdapter(abc.ABC):
 
         Returns:
             A new POI translated from the original by the recourse
-            instructions."""
+            instructions.
+        """
 
     @abc.abstractmethod
     def column_names(self, drop_label=True) -> Sequence[str]:
@@ -141,7 +153,8 @@ class RecourseAdapter(abc.ABC):
                 output.
 
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
 
     @abc.abstractmethod
     def embedded_column_names(self, drop_label=True) -> Sequence[str]:
@@ -151,7 +164,8 @@ class RecourseAdapter(abc.ABC):
             drop_label: Whether the label column should be excluded in the
                 output.
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
 
     def fit(self, dataset: pd.DataFrame) -> RecourseAdapter:
         """Fits the adapter to a dataset.
@@ -162,7 +176,8 @@ class RecourseAdapter(abc.ABC):
             dataset: The dataset to fit the RecourseAdapter to.
 
         Returns:
-            Itself. Fitting is done mutably."""
+            Itself. Fitting is done mutably.
+        """
         labels = dataset[self.label_name]
         self.negative_label = labels[labels != self.positive_label].iloc[0]
         return self
@@ -177,7 +192,8 @@ class RecourseAdapter(abc.ABC):
             labels: The labels to encode.
 
         Returns:
-            A series of the same length as labels with values 1 and -1."""
+            A series of the same length as labels with values 1 and -1.
+        """
         y = np.where(labels == self.positive_label, 1, -1)
         return pd.Series(y, index=labels.index)
 
@@ -193,27 +209,32 @@ class RecourseAdapter(abc.ABC):
 
         Returns:
             A series of the same length as y with its original human-readable
-            values."""
+            values.
+        """
         labels = np.where(y == 1, self.positive_label, self.negative_label)
         return pd.Series(labels, index=y.index)
 
-    def transform_series(self, poi: pd.Series) -> EmbeddedSeries:
+    def transform_series(self, data_series: pd.Series) -> EmbeddedSeries:
         """Transforms data from human-readable format to an embedded continuous
         space.
 
         Args:
-            dataset: The data to transform.
+            data_series: The data to transform.
 
         Returns:
-            Transformed data."""
-        return self.transform(poi.to_frame().T).iloc[0]
+            Transformed data.
+        """
+        return self.transform(data_series.to_frame().T).iloc[0]
 
-    def inverse_transform_series(self, poi: EmbeddedSeries) -> pd.Series:
+    def inverse_transform_series(
+        self, data_series: EmbeddedSeries
+    ) -> pd.Series:
         """Transforms data from an embedded continuous space to its original
         human-readable format.
         Args:
-            dataset: The data to inverse transform.
+            data_series: The data to inverse transform.
 
         Returns:
-            Inverse transformed data."""
-        return self.inverse_transform(poi.to_frame().T).iloc[0]
+            Inverse transformed data.
+        """
+        return self.inverse_transform(data_series.to_frame().T).iloc[0]
