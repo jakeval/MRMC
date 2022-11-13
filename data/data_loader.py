@@ -4,6 +4,9 @@ from data.datasets import credit_card_default_loader, base_loader
 import enum
 
 
+# TODO(@jakeval): Docstrings terminal quotations should be on new line.
+
+
 class DatasetName(enum.Enum):
     """Enum class for dataset names.
 
