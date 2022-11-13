@@ -116,6 +116,7 @@ class Model(abc.ABC):
         Returns:
             The probability that example x belongs to the positive class."""
         dataset = x.to_frame().T
+        # The label is dropped in self.predict_pos_proba()
         return self.predict_pos_proba(dataset).iloc[0]
 
     def predict_series(self, x: pd.Series) -> Any:
@@ -130,6 +131,7 @@ class Model(abc.ABC):
         Returns:
             The predicted class label of the given example."""
         dataset = x.to_frame().T
+        # The label is dropped in self.predict()
         return self.predict(dataset).iloc[0]
 
 
