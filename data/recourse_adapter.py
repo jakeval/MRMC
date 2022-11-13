@@ -3,6 +3,11 @@ import pandas as pd
 import abc
 
 
+# TODO(@jakeval): Reconsider this class's responsibilities -- it does too much.
+# It should only translate between embedded and native data formats. Generating
+# instructions and taking actions should be done separately.
+
+
 class EmbeddedDataFrame(pd.DataFrame):
     """A wrapper around DataFrame for continuous data.
 
@@ -127,23 +132,25 @@ class RecourseAdapter(abc.ABC):
         Returns:
             A list of the column names."""
 
-    def transform_series(self, poi: pd.Series) -> EmbeddedSeries:
+    def transform_series(self, data_series: pd.Series) -> EmbeddedSeries:
         """Transforms data from human-readable format to an embedded continuous
         space.
 
         Args:
-            dataset: The data to transform.
+            data_series: The data to transform.
 
         Returns:
             Transformed data."""
-        return self.transform(poi.to_frame().T).iloc[0]
+        return self.transform(data_series.to_frame().T).iloc[0]
 
-    def inverse_transform_series(self, poi: EmbeddedSeries) -> pd.Series:
+    def inverse_transform_series(
+        self, data_series: EmbeddedSeries
+    ) -> pd.Series:
         """Transforms data from an embedded continuous space to its original
         human-readable format.
         Args:
-            dataset: The data to inverse transform.
+            data_series: The data to inverse transform.
 
         Returns:
             Inverse transformed data."""
-        return self.inverse_transform(poi.to_frame().T).iloc[0]
+        return self.inverse_transform(data_series.to_frame().T).iloc[0]
