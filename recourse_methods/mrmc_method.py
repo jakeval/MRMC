@@ -231,7 +231,7 @@ class Clusters:
 
 
 class MRMC(RecourseMethod):
-    """A class for MRM with clustering."""
+    """A class for Monotonic Recourse Measures (MRM) with clustering."""
 
     def __init__(
         self,
