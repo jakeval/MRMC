@@ -231,7 +231,11 @@ class Clusters:
 
 
 class MRMC(RecourseMethod):
-    """A class for Monotonic Recourse Measures (MRM) with clustering."""
+    """A class for Monotonic Recourse Measures (MRM) with clustering.
+
+    MRMC clusters the data and initializes a separate MRM instance for
+    each cluster.
+    """
 
     def __init__(
         self,
@@ -245,9 +249,6 @@ class MRMC(RecourseMethod):
         clusters: Clusters = None,
     ):
         """Creates a new MRMC instance.
-
-        MRMC clusters the data and initializes a separate MRM instance for
-        each cluster.
 
         Args:
             k_directions: The number of clusters (and recourse directions) to

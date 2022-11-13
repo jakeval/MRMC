@@ -26,7 +26,16 @@ class ToNumPy:
 
 
 class DiCE(base_type.RecourseMethod):
-    """An abstract base class for recourse methods."""
+    """An abstract base class for recourse methods.
+
+    Recourse directions are generated in embedded space and
+    interpreted as instructions in the original data format.
+
+    The failure modes for this class are identical to those for the DiCE
+    method. Namely, for some points and optimizer parameter settings, DiCE
+    will return counterfactual examples which do not cross the decision
+    boundary.
+    """
 
     def __init__(
         self,
@@ -44,13 +53,7 @@ class DiCE(base_type.RecourseMethod):
 
         The RecourseAdapter translates between the original data format
         (potentially with categorical features) and a continuous embedded
-        space. Recourse directions are generated in embedded space and
-        interpreted as instructions in the original data format.
-
-        The failure modes for this class are identical to those for the DiCE
-        method. Namely, for some points and optimizer parameter settings, DiCE
-        will return counterfactual examples which do not cross the decision
-        boundary.
+        space.
 
         Args:
             k_directions: The number of recourse directions to generate.
@@ -120,7 +123,7 @@ class DiCE(base_type.RecourseMethod):
 
         Returns:
             A Sequence recourse instructions for the POI.
-        
+
     """
         cfes = self._generate_counterfactuals(poi, self.k_directions)
         directions = self._counterfactuals_to_directions(poi, cfes)
