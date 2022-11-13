@@ -7,7 +7,8 @@ import enum
 class DatasetName(enum.Enum):
     """Enum class for dataset names.
 
-    Dataset names are used to identify, load, and save datasets."""
+    Dataset names are used to identify, load, and save datasets.
+    """
 
     CREDIT_CARD_DEFAULT = credit_card_default_loader.DATASET_NAME
 
@@ -29,7 +30,8 @@ def load_data(
 
     Returns:
         A DataFrame containing the requested data and a DatasetInfo class
-        describing the DataFrame columns."""
+        describing the DataFrame columns.
+    """
     loader_kwargs = loader_kwargs or {}
     if dataset_name == DatasetName.CREDIT_CARD_DEFAULT:
         loader = credit_card_default_loader.CreditCardDefaultLoader(

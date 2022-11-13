@@ -22,7 +22,8 @@ def recategorize_feature(column: pd.Series, inverse_category_dict: Mapping[str, 
         inverse_category_dict: The remapping dict formatted as described above.
         
     Returns:
-        A new series with remapped values."""
+        A new series with remapped values.
+    """
     new_column = column.copy()
     for key, val_list in inverse_category_dict.items():
         for val in val_list:
