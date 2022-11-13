@@ -438,12 +438,11 @@ def check_directions(
         direction and its corresponding cluster center.
     """
     expected_directions = cluster_centers - poi.to_numpy()
-    expected_directions = (
-        expected_directions
-        / np.linalg.norm(expected_directions, axis=1)[:, None]
+    expected_directions = expected_directions / np.linalg.norm(
+        expected_directions, axis=1
     )
     actual_directions = directions.to_numpy()
-    actual_directions = (
-        actual_directions / np.linalg.norm(actual_directions, axis=1)[:, None]
+    actual_directions = actual_directions / np.linalg.norm(
+        actual_directions, axis=1
     )
     return np.diag(expected_directions @ actual_directions.T)
