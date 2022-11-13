@@ -40,7 +40,7 @@ def normalize_rescaler(
     Returns:
         A normalized copy of dir.
     """
-    return dir / len(mrm.X)
+    return dir / len(mrm.data)
 
 
 def get_constant_step_size_rescaler(step_size: float = 1) -> RecourseRescaler:
@@ -109,7 +109,7 @@ class MRM:
             alpha: The alpha function to use during recourse generation.
             rescale_direction: A function for rescaling the recourse.
         """
-        self.X = MRM.process_data(
+        self.data = MRM.process_data(
             dataset, adapter, label_column, positive_label
         )
         self.adapter = adapter
@@ -138,12 +138,12 @@ class MRM:
             A processed dataset.
         """
         positive_dataset = dataset[dataset[label_column] == positive_label]
-        X = adapter.transform(positive_dataset.drop(label_column, axis=1))
-        if len(X) == 0:
+        data = adapter.transform(positive_dataset.drop(label_column, axis=1))
+        if len(data) == 0:
             raise ValueError(
                 "Dataset is empty after excluding negative outcome examples."
             )
-        return X
+        return data
 
     def filter_data(
         self, confidence_threshold: float, model: base_model.BaseModel
@@ -159,8 +159,8 @@ class MRM:
             Itself. The filtering is done mutably, so the returned version is
             not a copy.
         """
-        p = model.predict_proba(self.X)
-        self.X = self.X[p >= confidence_threshold]
+        p = model.predict_proba(self.data)
+        self.data = self.data[p >= confidence_threshold]
         return self
 
     def get_unnormalized_direction(
@@ -175,7 +175,7 @@ class MRM:
         Returns:
             An MRM direction in embedded space.
         """
-        diff = (self.X - poi).to_numpy()
+        diff = (self.data - poi).to_numpy()
         dist = np.sqrt(np.power(diff, 2).sum(axis=1))
         alpha_val = self.alpha(dist)
         dir = diff.T @ alpha_val
@@ -262,10 +262,10 @@ class MRMC(RecourseMethod):
             clusters: The cluster data to use. If None, performs k-means
                 clustering.
         """
-        X = MRM.process_data(dataset, adapter, label_column, positive_label)
+        data = MRM.process_data(dataset, adapter, label_column, positive_label)
         self.k_directions = k_directions
         if not clusters:
-            clusters = self.cluster_data(X, self.k_directions)
+            clusters = self.cluster_data(data, self.k_directions)
         self.clusters = clusters
         self.validate_cluster_assignments(
             clusters.cluster_assignments, self.k_directions
@@ -277,8 +277,8 @@ class MRMC(RecourseMethod):
                 clusters.cluster_assignments["datapoint_cluster"]
                 == cluster_index
             ]["datapoint_index"]
-            X_cluster = X.loc[indices]
-            dataset_cluster = dataset.loc[X_cluster.index]
+            data_cluster = data.loc[indices]
+            dataset_cluster = dataset.loc[data_cluster.index]
             mrm = MRM(
                 dataset=dataset_cluster,
                 adapter=adapter,
@@ -309,20 +309,20 @@ class MRMC(RecourseMethod):
             return self
 
     def cluster_data(
-        self, X: recourse_adapter.EmbeddedDataFrame, k_directions: int
+        self, data: recourse_adapter.EmbeddedDataFrame, k_directions: int
     ) -> Clusters:
         """Clusters the data using k-means clustering.
 
         Args:
-            X: The data to cluster in embedded continuous space.
+            data: The data to cluster in embedded continuous space.
             k_directions: The number of clusters to generate.
         Returns:
             The data Clusters.
         """
         km = KMeans(n_clusters=k_directions)
-        cluster_assignments = km.fit_predict(X.to_numpy())
+        cluster_assignments = km.fit_predict(data.to_numpy())
         cluster_assignments = np.vstack(
-            [X.index.to_numpy(), cluster_assignments]
+            [data.index.to_numpy(), cluster_assignments]
         ).T
         cluster_assignments_df = pd.DataFrame(
             columns=["datapoint_index", "datapoint_cluster"],
