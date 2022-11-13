@@ -2,8 +2,12 @@ from __future__ import annotations
 from data import recourse_adapter
 from typing import Sequence, Optional, Mapping
 from core import utils
-from sklearn.preprocessing import StandardScaler
+from sklearn import preprocessing
 import pandas as pd
+
+
+# TODO(@jakeval): Reduce code duplication between this file and
+# categorical_adpater.py
 
 
 class StandardizingAdapter(recourse_adapter.RecourseAdapter):
@@ -18,7 +22,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         self,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label="Y",
+        label: str = "Y",
     ):
         """Creates a new StandardizingAdapter.
 
@@ -32,7 +36,9 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         """
         self.label = label
 
-        self.sc_dict: Mapping[str, StandardScaler] = None
+        self.standard_scaler_dict: Mapping[
+            str, preprocessing.StandardScaler
+        ] = None
         self.columns = None
         self.continuous_features = None
         self.perturb_ratio = perturb_ratio
@@ -53,11 +59,11 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         """
         self.columns = dataset.columns
         self.continuous_features = dataset.columns.difference([self.label])
-        self.sc_dict = {}
+        self.standard_scaler_dict = {}
         for feature in self.continuous_features:
-            sc = StandardScaler()
-            sc.fit(dataset[[feature]])
-            self.sc_dict[feature] = sc
+            standard_scaler = preprocessing.StandardScaler()
+            standard_scaler.fit(dataset[[feature]])
+            self.standard_scaler_dict[feature] = standard_scaler
         return self
 
     def transform(
@@ -76,7 +82,9 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
-                df[feature] = self.sc_dict[feature].transform(df[[feature]])
+                df[feature] = self.standard_scaler_dict[feature].transform(
+                    df[[feature]]
+                )
         return df
 
     def inverse_transform(
@@ -95,9 +103,9 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
-                df[feature] = self.sc_dict[feature].inverse_transform(
-                    df[[feature]]
-                )
+                df[feature] = self.standard_scaler_dict[
+                    feature
+                ].inverse_transform(df[[feature]])
         return df
 
     def directions_to_instructions(
@@ -147,8 +155,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         if self.rescale_ratio:
             instructions = utils.rescale_dir(instructions, self.rescale_ratio)
         poi = self.transform_series(poi)
-        cfe = poi + instructions
-        return self.inverse_transform_series(cfe)
+        counterfactual = poi + instructions
+        return self.inverse_transform_series(counterfactual)
 
     def column_names(self, drop_label=True) -> Sequence[str]:
         """Returns the column names of the human-readable data.

@@ -47,7 +47,7 @@ class DiCE(base_type.RecourseMethod):
         model_backend: constants.BackEndTypes,
         label_column: str = "Y",
         dice_kwargs: Optional[Mapping[str, Any]] = None,
-        dice_cfe_kwargs: Optional[Mapping[str, Any]] = None,
+        dice_counterfactual_kwargs: Optional[Mapping[str, Any]] = None,
     ):
         """Constructs a new DiCE recourse method.
 
@@ -57,7 +57,8 @@ class DiCE(base_type.RecourseMethod):
 
         Args:
             k_directions: The number of recourse directions to generate.
-            adapter: The dataset adapter.
+            adapter: A RecourseAdapter object to transform the data between
+                human-readable and embedded space.
             dataset: The dataset to perform recourse over.
             continuous_features: A list of the dataset's continuous features.
             model: An ML model satisfying one of the DiCE model backends.
@@ -70,7 +71,7 @@ class DiCE(base_type.RecourseMethod):
         """
         self.k_directions = k_directions
         self.adapter = adapter
-        self.dice_cfe_kwargs = dice_cfe_kwargs
+        self.dice_counterfactual_kwargs = dice_counterfactual_kwargs
         self.label_column = label_column
         d = dice_ml.Data(
             dataframe=dataset,
@@ -106,8 +107,10 @@ class DiCE(base_type.RecourseMethod):
             A DataFrame containing recourse directions for the POI.
         """
         poi = self.adapter.inverse_transform_series(poi)
-        cfes = self._generate_counterfactuals(poi, self.k_directions)
-        directions = self._counterfactuals_to_directions(poi, cfes)
+        counterfactuals = self._generate_counterfactuals(
+            poi, self.k_directions
+        )
+        directions = self._counterfactuals_to_directions(poi, counterfactuals)
         return directions
 
     def get_all_recourse_instructions(self, poi: pd.Series) -> Sequence[Any]:
@@ -123,12 +126,13 @@ class DiCE(base_type.RecourseMethod):
 
         Returns:
             A Sequence recourse instructions for the POI.
-
-    """
-        cfes = self._generate_counterfactuals(poi, self.k_directions)
-        directions = self._counterfactuals_to_directions(poi, cfes)
+        """
+        counterfactuals = self._generate_counterfactuals(
+            poi, self.k_directions
+        )
+        directions = self._counterfactuals_to_directions(poi, counterfactuals)
         instructions = []
-        for i in range(len(cfes)):
+        for i in range(len(counterfactuals)):
             instruction = self.adapter.directions_to_instructions(
                 directions.iloc[i]
             )
@@ -136,7 +140,7 @@ class DiCE(base_type.RecourseMethod):
         return instructions
 
     def get_kth_recourse_instructions(
-        self, poi: pd.Series, dir_index: int
+        self, poi: pd.Series, direction_index: int
     ) -> Any:
         """Generates a single set of recourse instructions for the kth
         direction.
@@ -148,12 +152,12 @@ class DiCE(base_type.RecourseMethod):
         Returns:
             Instructions for the POI to achieve the recourse.
         """
-        cfes = self._generate_counterfactuals(poi, 1)
-        directions = self._counterfactuals_to_directions(poi, cfes)
+        counterfactuals = self._generate_counterfactuals(poi, 1)
+        directions = self._counterfactuals_to_directions(poi, counterfactuals)
         return self.adapter.directions_to_instructions(directions.iloc[0])
 
     def _generate_counterfactuals(
-        self, poi: pd.Series, num_cfes: int
+        self, poi: pd.Series, num_counterfactuals: int
     ) -> pd.DataFrame:
         """Generates DiCE counterfactual examples (CFEs) for the requested POI.
 
@@ -163,35 +167,37 @@ class DiCE(base_type.RecourseMethod):
         Returns:
             A DataFrame of counterfactual examples.
         """
-        cfe_args = {
+        counterfactual_args = {
             "query_instances": poi.to_frame().T,
-            "total_CFs": num_cfes,
+            "total_CFs": num_counterfactuals,
             "desired_class": "opposite",
             "verbose": False,
         }
-        if self.dice_cfe_kwargs:
-            cfe_args.update(self.dice_cfe_kwargs)
+        if self.dice_counterfactual_kwargs:
+            counterfactual_args.update(self.dice_counterfactual_kwargs)
         return (
-            self.dice.generate_counterfactuals(**cfe_args)
+            self.dice.generate_counterfactuals(**counterfactual_args)
             .cf_examples_list[0]
             .final_cfs_df.drop(self.label_column, axis=1)
         )
 
     def _counterfactuals_to_directions(
-        self, poi: pd.Series, cfes: pd.DataFrame
+        self, poi: pd.Series, counterfactuals: pd.DataFrame
     ) -> recourse_adapter.EmbeddedDataFrame:
         """Converts a DataFrame of counterfactual points to a DataFrame of
-        Embedded directions pointing from the POI to the CFEs.
+        Embedded directions pointing from the POI to the counterfactual
+        examples.
 
         Args:
             poi: The Point of Interest (POI) the counterfactual examples were
                 generated for.
-            cfes: The counterfactual examples (CFEs) generated for the POI.
+            counterfactuals: The counterfactual examples (CFEs) generated for
+                the POI.
 
         Returns:
             A DataFrame of recourse directions in embedded space.
         """
         poi = self.adapter.transform_series(poi)
-        cfes = self.adapter.transform(cfes)
-        dirs = cfes - poi
-        return dirs
+        counterfactuals = self.adapter.transform(counterfactuals)
+        directions = counterfactuals - poi
+        return directions
