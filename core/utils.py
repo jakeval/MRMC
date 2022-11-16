@@ -5,11 +5,30 @@ from typing import Any
 
 
 MIN_DIRECTION = 1e-32
+"""Numbers smaller than this won't be used as the denominator during
+division."""
 
 
 def randomly_perturb_direction(
     direction: recourse_adapter.EmbeddedSeries, ratio: float
 ) -> recourse_adapter.EmbeddedSeries:
+    """Randomly changes a vector's direction while maintaining its magnitude.
+
+    The amount of random perturbation is determined by the `ratio` argument.
+    If ratio=0.5, then random noise with magnitude 50% of the original
+    direction is added. If ratio=1, then random noise with magnitude equal to
+    the original direction is added. The direction is always rescaled to have
+    its original magnitude after adding the random noise.
+
+    Args:
+        direction: The vector to perturb.
+        ratio: The amount of random noise to add as a ratio of the direction's
+            original magnitude.
+
+    Returns:
+        A new vector of equal magnitude to the original but with a randomly
+        perturbed direction.
+    """
     norm = np.linalg.norm(direction)
     noise = np.random.normal(0, 1, len(direction))
     noise = (noise / np.linalg.norm(noise)) * ratio * norm
@@ -21,6 +40,16 @@ def randomly_perturb_direction(
 def constant_step_size(
     direction: recourse_adapter.EmbeddedSeries, step_size: float = 1
 ) -> recourse_adapter.EmbeddedSeries:
+    """Rescales a vector to a given fixed size measured by L2 norm.
+
+    Args:
+        direction: The vector to rescale.
+        step_size: The target L2 norm of the rescaled vector.
+
+    Returns:
+        A new vector with direction equal to the original but rescaled to the
+        magnitude given by `step_size`.
+    """
     normalization = np.linalg.norm(direction.to_numpy())
     if normalization <= MIN_DIRECTION:
         return direction
@@ -37,8 +66,12 @@ def random_poi(
 
     Args:
         dataset: The dataset to sample from.
+        column: The dataset column containing the class labels.
         label: The label of the point to select.
         drop_label: Whether to drop the label from the returned POI.
+
+    Returns:
+        A random row of the given label from the dataset.
     """
     poi = dataset[dataset[column] == label].sample(1)
     if drop_label:
