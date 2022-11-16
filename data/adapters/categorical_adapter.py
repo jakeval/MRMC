@@ -177,7 +177,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
                 instructions, self.perturb_ratio
             )
         if self.rescale_ratio:
-            instructions = utils.rescale_dir(instructions, self.rescale_ratio)
+            instructions = instructions * self.rescale_ratio
         poi = self.transform_series(poi)
         counterfactual = poi + instructions
         return self.inverse_transform_series(counterfactual)

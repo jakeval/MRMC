@@ -7,11 +7,6 @@ from typing import Any
 MIN_DIRECTION = 1e-32
 
 
-def rescale_dir(dir: recourse_adapter.EmbeddedSeries, rescale_factor: float):
-    new_dir = dir * rescale_factor
-    return new_dir
-
-
 def randomly_perturb_dir(dir: recourse_adapter.EmbeddedSeries, ratio: float):
     norm = np.linalg.norm(dir)
     noise = np.random.normal(0, 1, len(dir))
