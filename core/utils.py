@@ -9,7 +9,7 @@ MIN_DIRECTION = 1e-32
 
 def randomly_perturb_direction(
     direction: recourse_adapter.EmbeddedSeries, ratio: float
-):
+) -> recourse_adapter.EmbeddedSeries:
     norm = np.linalg.norm(direction)
     noise = np.random.normal(0, 1, len(direction))
     noise = (noise / np.linalg.norm(noise)) * ratio * norm
@@ -18,7 +18,9 @@ def randomly_perturb_direction(
     return new_direction
 
 
-def constant_step_size(direction, step_size=1):
+def constant_step_size(
+    direction: recourse_adapter.EmbeddedSeries, step_size: float = 1
+) -> recourse_adapter.EmbeddedSeries:
     normalization = np.linalg.norm(direction.to_numpy())
     if normalization <= MIN_DIRECTION:
         return direction
@@ -26,7 +28,10 @@ def constant_step_size(direction, step_size=1):
 
 
 def random_poi(
-    dataset: pd.DataFrame, column="Y", label: Any = -1, drop_label: bool = True
+    dataset: pd.DataFrame,
+    column: str = "Y",
+    label: Any = -1,
+    drop_label: bool = True,
 ) -> pd.Series:
     """Selects a random POI of the given label from the dataset.
 
