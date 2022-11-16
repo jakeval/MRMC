@@ -150,7 +150,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             instructions.
         """
         if self.perturb_ratio:
-            instructions = utils.randomly_perturb_dir(
+            instructions = utils.randomly_perturb_direction(
                 instructions, self.perturb_ratio
             )
         if self.rescale_ratio:

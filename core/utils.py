@@ -7,20 +7,22 @@ from typing import Any
 MIN_DIRECTION = 1e-32
 
 
-def randomly_perturb_dir(dir: recourse_adapter.EmbeddedSeries, ratio: float):
-    norm = np.linalg.norm(dir)
-    noise = np.random.normal(0, 1, len(dir))
+def randomly_perturb_direction(
+    direction: recourse_adapter.EmbeddedSeries, ratio: float
+):
+    norm = np.linalg.norm(direction)
+    noise = np.random.normal(0, 1, len(direction))
     noise = (noise / np.linalg.norm(noise)) * ratio * norm
-    new_dir = dir + noise
-    new_dir = (new_dir / np.linalg.norm(new_dir)) * norm
-    return new_dir
+    new_direction = direction + noise
+    new_direction = (new_direction / np.linalg.norm(new_direction)) * norm
+    return new_direction
 
 
-def constant_step_size(dir, step_size=1):
-    normalization = np.linalg.norm(dir.to_numpy())
+def constant_step_size(direction, step_size=1):
+    normalization = np.linalg.norm(direction.to_numpy())
     if normalization <= MIN_DIRECTION:
-        return dir
-    return (step_size * dir) / normalization
+        return direction
+    return (step_size * direction) / normalization
 
 
 def random_poi(
