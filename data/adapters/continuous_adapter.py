@@ -15,7 +15,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
     standard deviation 1.
 
     The adapter also optionally simulates rescaling the recourse or adding
-    random noise while interpreting recourse instructions."""
+    random noise while interpreting recourse instructions.
+    """
 
     def __init__(
         self,
@@ -31,7 +32,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 instructions.
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
-            label: The name of the class label feature."""
+            label: The name of the class label feature.
+        """
         self.label = label
 
         self.standard_scaler_dict: Mapping[
@@ -53,7 +55,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             dataset: The data to fit.
 
         Returns:
-            Itself. Fitting is done mutably."""
+            Itself. Fitting is done mutably.
+        """
         self.columns = dataset.columns
         self.continuous_features = dataset.columns.difference([self.label])
         self.standard_scaler_dict = {}
@@ -74,7 +77,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             dataset: The data to transform.
 
         Returns:
-            Transformed data."""
+            Transformed data.
+        """
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
@@ -94,7 +98,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             dataset: The data to inverse transform.
 
         Returns:
-            Inverse transformed data."""
+            Inverse transformed data.
+        """
         df = dataset.copy()
         for feature in self.continuous_features:
             if feature in df.columns:
@@ -115,7 +120,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             directions: The continuous recourse directions to convert.
 
         Returns:
-            Human-readable instructions describing the recourse directions."""
+            Human-readable instructions describing the recourse directions.
+        """
         return directions
 
     def interpret_instructions(
@@ -140,7 +146,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
 
         Returns:
             A new POI translated from the original by the recourse
-            instructions."""
+            instructions.
+        """
         if self.perturb_ratio:
             instructions = utils.randomly_perturb_dir(
                 instructions, self.perturb_ratio
@@ -159,7 +166,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 output.
 
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
         if drop_label:
             return self.columns.difference([self.label])
         else:
@@ -173,7 +181,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 output.
 
         Returns:
-            A list of the column names."""
+            A list of the column names.
+        """
         if drop_label:
             return self.columns.difference([self.label])
         else:

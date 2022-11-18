@@ -49,7 +49,8 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
             correspond to information about the past 6 months. Each column
             value indicates the amount in dollars that the customer paid for
             that month.
-        Y: The class label where 1 means the customer did not default."""
+        Y: The class label where 1 means the customer did not default.
+    """
 
     def __init__(
         self, only_continuous_vars: bool = True, data_dir: Optional[str] = None
@@ -59,7 +60,8 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
         Args:
             only_continuous_vars: If True, drops the categorical SEX column and
                              turns the categorical PAY_* columns into
-                             continuous columns."""
+                             continuous columns.
+        """
         super().__init__(
             dataset_info=_DATASET_INFO,
             data_dir=data_dir,
@@ -82,7 +84,8 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
             data: The data to process.
 
         Returns:
-            A processed DataFrame."""
+            A processed DataFrame.
+        """
         data = (
             data.set_index("ID")
             .drop(columns=["MARRIAGE", "EDUCATION"])
