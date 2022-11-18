@@ -83,6 +83,12 @@ class ModelTrainer(abc.ABC):
 
         By default, the model results are the training and test accuracy.
 
+        Args:
+            data_loader_kwargs: Key-word arguments to pass to the dataset
+                loader. This is usually not needed. Possible key word arguments
+                depend on the dataset being loaded and can be seen in the
+                data/data_loader.py files.
+
         Returns:
             The trained model and a dictionary of results."""
         dataset, dataset_info = data_loader.load_data(
