@@ -3,7 +3,7 @@ from typing import Any, Protocol, Sequence
 from dataclasses import dataclass
 import numpy as np
 from core import utils
-from models import base_model
+from models import model_interface
 import pandas as pd
 from data import recourse_adapter
 from recourse_methods.base_type import RecourseMethod
@@ -142,7 +142,7 @@ class MRM:
         return positive_embedded_dataset
 
     def filter_data(
-        self, confidence_threshold: float, model: base_model.BaseModel
+        self, confidence_threshold: float, model: model_interface.Model
     ) -> MRM:
         """Filters the recourse dataset to include only high-confidence points.
 
@@ -283,7 +283,7 @@ class MRMC(RecourseMethod):
         self.mrms: Sequence[MRM] = mrms
 
     def filter_data(
-        self, confidence_threshold: float, model: base_model.BaseModel
+        self, confidence_threshold: float, model: model_interface.Model
     ) -> MRMC:
         """Filters the recourse dataset to include only high-confidence points.
 
