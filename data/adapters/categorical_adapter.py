@@ -15,15 +15,16 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
     standardizes continuous data to have mean 0 and standard deviation 1.
 
     The adapter also optionally simulates rescaling the recourse or adding
-    random noise while interpreting recourse instructions."""
+    random noise while interpreting recourse instructions.
+    """
 
     def __init__(
         self,
         categorical_features: Sequence[str],
         continuous_features: Sequence[str],
+        label_column: str,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label_column: str = "Y",
         positive_label: Any = 1,
     ):
         """Creates a new OneHotAdapter.
@@ -31,12 +32,12 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         Args:
             categorical_features: The names of the categorical features.
             continuous_features: The names of the continuous features.
+            label_column: The name of the class label feature.
             perturb_ratio: The magnitude of random noise relative to the
                 recourse directions to add while interpreting recourse
                 instructions.
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
-            label_column: The name of the class label feature.
             positive_label: The label value of the positive class.
         """
         super().__init__(

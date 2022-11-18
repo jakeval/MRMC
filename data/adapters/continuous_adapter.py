@@ -20,9 +20,9 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
 
     def __init__(
         self,
+        label_column: str,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label_column: str = "Y",
         positive_label: Any = 1,
     ):
         """Creates a new StandardizingAdapter.

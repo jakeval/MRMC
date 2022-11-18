@@ -58,7 +58,7 @@ def constant_step_size(
 
 def random_poi(
     dataset: pd.DataFrame,
-    label_column: str = "Y",
+    label_column: str,
     label_value: Any = -1,
     drop_label: bool = True,
 ) -> pd.Series:
