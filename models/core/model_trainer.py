@@ -49,7 +49,7 @@ class ModelTrainer(abc.ABC):
         """Saves a trained model to local disk.
 
         Args:
-            model: The model to save.
+            model: The trained model object to save.
             model_dir: The directory to save the model under."""
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
