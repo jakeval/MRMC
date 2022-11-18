@@ -49,8 +49,8 @@ class LogisticRegression(model_trainer.ModelTrainer):
         adapter = self._get_adapter(dataset, dataset_info)
         lr = linear_model.LogisticRegression(**TRAINING_PARAMS)
         dataset = adapter.transform(dataset)
-        training_data = dataset.drop(dataset_info.label_name, axis=1)
-        training_labels = dataset[dataset_info.label_name]
+        training_data = dataset.drop(dataset_info.label_column, axis=1)
+        training_labels = dataset[dataset_info.label_column]
         lr.fit(training_data, training_labels)
         model = model_interface.SKLearnModel(lr, adapter)
         return model
@@ -96,12 +96,12 @@ class LogisticRegression(model_trainer.ModelTrainer):
             adapter = categorical_adapter.OneHotAdapter(
                 categorical_features=dataset_info.categorical_features,
                 continuous_features=dataset_info.continuous_features,
-                label_name=dataset_info.label_name,
+                label_column=dataset_info.label_column,
                 positive_label=dataset_info.positive_label,
             ).fit(dataset)
         else:
             adapter = continuous_adapter.StandardizingAdapter(
-                label_name=dataset_info.label_name,
+                label_column=dataset_info.label_column,
                 positive_label=dataset_info.positive_label,
             ).fit(dataset)
         return adapter

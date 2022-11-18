@@ -21,14 +21,14 @@ class DatasetInfo:
         continuous_features: The names of the dataset's continuous features.
         ordinal_features: The names of the dataset's ordinal features.
         categorical_features: The names of the dataset's categorical features.
-        label_name: The name of the dataset's label column.
+        label_column: The name of the dataset's label column.
         positive_label: The label value for positive outcomes.
     """
 
     continuous_features: Sequence[str]
     ordinal_features: Sequence[str]
     categorical_features: Sequence[str]
-    label_name: str
+    label_column: str
     positive_label: Any
 
 

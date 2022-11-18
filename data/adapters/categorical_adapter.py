@@ -15,15 +15,16 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
     standardizes continuous data to have mean 0 and standard deviation 1.
 
     The adapter also optionally simulates rescaling the recourse or adding
-    random noise while interpreting recourse instructions."""
+    random noise while interpreting recourse instructions.
+    """
 
     def __init__(
         self,
         categorical_features: Sequence[str],
         continuous_features: Sequence[str],
+        label_column: str,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label_name: str = "Y",
         positive_label: Any = 1,
     ):
         """Creates a new OneHotAdapter.
@@ -31,15 +32,17 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         Args:
             categorical_features: The names of the categorical features.
             continuous_features: The names of the continuous features.
+            label_column: The name of the class label feature.
             perturb_ratio: The magnitude of random noise relative to the
                 recourse directions to add while interpreting recourse
                 instructions.
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
-            label_name: The name of the class label feature.
             positive_label: The label value of the positive class.
         """
-        super().__init__(label_name=label_name, positive_label=positive_label)
+        super().__init__(
+            label_column=label_column, positive_label=positive_label
+        )
         self.categorical_features = categorical_features
         self.continuous_features = continuous_features
 
@@ -173,11 +176,11 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
             instructions.
         """
         if self.perturb_ratio:
-            instructions = utils.randomly_perturb_dir(
+            instructions = utils.randomly_perturb_direction(
                 instructions, self.perturb_ratio
             )
         if self.rescale_ratio:
-            instructions = utils.rescale_dir(instructions, self.rescale_ratio)
+            instructions = instructions * self.rescale_ratio
         poi = self.transform_series(poi)
         counterfactual = poi + instructions
         return self.inverse_transform_series(counterfactual)

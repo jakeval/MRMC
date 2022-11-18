@@ -130,10 +130,10 @@ class MRM:
         Returns:
             A processed dataset.
         """
-        positive_mask = dataset[adapter.label_name] == adapter.positive_label
+        positive_mask = dataset[adapter.label_column] == adapter.positive_label
         positive_dataset = dataset[positive_mask]
         positive_embedded_dataset = adapter.transform(
-            positive_dataset.drop(adapter.label_name, axis=1)
+            positive_dataset.drop(adapter.label_column, axis=1)
         )
         if len(positive_embedded_dataset) == 0:
             raise ValueError(

@@ -169,34 +169,34 @@ class ModelTrainer(abc.ABC):
             },
         }
         train_pos_mask = (
-            train[dataset_info.label_name] == dataset_info.positive_label
+            train[dataset_info.label_column] == dataset_info.positive_label
         )
         test_pos_mask = (
-            test[dataset_info.label_name] == dataset_info.positive_label
+            test[dataset_info.label_column] == dataset_info.positive_label
         )
 
         results["train"]["total_accuracy"] = self._get_accuracy(
-            model.predict(train), train[dataset_info.label_name]
+            model.predict(train), train[dataset_info.label_column]
         )
         results["train"]["positive_accuracy"] = self._get_accuracy(
             model.predict(train[train_pos_mask]),
-            train.loc[train_pos_mask, dataset_info.label_name],
+            train.loc[train_pos_mask, dataset_info.label_column],
         )
         results["train"]["negative_accuracy"] = self._get_accuracy(
             model.predict(train[~train_pos_mask]),
-            train.loc[~train_pos_mask, dataset_info.label_name],
+            train.loc[~train_pos_mask, dataset_info.label_column],
         )
 
         results["test"]["total_accuracy"] = self._get_accuracy(
-            model.predict(test), test[dataset_info.label_name]
+            model.predict(test), test[dataset_info.label_column]
         )
         results["test"]["positive_accuracy"] = self._get_accuracy(
             model.predict(test[test_pos_mask]),
-            test.loc[test_pos_mask, dataset_info.label_name],
+            test.loc[test_pos_mask, dataset_info.label_column],
         )
         results["test"]["negative_accuracy"] = self._get_accuracy(
             model.predict(test[~test_pos_mask]),
-            test.loc[~test_pos_mask, dataset_info.label_name],
+            test.loc[~test_pos_mask, dataset_info.label_column],
         )
         return results
 
