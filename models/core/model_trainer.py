@@ -49,7 +49,7 @@ class ModelTrainer(abc.ABC):
         """Saves a trained model to local disk.
 
         Args:
-            model: The model to save.
+            model: The trained model object to save.
             model_dir: The directory to save the model under."""
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
@@ -82,6 +82,12 @@ class ModelTrainer(abc.ABC):
         the model and results are saved to local disk.
 
         By default, the model results are the training and test accuracy.
+
+        Args:
+            data_loader_kwargs: Key-word arguments to pass to the dataset
+                loader. This is usually not needed. Possible key word arguments
+                depend on the dataset being loaded and can be seen in the
+                data/data_loader.py files.
 
         Returns:
             The trained model and a dictionary of results."""
