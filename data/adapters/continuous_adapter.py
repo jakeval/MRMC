@@ -1,6 +1,6 @@
 from __future__ import annotations
 from data import recourse_adapter
-from typing import Sequence, Optional, Mapping
+from typing import Sequence, Optional, Mapping, Any
 from core import utils
 from sklearn import preprocessing
 import pandas as pd
@@ -22,7 +22,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         self,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label: str = "Y",
+        label_name: str = "Y",
+        positive_label: Any = 1,
     ):
         """Creates a new StandardizingAdapter.
 
@@ -32,9 +33,10 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 instructions.
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
-            label: The name of the class label feature.
+            label_name: The name of the class label feature.
+            positive_label: The label value of the positive class.
         """
-        self.label = label
+        super().__init__(label_name=label_name, positive_label=positive_label)
 
         self.standard_scaler_dict: Mapping[
             str, preprocessing.StandardScaler
@@ -43,10 +45,6 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         self.continuous_features = None
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
-
-    def get_label(self) -> str:
-        """Gets the dataset's label column name."""
-        return self.label
 
     def fit(self, dataset: pd.DataFrame) -> StandardizingAdapter:
         """Fits the adapter to a dataset.
@@ -57,8 +55,11 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         Returns:
             Itself. Fitting is done mutably.
         """
+        super().fit(dataset)
         self.columns = dataset.columns
-        self.continuous_features = dataset.columns.difference([self.label])
+        self.continuous_features = dataset.columns.difference(
+            [self.label_name]
+        )
         self.standard_scaler_dict = {}
         for feature in self.continuous_features:
             standard_scaler = preprocessing.StandardScaler()
@@ -79,7 +80,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         Returns:
             Transformed data.
         """
-        df = dataset.copy()
+        df = super().transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.standard_scaler_dict[feature].transform(
@@ -100,7 +101,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         Returns:
             Inverse transformed data.
         """
-        df = dataset.copy()
+        df = super().inverse_transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.standard_scaler_dict[
@@ -169,7 +170,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             A list of the column names.
         """
         if drop_label:
-            return self.columns.difference([self.label])
+            return self.columns.difference([self.label_name])
         else:
             return self.columns
 
@@ -184,6 +185,6 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             A list of the column names.
         """
         if drop_label:
-            return self.columns.difference([self.label])
+            return self.columns.difference([self.label_name])
         else:
             return self.columns

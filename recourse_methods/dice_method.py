@@ -45,7 +45,6 @@ class DiCE(base_type.RecourseMethod):
         continuous_features: Sequence[str],
         model: Any,
         model_backend: constants.BackEndTypes,
-        label_column: str = "Y",
         dice_kwargs: Optional[Mapping[str, Any]] = None,
         dice_counterfactual_kwargs: Optional[Mapping[str, Any]] = None,
     ):
@@ -64,7 +63,6 @@ class DiCE(base_type.RecourseMethod):
             model: An ML model satisfying one of the DiCE model backends.
             model_backend: Model types recognized by DiCE (sklearn, pytorch,
                 and tensorflow).
-            label_column: The column containing binary classification outputs.
             dice_kwargs: Optional arguments to pass to DiCE on instantiation.
             dice_recourse_kwargs: Optional arguments to pass to DiCE on
                 counterfactual explanation generation.
@@ -72,11 +70,10 @@ class DiCE(base_type.RecourseMethod):
         self.k_directions = k_directions
         self.adapter = adapter
         self.dice_counterfactual_kwargs = dice_counterfactual_kwargs
-        self.label_column = label_column
         d = dice_ml.Data(
             dataframe=dataset,
             continuous_features=continuous_features,
-            outcome_name=label_column,
+            outcome_name=adapter.label_name,
         )
         clf = pipeline.Pipeline(
             steps=[
@@ -148,6 +145,8 @@ class DiCE(base_type.RecourseMethod):
         Args:
             poi: The Point of Interest (POI) to get the kth recourse
                 instruction for.
+            dir_index: The index of the recourse direction to generate
+                instructions for. This argument is ignored for DiCE.
 
         Returns:
             Instructions for the POI to achieve the recourse.
@@ -163,6 +162,7 @@ class DiCE(base_type.RecourseMethod):
 
         Args:
             poi: The Point of Interest to generate counterfactual examples for.
+            num_cfes: The number of counterfactual examples (CFEs) to generate.
 
         Returns:
             A DataFrame of counterfactual examples.

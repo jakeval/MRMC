@@ -96,8 +96,6 @@ class MRM:
         self,
         dataset: pd.DataFrame,
         adapter: recourse_adapter.RecourseAdapter,
-        label_column: str = "Y",
-        positive_label: Any = 1,
         alpha: AlphaFunction = get_volcano_alpha(),
         rescale_direction: RecourseRescaler = normalize_rescaler,
     ):
@@ -107,13 +105,10 @@ class MRM:
             dataset: The dataset to provide recourse over.
             adapter: A RecourseAdapter object to transform the data between
                 human-readable and embedded space.
-            label_column: The columb providing binary classification outcomes.
-            positive_label: The value of a positive classification outcome.
             alpha: The alpha function to use during recourse generation.
-            rescale_direction: A function for rescaling the recourse."""
-        self.data = MRM.process_data(
-            dataset, adapter, label_column, positive_label
-        )
+            rescale_direction: A function for rescaling the recourse.
+        """
+        self.data = MRM.process_data(dataset, adapter)
         self.adapter = adapter
         self.alpha = alpha
         self.rescale_direction = rescale_direction
@@ -122,8 +117,6 @@ class MRM:
     def process_data(
         dataset: pd.DataFrame,
         adapter: recourse_adapter.RecourseAdapter,
-        label_column: str,
-        positive_label: Any,
     ) -> recourse_adapter.EmbeddedDataFrame:
         """Processes the dataset for MRM.
         It filters out negative outcomes and transforms the data to a numeric
@@ -133,15 +126,14 @@ class MRM:
             dataset: The dataset to process.
             adapter: The recourse adapter which transforms data to a numeric
                      embedded space.
-            label_column: The name of the label feature.
-            positive_label: The label value for positive outcomes.
 
         Returns:
             A processed dataset.
         """
-        positive_dataset = dataset[dataset[label_column] == positive_label]
+        positive_mask = dataset[adapter.label_name] == adapter.positive_label
+        positive_dataset = dataset[positive_mask]
         positive_embedded_dataset = adapter.transform(
-            positive_dataset.drop(label_column, axis=1)
+            positive_dataset.drop(adapter.label_name, axis=1)
         )
         if len(positive_embedded_dataset) == 0:
             raise ValueError(
@@ -247,8 +239,6 @@ class MRMC(RecourseMethod):
         k_directions: int,
         adapter: recourse_adapter.RecourseAdapter,
         dataset: pd.DataFrame,
-        label_column: str = "Y",
-        positive_label: Any = 1,
         alpha: AlphaFunction = get_volcano_alpha(),
         rescale_direction: RecourseRescaler = normalize_rescaler,
         clusters: Clusters = None,
@@ -261,14 +251,12 @@ class MRMC(RecourseMethod):
             adapter: A RecourseAdapter object to transform the data between
                 human-readable and embedded space.
             dataset: The dataset to perform recourse over.
-            label_column: The column containing binary classification outputs.
-            positive_label: The value of a positive classification.
             alpha: The alpha function each MRM should use.
             rescale_direction: The rescaling function each MRM should use.
             clusters: The cluster data to use. If None, performs k-means
                 clustering.
         """
-        data = MRM.process_data(dataset, adapter, label_column, positive_label)
+        data = MRM.process_data(dataset, adapter)
         self.k_directions = k_directions
         if not clusters:
             clusters = self.cluster_data(data, self.k_directions)
@@ -288,8 +276,6 @@ class MRMC(RecourseMethod):
             mrm = MRM(
                 dataset=dataset_cluster,
                 adapter=adapter,
-                label_column=label_column,
-                positive_label=positive_label,
                 alpha=alpha,
                 rescale_direction=rescale_direction,
             )

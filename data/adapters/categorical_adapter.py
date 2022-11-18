@@ -1,6 +1,6 @@
 from __future__ import annotations
 from data import recourse_adapter
-from typing import Sequence, Optional, Mapping
+from typing import Sequence, Optional, Mapping, Any
 from core import utils
 from sklearn import preprocessing
 import pandas as pd
@@ -23,7 +23,8 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         continuous_features: Sequence[str],
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label: str = "Y",
+        label_name: str = "Y",
+        positive_label: Any = 1,
     ):
         """Creates a new OneHotAdapter.
 
@@ -35,11 +36,12 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
                 instructions.
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
-            label: The name of the class label feature.
+            label_name: The name of the class label feature.
+            positive_label: The label value of the positive class.
         """
+        super().__init__(label_name=label_name, positive_label=positive_label)
         self.categorical_features = categorical_features
         self.continuous_features = continuous_features
-        self.label = label
 
         self.standard_scaler_dict: Mapping[
             str, preprocessing.StandardScaler
@@ -48,10 +50,6 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         self.columns = None
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
-
-    def get_label(self) -> str:
-        """Gets the dataset's label column name."""
-        return self.label
 
     def fit(self, dataset: pd.DataFrame) -> OneHotAdapter:
         """Fits the adapter to a dataset.
@@ -62,6 +60,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         Returns:
             Itself. Fitting is done mutably.
         """
+        super().fit(dataset)
         self.standard_scaler_dict = {}
         self.onehot_dict = {}
         self.columns = dataset.columns
@@ -87,7 +86,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         Returns:
             Transformed data.
         """
-        df = dataset.copy()
+        df = super().transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.standard_scaler_dict[feature].transform(
@@ -117,7 +116,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         Returns:
             Inverse transformed data.
         """
-        df = dataset.copy()
+        df = super().inverse_transform(dataset)
         for feature in self.continuous_features:
             if feature in df.columns:
                 df[feature] = self.standard_scaler_dict[
