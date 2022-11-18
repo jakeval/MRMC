@@ -107,7 +107,7 @@ class NaiveAdapter(RecourseAdapter):
         for feature in self.categorical_features:
             onehot_encoder = OneHotEncoder()
             onehot_encoder.fit(dataset[[feature]])
-        self.onehot_dict[feature] = onehot_encoder
+            self.onehot_dict[feature] = onehot_encoder
         return self
 
     def transform(self, dataset: pd.DataFrame) -> EmbeddedDataFrame:
