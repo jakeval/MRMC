@@ -22,7 +22,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         self,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label_name: str = "Y",
+        label_column: str = "Y",
         positive_label: Any = 1,
     ):
         """Creates a new StandardizingAdapter.
@@ -33,10 +33,12 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 instructions.
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
-            label_name: The name of the class label feature.
+            label_column: The name of the class label feature.
             positive_label: The label value of the positive class.
         """
-        super().__init__(label_name=label_name, positive_label=positive_label)
+        super().__init__(
+            label_column=label_column, positive_label=positive_label
+        )
 
         self.standard_scaler_dict: Mapping[
             str, preprocessing.StandardScaler
@@ -58,7 +60,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         super().fit(dataset)
         self.columns = dataset.columns
         self.continuous_features = dataset.columns.difference(
-            [self.label_name]
+            [self.label_column]
         )
         self.standard_scaler_dict = {}
         for feature in self.continuous_features:
@@ -170,7 +172,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             A list of the column names.
         """
         if drop_label:
-            return self.columns.difference([self.label_name])
+            return self.columns.difference([self.label_column])
         else:
             return self.columns
 
@@ -185,6 +187,6 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             A list of the column names.
         """
         if drop_label:
-            return self.columns.difference([self.label_name])
+            return self.columns.difference([self.label_column])
         else:
             return self.columns

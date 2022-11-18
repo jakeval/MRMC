@@ -23,7 +23,7 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
         continuous_features: Sequence[str],
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
-        label_name: str = "Y",
+        label_column: str = "Y",
         positive_label: Any = 1,
     ):
         """Creates a new OneHotAdapter.
@@ -36,10 +36,12 @@ class OneHotAdapter(recourse_adapter.RecourseAdapter):
                 instructions.
             rescale_ratio: The amount to rescale the recourse directions by
                 while interpreting recourse instructions.
-            label_name: The name of the class label feature.
+            label_column: The name of the class label feature.
             positive_label: The label value of the positive class.
         """
-        super().__init__(label_name=label_name, positive_label=positive_label)
+        super().__init__(
+            label_column=label_column, positive_label=positive_label
+        )
         self.categorical_features = categorical_features
         self.continuous_features = continuous_features
 

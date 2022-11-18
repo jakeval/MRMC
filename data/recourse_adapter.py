@@ -66,14 +66,14 @@ class RecourseAdapter(abc.ABC):
     encoding where -1 is the negative class and 1 is the positive class.
 
     Attributes:
-        label_name: The name of the label feature.
+        label_column: The name of the label feature.
         positive_label: The value of the label for the positive class.
         negative_label: The value of the label for the positive class. This is
             inferred automatically when the adapter's .fit() function is
             called.
     """
 
-    label_name: str
+    label_column: str
     positive_label: Any
     negative_label: Optional[Any] = None
 
@@ -92,8 +92,8 @@ class RecourseAdapter(abc.ABC):
             Transformed data.
         """
         df = dataset.copy()
-        if self.label_name in df.columns:
-            df[self.label_name] = self.transform_label(df[self.label_name])
+        if self.label_column in df.columns:
+            df[self.label_column] = self.transform_label(df[self.label_column])
         return df
 
     @abc.abstractmethod
@@ -108,9 +108,9 @@ class RecourseAdapter(abc.ABC):
             Inverse transformed data.
         """
         df = dataset.copy()
-        if self.label_name in df.columns:
-            df[self.label_name] = self.inverse_transform_label(
-                df[self.label_name]
+        if self.label_column in df.columns:
+            df[self.label_column] = self.inverse_transform_label(
+                df[self.label_column]
             )
         return df
 
@@ -178,7 +178,7 @@ class RecourseAdapter(abc.ABC):
         Returns:
             Itself. Fitting is done mutably.
         """
-        labels = dataset[self.label_name]
+        labels = dataset[self.label_column]
         self.negative_label = labels[labels != self.positive_label].iloc[0]
         return self
 

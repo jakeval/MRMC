@@ -59,7 +59,7 @@ class DiCE(base_type.RecourseMethod):
         d = dice_ml.Data(
             dataframe=dataset,
             continuous_features=continuous_features,
-            outcome_name=adapter.label_name,
+            outcome_name=adapter.label_column,
         )
         dice_args = {
             "data_interface": d,
@@ -156,7 +156,7 @@ class DiCE(base_type.RecourseMethod):
         return (
             self.dice.generate_counterfactuals(**counterfactual_args)
             .cf_examples_list[0]
-            .final_cfs_df.drop(self.adapter.label_name, axis=1)
+            .final_cfs_df.drop(self.adapter.label_column, axis=1)
         )
 
     def _counterfactuals_to_directions(

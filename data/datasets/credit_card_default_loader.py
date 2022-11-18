@@ -12,7 +12,7 @@ _DATASET_INFO = base_loader.DatasetInfo(
     + [f"PAY_AMT{i}" for i in range(1, 7)],
     ordinal_features=[],
     categorical_features=[],
-    label_name="Y",
+    label_column="Y",
     positive_label=0,
 )
 _SOURCE_TARGET_COLUMN = "default payment next month"

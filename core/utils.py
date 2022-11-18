@@ -58,23 +58,23 @@ def constant_step_size(
 
 def random_poi(
     dataset: pd.DataFrame,
-    column: str = "Y",
-    label: Any = -1,
+    label_column: str = "Y",
+    label_value: Any = -1,
     drop_label: bool = True,
 ) -> pd.Series:
     """Selects a random POI of the given label from the dataset.
 
     Args:
         dataset: The dataset to sample from.
-        column: The dataset column containing the class labels.
-        label: The label of the point to select.
+        label_column: The dataset column containing the class labels.
+        label_value: The label value of the point to select.
         drop_label: Whether to drop the label from the returned POI.
 
     Returns:
         A random row of the given label from the dataset.
     """
-    poi = dataset[dataset[column] == label].sample(1)
+    poi = dataset[dataset[label_column] == label_value].sample(1)
     if drop_label:
-        poi = poi.drop(column, axis=1)
+        poi = poi.drop(label_column, axis=1)
 
     return poi.iloc[0]

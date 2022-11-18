@@ -78,8 +78,8 @@ class Model(abc.ABC):
             A series where element i of the series is the probability of a
             positive outcome for element i of the dataset."""
         dataset = self.adapter.transform(dataset)
-        if self.adapter.label_name in dataset.columns:
-            dataset = dataset.drop(self.adapter.label_name, axis=1)
+        if self.adapter.label_column in dataset.columns:
+            dataset = dataset.drop(self.adapter.label_column, axis=1)
         proba = self._predict_pos_proba(dataset)
         return pd.Series(proba, index=dataset.index)
 
@@ -97,8 +97,8 @@ class Model(abc.ABC):
             A series where element i of the series is the predicted
             human-readable class of example i of the dataset."""
         dataset = self.adapter.transform(dataset)
-        if self.adapter.label_name in dataset.columns:
-            dataset = dataset.drop(self.adapter.label_name, axis=1)
+        if self.adapter.label_column in dataset.columns:
+            dataset = dataset.drop(self.adapter.label_column, axis=1)
         y_pred = self._predict(dataset)
         y_pred_series = pd.Series(y_pred, index=dataset.index)
         return self.adapter.inverse_transform_label(y_pred_series)
