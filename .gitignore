@@ -2,3 +2,4 @@
 __pycache__
 *.icloud
 *.ipynb_checkpoints
+raw_data
