@@ -67,15 +67,7 @@ class LogisticRegression(model_trainer.ModelTrainer):
         joblib.dump(model, os.path.join(model_dir, MODEL_FILENAME))
 
     def _load_model(self, model_dir: str) -> model_interface.Model:
-        """Loads a trained model from local disk.
-
-        Loading is done with joblib.
-
-        Args:
-            model_dir: The location of the saved model to load.
-
-        Returns:
-            The saved model."""
+        """Loads a trained model from local disk."""
         return joblib.load(os.path.join(model_dir, MODEL_FILENAME))
 
     def _get_adapter(
