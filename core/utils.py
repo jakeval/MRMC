@@ -57,9 +57,11 @@ def constant_step_size(
         A new vector with direction equal to the original but rescaled to the
         magnitude given by `step_size`.
     """
-    normalization = np.linalg.norm(direction.to_numpy())
-    if normalization <= MIN_DIRECTION:
+    normalization = np.linalg.norm(direction)
+    if normalization == 0:
         return direction
+    if normalization <= MIN_DIRECTION:
+        normalization = MIN_DIRECTION
     return (step_size * direction) / normalization
 
 
