@@ -29,8 +29,15 @@ def randomly_perturb_direction(
         A new vector of equal magnitude to the original but with a randomly
         perturbed direction.
     """
+    if ratio == 0:
+        return direction
     norm = np.linalg.norm(direction)
+    if norm == 0:
+        return direction
     noise = np.random.normal(0, 1, len(direction))
+    noise_norm = np.linalg.norm(noise)
+    if noise_norm == 0:
+        return direction
     noise = (noise / np.linalg.norm(noise)) * ratio * norm
     new_direction = direction + noise
     new_direction = (new_direction / np.linalg.norm(new_direction)) * norm
