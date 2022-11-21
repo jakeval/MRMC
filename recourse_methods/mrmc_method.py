@@ -40,6 +40,8 @@ def normalize_rescaler(
     Returns:
         A normalized copy of direction.
     """
+    if len(mrm.data) == 0:
+        raise RuntimeError("Can't normalize direction against 0-lengh data.")
     return direction / len(mrm.data)
 
 
