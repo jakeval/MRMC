@@ -4,7 +4,7 @@ from data import recourse_adapter
 from typing import Any
 
 
-MIN_DIRECTION = 1e-32
+_MIN_DIRECTION = 1e-32
 """Numbers smaller than this won't be used as the denominator during
 division."""
 
@@ -29,21 +29,27 @@ def randomly_perturb_direction(
         A new vector of equal magnitude to the original but with a randomly
         perturbed direction.
     """
+    # Check for zeroes to avoid division by zero.
     if ratio == 0:
         return direction
-    norm = np.linalg.norm(direction)
-    if norm == 0:
+    direction_norm = np.linalg.norm(direction)
+    if direction_norm == 0:
         return direction
     noise = np.random.normal(0, 1, len(direction))
     noise_norm = np.linalg.norm(noise)
     if noise_norm == 0:
         return direction
-    noise = (noise / np.linalg.norm(noise)) * ratio * norm
+
+    noise = (noise / noise_norm) * ratio * direction_norm
     new_direction = direction + noise
-    new_direction = (new_direction / np.linalg.norm(new_direction)) * norm
+    # Normalize noised direction and rescale to the original direction length.
+    new_direction = (
+        new_direction / np.linalg.norm(new_direction)
+    ) * direction_norm
     return new_direction
 
 
+# TODO(@jakeval): Revisit "step size" naming convention.
 def constant_step_size(
     direction: recourse_adapter.EmbeddedSeries, step_size: float = 1
 ) -> recourse_adapter.EmbeddedSeries:
@@ -60,11 +66,12 @@ def constant_step_size(
     normalization = np.linalg.norm(direction)
     if normalization == 0:
         return direction
-    if normalization <= MIN_DIRECTION:
-        normalization = MIN_DIRECTION
+    if normalization <= _MIN_DIRECTION:
+        normalization = _MIN_DIRECTION
     return (step_size * direction) / normalization
 
 
+# TODO(@jakeval): Add unit test for this (second pass).
 def random_poi(
     dataset: pd.DataFrame,
     label_column: str,
