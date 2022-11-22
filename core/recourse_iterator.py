@@ -31,6 +31,7 @@ class RecourseIterator:
         self.model = model
         self.adapter = adapter
 
+    # TODO(@jakeval): Confidence check
     def iterate_k_recourse_paths(
         self, poi: pd.Series, max_iterations: int
     ) -> Sequence[pd.DataFrame]:
@@ -67,6 +68,7 @@ class RecourseIterator:
             paths.append(path)
         return paths
 
+    # TODO(@jakeval): Confidence check
     def iterate_recourse_path(
         self, poi: pd.Series, direction_index: int, max_iterations: int
     ) -> pd.DataFrame:
@@ -87,7 +89,7 @@ class RecourseIterator:
                 raise RuntimeError(
                     (
                         f"The iterated point has NaN values after {i} "
-                        "iterations. The point is:\n{poi}"
+                        f"iterations. The point is:\n{poi}"
                     )
                 )
             if (
