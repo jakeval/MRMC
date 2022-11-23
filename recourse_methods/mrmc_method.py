@@ -174,7 +174,9 @@ class MRM:
             A processed dataset.
         """
         positive_mask = dataset[adapter.label_column] == adapter.positive_label
-        if confidence_threshold:  # Only include "sufficiently" positive points
+        # Keep positively-labeled points with sufficiently high model
+        # prediction confidence
+        if confidence_threshold:
             positive_mask = positive_mask & (
                 model.predict_pos_proba(dataset) > confidence_threshold
             )
