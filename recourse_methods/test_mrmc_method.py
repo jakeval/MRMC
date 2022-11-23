@@ -5,14 +5,14 @@ import pandas as pd
 from recourse_methods import mrmc_method
 
 
-SMALL_CUTOFF = 0.2
-LARGE_CUTOFF = 2
-DEGREE = 2
+_SMALL_CUTOFF = 0.2
+_LARGE_CUTOFF = 2
+_DEGREE = 2
 volcano_alpha_large_cutoff = mrmc_method.get_volcano_alpha(
-    cutoff=LARGE_CUTOFF, degree=DEGREE
+    cutoff=_LARGE_CUTOFF, degree=_DEGREE
 )
 volcano_alpha_small_cutoff = mrmc_method.get_volcano_alpha(
-    cutoff=SMALL_CUTOFF, degree=DEGREE
+    cutoff=_SMALL_CUTOFF, degree=_DEGREE
 )
 
 
@@ -22,10 +22,10 @@ class TestMRMC(unittest.TestCase):
         weights = volcano_alpha_small_cutoff(distances)
         expected_weights = np.array(
             [
-                1 / (SMALL_CUTOFF**DEGREE),
-                1 / (1**DEGREE),
-                1 / (2**DEGREE),
-                1 / (3**DEGREE),
+                1 / (_SMALL_CUTOFF**_DEGREE),
+                1 / (1**_DEGREE),
+                1 / (2**_DEGREE),
+                1 / (3**_DEGREE),
             ]
         )
         np.testing.assert_almost_equal(weights, expected_weights)
@@ -35,10 +35,10 @@ class TestMRMC(unittest.TestCase):
         weights = volcano_alpha_large_cutoff(distances)
         expected_weights = np.array(
             [
-                1 / (LARGE_CUTOFF**DEGREE),
-                1 / (LARGE_CUTOFF**DEGREE),
-                1 / (2**DEGREE),
-                1 / (3**DEGREE),
+                1 / (_LARGE_CUTOFF**_DEGREE),
+                1 / (_LARGE_CUTOFF**_DEGREE),
+                1 / (2**_DEGREE),
+                1 / (3**_DEGREE),
             ]
         )
         np.testing.assert_almost_equal(weights, expected_weights)
