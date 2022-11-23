@@ -28,9 +28,7 @@ class TestMRMC(unittest.TestCase):
                 1 / (3**DEGREE),
             ]
         )
-
-        for val, expected_val in zip(weights, expected_weights):
-            self.assertAlmostEqual(val, expected_val)
+        np.testing.assert_almost_equal(weights, expected_weights)
 
     def test_volcano_alpha_large_cutoff(self):
         distances = np.array([0, 1, 2, 3])
@@ -43,9 +41,7 @@ class TestMRMC(unittest.TestCase):
                 1 / (3**DEGREE),
             ]
         )
-
-        for val, expected_val in zip(weights, expected_weights):
-            self.assertAlmostEqual(val, expected_val)
+        np.testing.assert_almost_equal(weights, expected_weights)
 
     @mock.patch(
         "data.recourse_adapter.RecourseAdapter",
