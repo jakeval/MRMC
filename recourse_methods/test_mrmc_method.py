@@ -8,18 +8,14 @@ from recourse_methods import mrmc_method
 _SMALL_CUTOFF = 0.2
 _LARGE_CUTOFF = 2
 _DEGREE = 2
-volcano_alpha_large_cutoff = mrmc_method.get_volcano_alpha(
-    cutoff=_LARGE_CUTOFF, degree=_DEGREE
-)
-volcano_alpha_small_cutoff = mrmc_method.get_volcano_alpha(
-    cutoff=_SMALL_CUTOFF, degree=_DEGREE
-)
 
 
 class TestMRMC(unittest.TestCase):
     def test_volcano_alpha_small_cutoff(self):
         distances = np.array([0, 1, 2, 3])
-        weights = volcano_alpha_small_cutoff(distances)
+        weights = mrmc_method.get_volcano_alpha(
+            cutoff=_SMALL_CUTOFF, degree=_DEGREE
+        )(distances)
         expected_weights = np.array(
             [
                 1 / (_SMALL_CUTOFF**_DEGREE),
@@ -32,7 +28,9 @@ class TestMRMC(unittest.TestCase):
 
     def test_volcano_alpha_large_cutoff(self):
         distances = np.array([0, 1, 2, 3])
-        weights = volcano_alpha_large_cutoff(distances)
+        weights = mrmc_method.get_volcano_alpha(
+            cutoff=_LARGE_CUTOFF, degree=_DEGREE
+        )(distances)
         expected_weights = np.array(
             [
                 1 / (_LARGE_CUTOFF**_DEGREE),
