@@ -8,9 +8,9 @@ class TestUtils(unittest.TestCase):
     @mock.patch("core.utils.np.random.normal", return_value=np.array([1, 0]))
     def test_randomly_perturb_direction(self, mock_normal: mock.Mock):
         new_direction = utils.randomly_perturb_direction(np.array([0, 1]), 1)
-        expected_direction = np.array([np.sqrt(0.5), np.sqrt(0.5)])
+        expected_direction = np.array([0.70711, 0.70711])  # from sqrt(0.5)
         for new_val, expected_val in zip(new_direction, expected_direction):
-            self.assertAlmostEqual(new_val, expected_val)
+            self.assertAlmostEqual(new_val, expected_val, places=5)
         self.assertAlmostEqual(np.linalg.norm(new_direction), 1.0)
 
     @mock.patch("core.utils.np.random.normal", return_value=np.array([1, 0]))
@@ -43,9 +43,9 @@ class TestUtils(unittest.TestCase):
 
     def test_constant_step_size(self):
         new_direction = utils.constant_step_size(np.array([1, 1]), 0.5)
-        expected_direction = np.array([np.sqrt(1 / 8), np.sqrt(1 / 8)])
+        expected_direction = np.array([0.35355, 0.35355])  # from sqrt(1/8)
         for new_val, expected_val in zip(new_direction, expected_direction):
-            self.assertAlmostEqual(new_val, expected_val)
+            self.assertAlmostEqual(new_val, expected_val, places=5)
         self.assertAlmostEqual(np.linalg.norm(new_direction), 0.5)
 
     def test_constant_step_size_zero_direction(self):
