@@ -35,10 +35,9 @@ class TestStandardizingAdapter(unittest.TestCase):
             self.assertAlmostEqual(std, 1)
 
         # labels should be {-1,1} encoded
-        for label, expected_label in zip(
-            embedded_dataset.label, expected_labels
-        ):
-            self.assertEqual(label, expected_label)
+        np.testing.assert_equal(
+            embedded_dataset.label.to_numpy(), expected_labels
+        )
 
     def test_transform_missing_columns(self):
         label_column = "label"
@@ -92,18 +91,15 @@ class TestStandardizingAdapter(unittest.TestCase):
         )
 
         # original labels are recovered
-        for recovered_label, expected_label in zip(
-            recovered_dataset.label, mock_dataset.label
-        ):
-            self.assertEqual(recovered_label, expected_label)
+        np.testing.assert_equal(
+            recovered_dataset.label.to_numpy(), mock_dataset.label.to_numpy()
+        )
 
         # the original values are recovered
-        max_abs_difference = (
-            np.abs(mock_dataset[["a", "b"]] - recovered_dataset[["a", "b"]])
-            .max()
-            .max()
+        np.testing.assert_almost_equal(
+            mock_dataset[["a", "b"]].to_numpy(),
+            recovered_dataset[["a", "b"]].to_numpy(),
         )
-        self.assertAlmostEqual(max_abs_difference, 0)
 
     def test_inverse_transform_missing_columns(self):
         label_column = "label"
@@ -131,13 +127,12 @@ class TestStandardizingAdapter(unittest.TestCase):
             .inverse_transform(mock_embedded_dataset)
         )
 
+        # no errors are thrown
         expected_dataset = mock_dataset.drop(columns=["label", "a"])
 
-        # no errors are thrown
-        max_abs_difference = np.abs(
-            expected_dataset.b - recovered_dataset.b
-        ).max()
-        self.assertAlmostEqual(max_abs_difference, 0)
+        np.testing.assert_almost_equal(
+            expected_dataset.b.to_numpy(), recovered_dataset.b.to_numpy()
+        )
 
     @mock.patch(
         "data.adapters.continuous_adapter.utils.randomly_perturb_direction",
