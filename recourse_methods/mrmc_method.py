@@ -92,7 +92,24 @@ class AlphaFunction(Protocol):
 
 
 class MRM:
-    """Monotone Recourse Measures (MRM) generates recourse directions."""
+    """Monotone Recourse Measures (MRM) generates recourse directions.
+
+    MRM processes an input dataset for recourse using MRM.process_data(). The
+    data processing step can be skipped by directly assigning the class
+    attribute _processed_data with data ready for recourse.
+
+    Data provided to _processed_data should
+        * Consist only of positively classified examples
+        * Not have the label column
+        * Be transformed into an embedded numerical space by the adapter.
+
+    Attributes:
+        data: The dataset used for recourse.
+        adapter: A RecourseAdapter object to transform the data between
+            human-readable and embedded space.
+        alpha: The alpha function to use during recourse generation.
+        rescale_direction: A function for rescaling the recourse.
+    """
 
     def __init__(
         self,
@@ -105,15 +122,6 @@ class MRM:
         _processed_data: Optional[recourse_adapter.EmbeddedDataFrame] = None,
     ):
         """Creates an MRM instance.
-
-        The dataset is processed for recourse using MRM.process_data(). The
-        data processing step can be skipped by directly assigning the class
-        attribute _processed_data with data ready for recourse.
-
-        Data provided to _processed_data should
-            * Consist only of positively classified examples
-            * Not have the label column
-            * Be transformed into an embedded numerical space by the adapter.
 
         Args:
             dataset: The dataset to provide recourse over.
@@ -258,6 +266,12 @@ class MRMC(RecourseMethod):
 
     MRMC clusters the data and initializes a separate MRM instance for
     each cluster.
+
+    Attributes:
+        k_directions: The number of clusters (and recourse directions) to
+            generate.
+        clusters: The clusters used for generating recourse.
+        mrms: The individual per-cluster MRM instances.
     """
 
     def __init__(
