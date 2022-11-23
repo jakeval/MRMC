@@ -11,9 +11,7 @@ class TestUtils(unittest.TestCase):
         expected_direction = np.array([np.sqrt(0.5), np.sqrt(0.5)])
         for new_val, expected_val in zip(new_direction, expected_direction):
             self.assertAlmostEqual(new_val, expected_val)
-        self.assertAlmostEqual(
-            np.linalg.norm(new_direction), np.linalg.norm(np.array([0, 1]))
-        )
+        self.assertAlmostEqual(np.linalg.norm(new_direction), 1.0)
 
     @mock.patch("core.utils.np.random.normal", return_value=np.array([1, 0]))
     def test_randomly_perturb_direction_zero_ratio(
@@ -23,9 +21,7 @@ class TestUtils(unittest.TestCase):
         expected_direction = np.array([0, 1])
         for new_val, expected_val in zip(new_direction, expected_direction):
             self.assertAlmostEqual(new_val, expected_val)
-        self.assertAlmostEqual(
-            np.linalg.norm(new_direction), np.linalg.norm(np.array([0, 1]))
-        )
+        self.assertAlmostEqual(np.linalg.norm(new_direction), 1.0)
 
     @mock.patch("core.utils.np.random.normal", return_value=np.array([1, 0]))
     def test_randomly_perturb_direction_zero_direction(
