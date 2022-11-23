@@ -92,7 +92,24 @@ class AlphaFunction(Protocol):
 
 
 class MRM:
-    """Monotone Recourse Measures (MRM) generates recourse directions."""
+    """Monotone Recourse Measures (MRM) generates recourse directions.
+
+    MRM processes an input dataset for recourse using MRM.process_data(). The
+    data processing step can be skipped by directly assigning the class
+    attribute _processed_data with data ready for recourse.
+
+    Data provided to _processed_data should
+        * Consist only of positively classified examples
+        * Not have the label column
+        * Be transformed into an embedded numerical space by the adapter.
+
+    Attributes:
+        data: The dataset used for recourse.
+        adapter: A RecourseAdapter object to transform the data between
+            human-readable and embedded space.
+        alpha: The alpha function to use during recourse generation.
+        rescale_direction: A function for rescaling the recourse.
+    """
 
     def __init__(
         self,
@@ -105,15 +122,6 @@ class MRM:
         _processed_data: Optional[recourse_adapter.EmbeddedDataFrame] = None,
     ):
         """Creates an MRM instance.
-
-        The dataset is processed for recourse using MRM.process_data(). This
-        processing step can be skipped by providing recourse data directly via
-        _processed_data. This is typically unnecessary for end users.
-
-        Data provided to _processed_data should
-            * Consist only of positively classified examples
-            * Not have the label column
-            * Be transformed into an embedded numerical space by the adapter.
 
         Args:
             dataset: The dataset to provide recourse over.
@@ -150,10 +158,9 @@ class MRM:
     ) -> recourse_adapter.EmbeddedDataFrame:
         """Processes the dataset for MRM.
 
-        It filters out negative outcome points, drops the class label, and
-        transforms the data to a numeric embedded space. If
-        confidence_threshold is provided, it also filters out points which have
-        insufficient model confidence.
+        Removes datapoints with negative (-1) labels, drops the class label
+        feature column, and transforms the data to a numeric embedded space.
+        Also excludes datapoints with below-threshold model confidence.
 
         Args:
             dataset: The dataset to process.
@@ -167,7 +174,9 @@ class MRM:
             A processed dataset.
         """
         positive_mask = dataset[adapter.label_column] == adapter.positive_label
-        if confidence_threshold:  # Only include "sufficiently" positive points
+        # Keep positively-labeled points with sufficiently high model
+        # prediction confidence
+        if confidence_threshold:
             positive_mask = positive_mask & (
                 model.predict_pos_proba(dataset) > confidence_threshold
             )
@@ -199,7 +208,7 @@ class MRM:
         alpha_val = self.alpha(dist)
         if np.isnan(alpha_val).any():
             raise RuntimeError(
-                f"Alpha function returned null values: {alpha_val}"
+                f"Alpha function returned NaN values: {alpha_val}"
             )
         direction = diff.T @ alpha_val
         return recourse_adapter.EmbeddedSeries(index=poi.index, data=direction)
@@ -258,6 +267,12 @@ class MRMC(RecourseMethod):
 
     MRMC clusters the data and initializes a separate MRM instance for
     each cluster.
+
+    Attributes:
+        k_directions: The number of clusters (and recourse directions) to
+            generate.
+        clusters: The clusters used for generating recourse.
+        mrms: The individual per-cluster MRM instances.
     """
 
     def __init__(
@@ -323,7 +338,7 @@ class MRMC(RecourseMethod):
     def _cluster_data(
         data: recourse_adapter.EmbeddedDataFrame, k_directions: int
     ) -> Clusters:
-        """Clusters the data using k-means clustering.
+        """Clusters the data using sklearn's KMeans clustering.
 
         Args:
             data: The data to cluster in embedded continuous space.
@@ -350,7 +365,7 @@ class MRMC(RecourseMethod):
     def _validate_cluster_assignments(
         cluster_assignments: pd.DataFrame, k_directions: int
     ) -> bool:
-        """Raises an error if the cluster_assignments is valid.
+        """Raises an error if the cluster_assignments is invalid.
 
         Invalid cluster_assignments have more or fewer clusters than the
         requested k_directions.
