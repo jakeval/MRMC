@@ -127,7 +127,6 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         """
         return directions
 
-    # TODO(@jakeval): Unit test this
     def interpret_instructions(
         self, poi: pd.Series, instructions: recourse_adapter.EmbeddedSeries
     ) -> pd.Series:
