@@ -110,8 +110,9 @@ class TestMRMC(unittest.TestCase):
             [1, 0.75 * -1 + 0.25 * 1], index=["a", "b"]
         )
         direction = mrmc_method.MRM.get_unnormalized_direction(mock_self, poi)
-        for val, expected_val in zip(direction, expected_direction):
-            self.assertEqual(val, expected_val)
+        np.testing.assert_equal(
+            direction.to_numpy(), expected_direction.to_numpy()
+        )
 
     def test_get_unnormalized_direction_nan_alpha(self):
         mock_self = mock.Mock(spec=["data", "alpha"])
