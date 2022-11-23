@@ -208,7 +208,7 @@ class MRM:
         alpha_val = self.alpha(dist)
         if np.isnan(alpha_val).any():
             raise RuntimeError(
-                f"Alpha function returned null values: {alpha_val}"
+                f"Alpha function returned NaN values: {alpha_val}"
             )
         direction = diff.T @ alpha_val
         return recourse_adapter.EmbeddedSeries(index=poi.index, data=direction)
@@ -338,7 +338,7 @@ class MRMC(RecourseMethod):
     def _cluster_data(
         data: recourse_adapter.EmbeddedDataFrame, k_directions: int
     ) -> Clusters:
-        """Clusters the data using k-means clustering.
+        """Clusters the data using sklearn's KMeans clustering.
 
         Args:
             data: The data to cluster in embedded continuous space.
@@ -365,7 +365,7 @@ class MRMC(RecourseMethod):
     def _validate_cluster_assignments(
         cluster_assignments: pd.DataFrame, k_directions: int
     ) -> bool:
-        """Raises an error if the cluster_assignments is valid.
+        """Raises an error if the cluster_assignments is invalid.
 
         Invalid cluster_assignments have more or fewer clusters than the
         requested k_directions.
