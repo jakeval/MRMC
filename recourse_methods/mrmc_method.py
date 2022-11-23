@@ -158,10 +158,9 @@ class MRM:
     ) -> recourse_adapter.EmbeddedDataFrame:
         """Processes the dataset for MRM.
 
-        It filters out negative outcome points, drops the class label, and
-        transforms the data to a numeric embedded space. If
-        confidence_threshold is provided, it also filters out points which have
-        insufficient model confidence.
+        Removes datapoints with negative (-1) labels, drops the class label
+        feature column, and transforms the data to a numeric embedded space.
+        Also excludes datapoints with below-threshold model confidence.
 
         Args:
             dataset: The dataset to process.
