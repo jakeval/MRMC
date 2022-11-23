@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol, Sequence, Optional
 from dataclasses import dataclass
 import numpy as np
 from core import utils
@@ -92,14 +92,34 @@ class AlphaFunction(Protocol):
 
 
 class MRM:
-    """Monotone Recourse Measures generates recourse directions."""
+    """Monotone Recourse Measures (MRM) generates recourse directions.
+
+    MRM processes an input dataset for recourse using MRM.process_data(). The
+    data processing step can be skipped by directly assigning the class
+    attribute _processed_data with data ready for recourse.
+
+    Data provided to _processed_data should
+        * Consist only of positively classified examples
+        * Not have the label column
+        * Be transformed into an embedded numerical space by the adapter.
+
+    Attributes:
+        data: The dataset used for recourse.
+        adapter: A RecourseAdapter object to transform the data between
+            human-readable and embedded space.
+        alpha: The alpha function to use during recourse generation.
+        rescale_direction: A function for rescaling the recourse.
+    """
 
     def __init__(
         self,
         dataset: pd.DataFrame,
         adapter: recourse_adapter.RecourseAdapter,
         alpha: AlphaFunction = get_volcano_alpha(),
-        rescale_direction: RecourseRescaler = normalize_rescaler,
+        rescale_direction: Optional[RecourseRescaler] = normalize_rescaler,
+        confidence_threshold: Optional[float] = None,
+        model: Optional[model_interface.Model] = None,
+        _processed_data: Optional[recourse_adapter.EmbeddedDataFrame] = None,
     ):
         """Creates an MRM instance.
 
@@ -109,30 +129,57 @@ class MRM:
                 human-readable and embedded space.
             alpha: The alpha function to use during recourse generation.
             rescale_direction: A function for rescaling the recourse.
+            confidence_threshold: If provided, MRM only generates directions
+                pointing to areas of sufficiently high model confidence.
+            model: Used to check per-datapoint model confidence if
+                confidence_threshold is given.
+            _processed_data: A processed, recourse-ready dataset to use instead
+                of the provided dataset.
         """
-        self.data = MRM.process_data(dataset, adapter)
+        if _processed_data is not None:
+            self.data = _processed_data
+        else:
+            self.data = MRM._process_data(
+                dataset,
+                adapter,
+                confidence_threshold=confidence_threshold,
+                model=model,
+            )
         self.adapter = adapter
         self.alpha = alpha
         self.rescale_direction = rescale_direction
 
     @staticmethod
-    def process_data(
+    def _process_data(
         dataset: pd.DataFrame,
         adapter: recourse_adapter.RecourseAdapter,
+        confidence_threshold: Optional[float] = None,
+        model: Optional[model_interface.Model] = None,
     ) -> recourse_adapter.EmbeddedDataFrame:
         """Processes the dataset for MRM.
-        It filters out negative outcomes and transforms the data to a numeric
-        embedded space.
+
+        Removes datapoints with negative (-1) labels, drops the class label
+        feature column, and transforms the data to a numeric embedded space.
+        Also excludes datapoints with below-threshold model confidence.
 
         Args:
             dataset: The dataset to process.
             adapter: The recourse adapter which transforms data to a numeric
                      embedded space.
+            confidence_threshold: If provided, filter out low-confidence ponts.
+            model: Used to find low-confidence points if confidence_threshold
+                is provided.
 
         Returns:
             A processed dataset.
         """
         positive_mask = dataset[adapter.label_column] == adapter.positive_label
+        # Keep positively-labeled points with sufficiently high model
+        # prediction confidence
+        if confidence_threshold:
+            positive_mask = positive_mask & (
+                model.predict_pos_proba(dataset) > confidence_threshold
+            )
         positive_dataset = dataset[positive_mask]
         positive_embedded_dataset = adapter.transform(
             positive_dataset.drop(adapter.label_column, axis=1)
@@ -142,25 +189,6 @@ class MRM:
                 "Dataset is empty after excluding negative outcome examples."
             )
         return positive_embedded_dataset
-
-    # TODO(@jakeval): This should be reworked so it's harder to forget
-    def filter_data(
-        self, confidence_threshold: float, model: model_interface.Model
-    ) -> MRM:
-        """Filters the recourse dataset to include only high-confidence points.
-
-        Args:
-            confidence_threshold: All examples that do not achieve at least
-                                  this model confidence are removed.
-            model: The model to use for generating model confidence.
-
-        Returns:
-            Itself. The filtering is done mutably, so the returned version is
-            not a copy.
-        """
-        p = model.predict_proba(self.data)
-        self.data = self.data[p >= confidence_threshold]
-        return self
 
     def get_unnormalized_direction(
         self, poi: recourse_adapter.EmbeddedSeries
@@ -178,9 +206,9 @@ class MRM:
         diff = (self.data - poi).to_numpy()
         dist = np.sqrt(np.power(diff, 2).sum(axis=1))
         alpha_val = self.alpha(dist)
-        if alpha_val.isnull().any():
+        if np.isnan(alpha_val).any():
             raise RuntimeError(
-                f"Alpha function returned null values: {alpha_val}"
+                f"Alpha function returned NaN values: {alpha_val}"
             )
         direction = diff.T @ alpha_val
         return recourse_adapter.EmbeddedSeries(index=poi.index, data=direction)
@@ -239,17 +267,24 @@ class MRMC(RecourseMethod):
 
     MRMC clusters the data and initializes a separate MRM instance for
     each cluster.
+
+    Attributes:
+        k_directions: The number of clusters (and recourse directions) to
+            generate.
+        clusters: The clusters used for generating recourse.
+        mrms: The individual per-cluster MRM instances.
     """
 
-    # TODO(@jakeval): Test this -- is each MRM initialized correctly?
     def __init__(
         self,
         k_directions: int,
         adapter: recourse_adapter.RecourseAdapter,
         dataset: pd.DataFrame,
         alpha: AlphaFunction = get_volcano_alpha(),
-        rescale_direction: RecourseRescaler = normalize_rescaler,
-        clusters: Clusters = None,
+        rescale_direction: Optional[RecourseRescaler] = normalize_rescaler,
+        clusters: Optional[Clusters] = None,
+        confidence_threshold: Optional[float] = None,
+        model: Optional[model_interface.Model] = None,
     ):
         """Creates a new MRMC instance.
 
@@ -263,58 +298,47 @@ class MRMC(RecourseMethod):
             rescale_direction: The rescaling function each MRM should use.
             clusters: The cluster data to use. If None, performs k-means
                 clustering.
+            confidence_threshold: If provided, MRM only generates directions
+                pointing to areas of sufficiently high model confidence.
+            model: Used to check per-datapoint model confidence if
+                confidence_threshold is given.
         """
-        data = MRM.process_data(dataset, adapter)
+        data = MRM._process_data(
+            dataset,
+            adapter,
+            confidence_threshold=confidence_threshold,
+            model=model,
+        )
         self.k_directions = k_directions
         if not clusters:
-            clusters = self.cluster_data(data, self.k_directions)
+            clusters = MRMC._cluster_data(data, self.k_directions)
         self.clusters = clusters
-        self.validate_cluster_assignments(
+        MRMC._validate_cluster_assignments(
             clusters.cluster_assignments, self.k_directions
         )
 
         mrms = []
         for cluster_index in range(k_directions):
-            indices = clusters.cluster_assignments[
+            cluster_indices = clusters.cluster_assignments[
                 clusters.cluster_assignments["datapoint_cluster"]
                 == cluster_index
             ]["datapoint_index"]
-            data_cluster = data.loc[indices]
-            dataset_cluster = dataset.loc[data_cluster.index]
+            data_cluster = data.loc[cluster_indices]
             mrm = MRM(
-                dataset=dataset_cluster,
+                dataset=None,  # We provide _processed_data directly.
                 adapter=adapter,
                 alpha=alpha,
                 rescale_direction=rescale_direction,
+                _processed_data=data_cluster,
             )
             mrms.append(mrm)
         self.mrms: Sequence[MRM] = mrms
 
-    # TODO(@jakeval): Filtering should happen before clustering.
-    # TODO(@jakeval): Clarify this function name
-    def filter_data(
-        self, confidence_threshold: float, model: model_interface.Model
-    ) -> MRMC:
-        """Filters the recourse dataset to include only high-confidence points.
-
-        Args:
-            confidence_threshold: All examples that do not achieve at least
-                                  this model confidence are removed.
-            model: The model to use for generating model confidence.
-
-        Returns:
-            Itself. The filtering is done mutably, so the returned version is
-            not a copy.
-        """
-        for mrm in self.mrms:
-            mrm.filter_data(confidence_threshold, model)
-            return self
-
-    # TODO(@jakeval): Confidence check this
-    def cluster_data(
-        self, data: recourse_adapter.EmbeddedDataFrame, k_directions: int
+    @staticmethod
+    def _cluster_data(
+        data: recourse_adapter.EmbeddedDataFrame, k_directions: int
     ) -> Clusters:
-        """Clusters the data using k-means clustering.
+        """Clusters the data using sklearn's KMeans clustering.
 
         Args:
             data: The data to cluster in embedded continuous space.
@@ -323,7 +347,7 @@ class MRMC(RecourseMethod):
             The data Clusters.
         """
         km = KMeans(n_clusters=k_directions)
-        cluster_assignments = km.fit_predict(data.to_numpy())
+        cluster_assignments = km.fit_predict(data)
         cluster_assignments = np.vstack(
             [data.index.to_numpy(), cluster_assignments]
         ).T
@@ -337,10 +361,11 @@ class MRMC(RecourseMethod):
             cluster_centers=cluster_centers,
         )
 
-    def validate_cluster_assignments(
-        self, cluster_assignments: pd.DataFrame, k_directions: int
+    @staticmethod
+    def _validate_cluster_assignments(
+        cluster_assignments: pd.DataFrame, k_directions: int
     ) -> bool:
-        """Raises an error if the cluster_assignments is valid.
+        """Raises an error if the cluster_assignments is invalid.
 
         Invalid cluster_assignments have more or fewer clusters than the
         requested k_directions.
