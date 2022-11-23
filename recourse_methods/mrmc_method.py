@@ -260,7 +260,6 @@ class MRMC(RecourseMethod):
     each cluster.
     """
 
-    # TODO(@jakeval): Test this -- is each MRM initialized correctly?
     def __init__(
         self,
         k_directions: int,

@@ -69,7 +69,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             self.standard_scaler_dict[feature] = standard_scaler
         return self
 
-    # TODO(@jakeval): Confidence check this
+    # TODO(@jakeval): Unit test this
     def transform(
         self, dataset: pd.DataFrame
     ) -> recourse_adapter.EmbeddedDataFrame:
@@ -91,7 +91,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 )
         return df
 
-    # TODO(@jakeval): Confidence check this
+    # TODO(@jakeval): Unit test this
     def inverse_transform(
         self, dataset: recourse_adapter.EmbeddedDataFrame
     ) -> pd.DataFrame:
