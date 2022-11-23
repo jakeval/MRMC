@@ -40,6 +40,8 @@ def normalize_rescaler(
     Returns:
         A normalized copy of direction.
     """
+    if len(mrm.data) == 0:
+        raise RuntimeError("Can't normalize direction against 0-lengh data.")
     return direction / len(mrm.data)
 
 
@@ -141,6 +143,7 @@ class MRM:
             )
         return positive_embedded_dataset
 
+    # TODO(@jakeval): This should be reworked so it's harder to forget
     def filter_data(
         self, confidence_threshold: float, model: model_interface.Model
     ) -> MRM:
@@ -175,6 +178,10 @@ class MRM:
         diff = (self.data - poi).to_numpy()
         dist = np.sqrt(np.power(diff, 2).sum(axis=1))
         alpha_val = self.alpha(dist)
+        if alpha_val.isnull().any():
+            raise RuntimeError(
+                f"Alpha function returned null values: {alpha_val}"
+            )
         direction = diff.T @ alpha_val
         return recourse_adapter.EmbeddedSeries(index=poi.index, data=direction)
 
@@ -234,6 +241,7 @@ class MRMC(RecourseMethod):
     each cluster.
     """
 
+    # TODO(@jakeval): Test this -- is each MRM initialized correctly?
     def __init__(
         self,
         k_directions: int,
@@ -282,6 +290,8 @@ class MRMC(RecourseMethod):
             mrms.append(mrm)
         self.mrms: Sequence[MRM] = mrms
 
+    # TODO(@jakeval): Filtering should happen before clustering.
+    # TODO(@jakeval): Clarify this function name
     def filter_data(
         self, confidence_threshold: float, model: model_interface.Model
     ) -> MRMC:
@@ -300,6 +310,7 @@ class MRMC(RecourseMethod):
             mrm.filter_data(confidence_threshold, model)
             return self
 
+    # TODO(@jakeval): Confidence check this
     def cluster_data(
         self, data: recourse_adapter.EmbeddedDataFrame, k_directions: int
     ) -> Clusters:
@@ -399,6 +410,7 @@ class MRMC(RecourseMethod):
         return self.mrms[direction_index].get_recourse_instructions(poi)
 
 
+# TODO(@jakeval): Move this somewhere else
 def check_directions(
     poi: recourse_adapter.EmbeddedSeries,
     directions: recourse_adapter.EmbeddedDataFrame,

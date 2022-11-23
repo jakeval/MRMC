@@ -18,6 +18,7 @@ class DiCE(base_type.RecourseMethod):
     boundary.
     """
 
+    # TODO(@jakeval): Unit test to ensure dice initialization uses kwargs
     def __init__(
         self,
         k_directions: int,
@@ -133,6 +134,8 @@ class DiCE(base_type.RecourseMethod):
         directions = self._counterfactuals_to_directions(poi, counterfactuals)
         return self.adapter.directions_to_instructions(directions.iloc[0])
 
+    # TODO(@jakeval): Unit test this (called with correct args?)
+    # TODO(@jakeval): Confidence check this (num paths, desired class, label)
     def _generate_counterfactuals(
         self, poi: pd.Series, num_counterfactuals: int
     ) -> pd.DataFrame:
@@ -159,6 +162,7 @@ class DiCE(base_type.RecourseMethod):
             .final_cfs_df.drop(self.adapter.label_column, axis=1)
         )
 
+    #  TODO(@jakeval): Unit test this
     def _counterfactuals_to_directions(
         self, poi: pd.Series, counterfactuals: pd.DataFrame
     ) -> recourse_adapter.EmbeddedDataFrame:
