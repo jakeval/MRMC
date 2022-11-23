@@ -106,9 +106,9 @@ class MRM:
     ):
         """Creates an MRM instance.
 
-        The dataset is processed for recourse using MRM.process_data(). This
-        processing step can be skipped by providing recourse data directly via
-        _processed_data. This is typically unnecessary for end users.
+        The dataset is processed for recourse using MRM.process_data(). The
+        data processing step can be skipped by directly assigning the class
+        attribute _processed_data with data ready for recourse.
 
         Data provided to _processed_data should
             * Consist only of positively classified examples
