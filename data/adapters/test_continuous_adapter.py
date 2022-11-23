@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 import pandas as pd
 import numpy as np
 from data.adapters import continuous_adapter
@@ -137,3 +138,89 @@ class TestStandardizingAdapter(unittest.TestCase):
             expected_dataset.b - recovered_dataset.b
         ).max()
         self.assertAlmostEqual(max_abs_difference, 0)
+
+    @mock.patch(
+        "data.adapters.continuous_adapter.utils.randomly_perturb_direction",
+        autospec=True,
+    )
+    def test_interpret_instructions(self, mock_perturb):
+        mock_self = mock.Mock(spec=continuous_adapter.StandardizingAdapter)
+        mock_self.perturb_ratio = None
+        mock_self.rescale_ratio = None
+        mock_self.transform_series.side_effect = lambda series: series
+        mock_self.inverse_transform_series.side_effect = (
+            lambda series: series + 1
+        )
+        poi = pd.Series([0, 1])
+        instructions = pd.Series([1, -1])
+        # We expect poi + instructions + 1 because of the inverse transform.
+        expected_counterfactual_example = pd.Series([2, 1])
+        counterfactual_example = (
+            continuous_adapter.StandardizingAdapter.interpret_instructions(
+                mock_self, poi=poi, instructions=instructions
+            )
+        )
+
+        self.assertTrue(
+            (expected_counterfactual_example == counterfactual_example).all()
+        )
+        mock_perturb.assert_not_called()
+
+    @mock.patch(
+        "data.adapters.continuous_adapter.utils.randomly_perturb_direction",
+        autospec=True,
+    )
+    def test_interpret_instructions_perturb(self, mock_perturb):
+        mock_self = mock.Mock(spec=continuous_adapter.StandardizingAdapter)
+        mock_self.perturb_ratio = 0.5
+        mock_self.rescale_ratio = None
+        mock_self.transform_series.side_effect = lambda series: series
+        mock_self.inverse_transform_series.side_effect = (
+            lambda series: series + 1
+        )
+        poi = pd.Series([0, 1])
+        instructions = pd.Series([1, -1])
+        mock_perturb.return_value = pd.Series([1, 1])
+
+        # perturb(poi) + instructions + 1 because of the inverse transform.
+        expected_counterfactual_example = pd.Series([2, 3])
+
+        counterfactual_example = (
+            continuous_adapter.StandardizingAdapter.interpret_instructions(
+                mock_self, poi=poi, instructions=instructions
+            )
+        )
+
+        self.assertTrue(
+            (expected_counterfactual_example == counterfactual_example).all()
+        )
+        mock_perturb.assert_called_with(instructions, 0.5)
+
+    @mock.patch(
+        "data.adapters.continuous_adapter.utils.randomly_perturb_direction",
+        autospec=True,
+    )
+    def test_interpret_instructions_rescale(self, mock_perturb):
+        mock_self = mock.Mock(spec=continuous_adapter.StandardizingAdapter)
+        mock_self.perturb_ratio = None
+        mock_self.rescale_ratio = 0.5
+        mock_self.transform_series.side_effect = lambda series: series
+        mock_self.inverse_transform_series.side_effect = (
+            lambda series: series + 1
+        )
+        poi = pd.Series([0, 1])
+        instructions = pd.Series([1, -1])
+
+        # instructions/2 + 1 because of the rescale and inverse transform.
+        expected_counterfactual_example = pd.Series([1.5, 1.5])
+
+        counterfactual_example = (
+            continuous_adapter.StandardizingAdapter.interpret_instructions(
+                mock_self, poi=poi, instructions=instructions
+            )
+        )
+
+        self.assertTrue(
+            (expected_counterfactual_example == counterfactual_example).all()
+        )
+        mock_perturb.assert_not_called()
