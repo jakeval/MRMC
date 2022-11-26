@@ -1,7 +1,36 @@
+from __future__ import annotations
 import numpy as np
+import dice_ml
+from dice_ml import constants
 
 from models import model_interface
 from data import recourse_adapter
+from sklearn import pipeline
+from sklearn import base as sklearn_base
+
+
+class SyntheticSKLearn(
+    sklearn_base.BaseEstimator,
+    sklearn_base.ClassifierMixin,
+):
+    """Adapts the SyntheticModel to satisfy the SKLearn interface for use by
+    DICE."""
+
+    def __init__(self, model: SyntheticModel):
+        self.model = model
+
+    def fit(self, X, y):
+        return self
+
+    def predict(self, X):
+        return self.model._predict(X)
+
+    def predict_proba(self, X):
+        pos_proba = self.model._predict_pos_proba(X)
+        proba = np.zeros((pos_proba.shape[0], 2))
+        proba[:, 0] = 1 - pos_proba
+        proba[:, 1] = pos_proba
+        return proba
 
 
 class SyntheticModel(model_interface.Model):
@@ -33,4 +62,14 @@ class SyntheticModel(model_interface.Model):
         return np.where(proba > 0.5, 1, -1)
 
     def to_dice_model(self):
-        pass
+        fake_sklearn_model = SyntheticSKLearn(self)
+        model_pipeline = pipeline.Pipeline(
+            steps=[
+                ("adapter", self.adapter),
+                ("classifier", fake_sklearn_model),
+            ]
+        )
+
+        return dice_ml.Model(
+            model=model_pipeline, backend=constants.BackEndTypes.Sklearn
+        )

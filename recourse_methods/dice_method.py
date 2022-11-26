@@ -134,8 +134,6 @@ class DiCE(base_type.RecourseMethod):
         directions = self._counterfactuals_to_directions(poi, counterfactuals)
         return self.adapter.directions_to_instructions(directions.iloc[0])
 
-    # TODO(@jakeval): Unit test this (called with correct args?)
-    # TODO(@jakeval): Confidence check this (num paths, desired class, label)
     def _generate_counterfactuals(
         self, poi: pd.Series, num_counterfactuals: int
     ) -> pd.DataFrame:
@@ -151,7 +149,7 @@ class DiCE(base_type.RecourseMethod):
         counterfactual_args = {
             "query_instances": poi.to_frame().T,
             "total_CFs": num_counterfactuals,
-            "desired_class": "opposite",
+            "desired_class": self.adapter.positive_label,
             "verbose": False,
         }
         if self.dice_counterfactual_kwargs:

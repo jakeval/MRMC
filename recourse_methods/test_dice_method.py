@@ -86,6 +86,7 @@ class TestDICE(unittest.TestCase):
         mock_self = mock.Mock(spec=dice_method.DiCE)
         mock_self.adapter = mock_adapter
         mock_adapter.label_column = "mock_label"
+        mock_adapter.positive_label = "mock_value"
         mock_self.dice = mock_dice
         mock_self.dice_counterfactual_kwargs = mock_counterfactual_kwargs
         poi = pd.Series([0, 0], index=["col1", "col2"])
@@ -99,7 +100,7 @@ class TestDICE(unittest.TestCase):
         expected_args = {
             "query_instances": pd.DataFrame({"col1": [0], "col2": [0]}),
             "total_CFs": 2,
-            "desired_class": "opposite",
+            "desired_class": "mock_value",
             "verbose": False,
         }
         expected_args.update(mock_counterfactual_kwargs)
