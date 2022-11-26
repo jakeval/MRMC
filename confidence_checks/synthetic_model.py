@@ -9,6 +9,7 @@ class SyntheticModel(model_interface.Model):
     confidence_checks/synthetic_data.py.
 
     It predicts a linear probability gradient from (-1, 0) to (1, 2). The
+    probability function has constant value outside of this box.
     """
 
     def __init__(self, adapter: recourse_adapter.RecourseAdapter):
