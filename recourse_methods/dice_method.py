@@ -29,6 +29,7 @@ class DiCE(base_type.RecourseMethod):
         desired_confidence: Optional[float] = None,
         dice_kwargs: Optional[Mapping[str, Any]] = None,
         dice_counterfactual_kwargs: Optional[Mapping[str, Any]] = None,
+        random_seed: Optional[int] = None,
     ):
         """Constructs a new DiCE recourse method.
 
@@ -48,6 +49,8 @@ class DiCE(base_type.RecourseMethod):
             dice_kwargs: Optional arguments to pass to DiCE on instantiation.
             dice_counterfactual_kwargs: Optional arguments to pass to DiCE on
                 counterfactual explanation generation.
+            random_seed: A random seed used to initialize DICE and generate
+                deterministic recourse.
         """
         self.k_directions = k_directions
         self.adapter = adapter
@@ -69,6 +72,7 @@ class DiCE(base_type.RecourseMethod):
         if dice_kwargs:
             dice_args.update(dice_kwargs)
         self.dice = dice_ml.Dice(**dice_args)
+        self.random_seed = random_seed
 
     def get_all_recourse_directions(
         self, poi: recourse_adapter.EmbeddedSeries
@@ -151,6 +155,7 @@ class DiCE(base_type.RecourseMethod):
             "total_CFs": num_counterfactuals,
             "desired_class": self.adapter.positive_label,
             "verbose": False,
+            "random_seed": self.random_seed,
         }
         if self.dice_counterfactual_kwargs:
             counterfactual_args.update(self.dice_counterfactual_kwargs)

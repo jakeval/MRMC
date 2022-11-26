@@ -133,7 +133,7 @@ class TestMRMC(unittest.TestCase):
         seed = 199318
 
         clusters = mrmc_method.MRMC._cluster_data(
-            mock_data, n_clusters, seed=seed
+            mock_data, n_clusters, random_seed=seed
         )
 
         expected_cluster_assignment_df = pd.DataFrame(
@@ -193,7 +193,7 @@ class TestMRMC(unittest.TestCase):
             dataset=mock_dataset,
             confidence_threshold=None,
             model=None,
-            seed=seed,
+            random_seed=seed,
         )
 
         # Check that _process_data was called with correct arguments.
@@ -205,7 +205,7 @@ class TestMRMC(unittest.TestCase):
         )
 
         # Check that _cluster_data was called with filtered data.
-        mock_clustering.assert_called_with(mock_dataset, 3, seed=seed)
+        mock_clustering.assert_called_with(mock_dataset, 3, random_seed=seed)
 
         # Check that each MRM instance has the expected data indices.
         expected_mrm_data_indices = [[0, 1, 2], [3, 4], [5, 6]]
@@ -261,7 +261,7 @@ class TestMRMC(unittest.TestCase):
             dataset=mock_dataset,
             confidence_threshold=mock_threshold,
             model=None,
-            seed=seed,
+            random_seed=seed,
         )
 
         # Check that _process_data was called with correct arguments.
@@ -273,7 +273,9 @@ class TestMRMC(unittest.TestCase):
         )
 
         # Check that _cluster_data was called with filtered data.
-        mock_clustering.assert_called_with(mock_processed_data, 3, seed=seed)
+        mock_clustering.assert_called_with(
+            mock_processed_data, 3, random_seed=seed
+        )
 
         # Check that each MRM instance has the expected data indices.
         expected_mrm_data_indices = [[1, 2], [4], [5, 6]]

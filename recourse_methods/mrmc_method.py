@@ -285,7 +285,7 @@ class MRMC(RecourseMethod):
         clusters: Optional[Clusters] = None,
         confidence_threshold: Optional[float] = None,
         model: Optional[model_interface.Model] = None,
-        seed: Optional[int] = None,
+        random_seed: Optional[int] = None,
     ):
         """Creates a new MRMC instance.
 
@@ -303,7 +303,8 @@ class MRMC(RecourseMethod):
                 pointing to areas of sufficiently high model confidence.
             model: Used to check per-datapoint model confidence if
                 confidence_threshold is given.
-            seed: The seed used to initialize MRMC and its random operations.
+            random_seed: The seed used to initialize MRMC and its random
+                operations.
         """
         data = MRM._process_data(
             dataset,
@@ -313,7 +314,9 @@ class MRMC(RecourseMethod):
         )
         self.k_directions = k_directions
         if not clusters:
-            clusters = MRMC._cluster_data(data, self.k_directions, seed=seed)
+            clusters = MRMC._cluster_data(
+                data, self.k_directions, random_seed=random_seed
+            )
         self.clusters = clusters
         MRMC._validate_cluster_assignments(
             clusters.cluster_assignments, self.k_directions
@@ -340,7 +343,7 @@ class MRMC(RecourseMethod):
     def _cluster_data(
         data: recourse_adapter.EmbeddedDataFrame,
         k_directions: int,
-        seed: Optional[int] = None,
+        random_seed: Optional[int] = None,
     ) -> Clusters:
         """Clusters the data using sklearn's KMeans clustering.
 
@@ -350,7 +353,7 @@ class MRMC(RecourseMethod):
         Returns:
             The data Clusters.
         """
-        km = KMeans(n_clusters=k_directions, random_state=seed)
+        km = KMeans(n_clusters=k_directions, random_state=random_seed)
         cluster_assignments = km.fit_predict(data)
         cluster_assignments = np.vstack(
             [data.index.to_numpy(), cluster_assignments]

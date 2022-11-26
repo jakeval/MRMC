@@ -10,7 +10,9 @@ division."""
 
 
 def randomly_perturb_direction(
-    direction: recourse_adapter.EmbeddedSeries, ratio: float
+    direction: recourse_adapter.EmbeddedSeries,
+    ratio: float,
+    random_generator: Optional[np.random.Generator] = None,
 ) -> recourse_adapter.EmbeddedSeries:
     """Randomly changes a vector's direction while maintaining its magnitude.
 
@@ -24,6 +26,8 @@ def randomly_perturb_direction(
         direction: The vector to perturb.
         ratio: The amount of random noise to add as a ratio of the direction's
             original magnitude.
+        random_generator: An optional random generator to use when perturbing
+            the direction. Otherwise defaults to np.random.normal().
 
     Returns:
         A new vector of equal magnitude to the original but with a randomly
@@ -35,7 +39,11 @@ def randomly_perturb_direction(
     direction_norm = np.linalg.norm(direction)
     if direction_norm == 0:
         return direction
-    noise = np.random.normal(0, 1, len(direction))
+
+    if random_generator:
+        noise = random_generator.normal(0, 1, len(direction))
+    else:
+        noise = np.random.normal(0, 1, len(direction))
     noise_norm = np.linalg.norm(noise)
     if noise_norm == 0:
         return direction

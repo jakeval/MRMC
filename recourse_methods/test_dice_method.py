@@ -89,6 +89,7 @@ class TestDICE(unittest.TestCase):
         mock_adapter.positive_label = "mock_value"
         mock_self.dice = mock_dice
         mock_self.dice_counterfactual_kwargs = mock_counterfactual_kwargs
+        mock_self.random_seed = 968934
         poi = pd.Series([0, 0], index=["col1", "col2"])
         num_counterfactuals = 2
 
@@ -102,6 +103,7 @@ class TestDICE(unittest.TestCase):
             "total_CFs": 2,
             "desired_class": "mock_value",
             "verbose": False,
+            "random_seed": mock_self.random_seed,
         }
         expected_args.update(mock_counterfactual_kwargs)
 
