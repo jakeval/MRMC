@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from data import recourse_adapter
-from typing import Any
+from typing import Any, Optional
 
 
 _MIN_DIRECTION = 1e-32
@@ -77,6 +77,7 @@ def random_poi(
     label_column: str,
     label_value: Any = -1,
     drop_label: bool = True,
+    seed: Optional[int] = None,
 ) -> pd.Series:
     """Selects a random POI of the given label from the dataset.
 
@@ -89,7 +90,9 @@ def random_poi(
     Returns:
         A random row of the given label from the dataset.
     """
-    poi = dataset[dataset[label_column] == label_value].sample(1)
+    poi = dataset[dataset[label_column] == label_value].sample(
+        1, random_state=seed
+    )
     if drop_label:
         poi = poi.drop(label_column, axis=1)
 
