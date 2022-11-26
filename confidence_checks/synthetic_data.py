@@ -18,8 +18,8 @@ def get_data() -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
     """Generates a simple synthetic dataset:
 
     * 1 negatively-classified POI at xy-coordinates (-1, 0).
+    * 1 positively-classified 4-point cluster at xy-coords (0, 2).
     * 1 positively-classified 4-point cluster at xy-coords (1, 2).
-    * 1 positively-classified 4-point cluster at xy-coords (-1, 2).
 
     Returns:
         A DataFrame and DatasetInfo object.
