@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Any, Sequence
 import pandas as pd
+import numpy as np
 from core import utils
 from data import recourse_adapter
 
@@ -19,6 +20,7 @@ class PassthroughAdapter(recourse_adapter.RecourseAdapter):
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
         positive_label: Any = 1,
+        random_seed: Optional[int] = None,
     ):
         super().__init__(
             label_column=label_column, positive_label=positive_label
@@ -26,6 +28,8 @@ class PassthroughAdapter(recourse_adapter.RecourseAdapter):
         self.columns = None
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
+        if random_seed:
+            self.random_generator = np.random.default_rng(seed=random_seed)
 
     def fit(self, dataset: pd.DataFrame) -> PassthroughAdapter:
         super().fit(dataset)
@@ -59,7 +63,9 @@ class PassthroughAdapter(recourse_adapter.RecourseAdapter):
         """
         if self.perturb_ratio:
             instructions = utils.randomly_perturb_direction(
-                instructions, self.perturb_ratio
+                instructions,
+                self.perturb_ratio,
+                random_generator=self.random_generator,
             )
         if self.rescale_ratio:
             instructions = instructions * self.rescale_ratio
