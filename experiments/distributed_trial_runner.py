@@ -35,6 +35,7 @@ class DistributedTrialRunner:
         use_slurm: bool = True,
         random_seed: Optional[int] = None,
         scratch_dir: Optional[str] = None,
+        verbose: bool = False,
     ):
         """Creates a new DistributedTrialRunner.
 
@@ -45,7 +46,7 @@ class DistributedTrialRunner:
             use_slurm: Whether to use the SLURM job scheduler. This should be
                 True if you are executing this via the sbatch command.
             random_seed: The random seed to use when assigning trials to
-                processes.
+                processes. This has no impact on experiment results.
             scratch_dir: The directory to use for storing temporary results.
         """
         self.trial_runner_filename = trial_runner_filename
@@ -56,8 +57,9 @@ class DistributedTrialRunner:
         if not random_seed:
             random_seed = np.random.randint(0, 100000)
         self.rng = np.random.default_rng(random_seed)
+        self.verbose = verbose
 
-    def run_trials(self, trial_configs) -> str:
+    def run_trials(self, trial_configs) -> Mapping[str, pd.DataFrame]:
         partitioned_trial_configs = self.partition_trials(trial_configs)
         with tempfile.TemporaryDirectory(
             prefix=self.scratch_dir
@@ -65,9 +67,7 @@ class DistributedTrialRunner:
             scratch_results_dir = self.run_processes(
                 partitioned_trial_configs, scratch_dir
             )
-            self.save_results(scratch_results_dir, self.results_dir)
-
-        return self.results_dir
+            return self.collect_results(scratch_results_dir)
 
     def partition_trials(
         self, trial_configs: Sequence[Mapping[str, Any]]
@@ -101,12 +101,15 @@ class DistributedTrialRunner:
             running_processes, scratch_directory
         )
 
-    def save_results(
-        self, scratch_results_directory: str, final_results_directory: str
-    ):
-        if os.path.exists(final_results_directory):
-            shutil.rmtree(final_results_directory)
-        shutil.copytree(scratch_results_directory, final_results_directory)
+    def collect_results(
+        self, scratch_results_directory: str
+    ) -> Mapping[str, pd.DataFrame]:
+        result_dfs = {}
+        for result_name in os.listdir(scratch_results_directory):
+            result_path = os.path.join(scratch_results_directory, result_name)
+            stripped_result_name = os.path.splitext(result_name)[0]
+            result_dfs[stripped_result_name] = pd.read_csv(result_path)
+        return result_dfs
 
     def _launch_processes(
         self,
@@ -136,10 +139,12 @@ class DistributedTrialRunner:
         os.mkdir(process_results_directory)
 
         process_config_filename = self._write_process_config(
-            process_io_directory, trial_configs, process_results_directory
+            process_io_directory, trial_configs
         )
 
-        process_cmd = self._format_subprocess_command(process_config_filename)
+        process_cmd = self._format_subprocess_command(
+            process_config_filename, process_results_directory
+        )
 
         return (
             subprocess.Popen([process_cmd], shell=True),
@@ -150,11 +155,10 @@ class DistributedTrialRunner:
         self,
         process_io_directory: str,
         trial_configs: Sequence[Mapping[str, Any]],
-        process_results_directory: str,
     ) -> str:
         process_config = {
-            "trial_configs": trial_configs,
-            "results_directory": process_results_directory,
+            "run_configs": trial_configs,
+            "experiment_name": "experiment_scratch_work",
         }
         process_config_filename = os.path.join(
             process_io_directory, "config.json"
@@ -163,13 +167,16 @@ class DistributedTrialRunner:
             json.dump(process_config, f)
         return process_config_filename
 
-    def _format_subprocess_command(self, process_config_filename: str) -> str:
+    def _format_subprocess_command(
+        self, process_config_filename: str, results_dir: str
+    ) -> str:
         process_cmd = ""
         if self.use_slurm:
             process_cmd = "srun -N 1 -n 1 --exclusive "
         process_cmd += (
             f"python {self.trial_runner_filename} "
-            f"--config {process_config_filename}"
+            f"--config {process_config_filename} --results_dir {results_dir} "
+            "--only_csv"
         )
         return process_cmd
 
@@ -183,6 +190,11 @@ class DistributedTrialRunner:
             scratch_directory, "results"
         )
         os.mkdir(aggregated_results_directory)
+
+        if self.verbose:
+            print(
+                f"Waiting for {len(running_processes)} processes to finish..."
+            )
 
         while running_processes:
             # Check for terminated processes and aggregate their results
@@ -199,6 +211,11 @@ class DistributedTrialRunner:
                     terminated_processes.append(process)
             for process in terminated_processes:
                 del running_processes[process]
+                if self.verbose:
+                    remaining_procs = len(running_processes)
+                    print(
+                        f"Waiting for {remaining_procs} processes to finish..."
+                    )
         return aggregated_results_directory
 
     def _aggregate_results(

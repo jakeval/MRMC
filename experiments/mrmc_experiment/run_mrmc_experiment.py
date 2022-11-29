@@ -21,6 +21,7 @@ from recourse_methods import mrmc_method
 from core import recourse_iterator
 from core import utils
 from experiments import utils as experiment_utils
+from experiments import distributed_trial_runner
 
 
 import numpy as np
@@ -77,6 +78,48 @@ parser.add_argument(
     help="If true, generate the run configs but don't execute them.",
     action="store_true",
     default=False,
+)
+parser.add_argument(
+    "--distributed",
+    action="store_true",
+    default=False,
+    help="If true, execute the runs in parallel across -n_procs processes.",
+)
+parser.add_argument(
+    "--n_procs",
+    type=int,
+    default=None,
+    help=(
+        "The number of runs to execute in parallel. Required if using "
+        "--distributed, otherwise ignored."
+    ),
+)
+parser.add_argument(
+    "--slurm",
+    action="store_true",
+    default=False,
+    help=(
+        "If true, use SLURM as as distributed job scheduled. Used only if "
+        "--distributed is set."
+    ),
+)
+parser.add_argument(
+    "--scratch_dir",
+    type=str,
+    default=None,
+    help=(
+        "The directory where distributed jobs will write temporary results. "
+        "Used only if --distributed is set. Defaults to OS preference."
+    ),
+)
+parser.add_argument(
+    "--only_csv",
+    action="store_true",
+    default=False,
+    help=(
+        "Save the results as .csv files. This means the .json config file "
+        "won't be saved alongside the results."
+    ),
 )
 
 
@@ -273,6 +316,7 @@ def save_results(
     results: Mapping[str, pd.DataFrame],
     results_directory: Optional[str],
     config: Mapping[str, Any],
+    only_csv: bool = False,
 ) -> str:
     if not results_directory:
         results_directory = os.path.join(
@@ -285,11 +329,16 @@ def save_results(
         result_df.to_csv(
             os.path.join(results_directory, result_name + ".csv"), index=False
         )
-    with open(
-        os.path.join(results_directory, "config.json"), "w"
-    ) as config_file:
-        json.dump(config, config_file)
+    if not only_csv:
+        with open(
+            os.path.join(results_directory, "config.json"), "w"
+        ) as config_file:
+            json.dump(config, config_file)
     return results_directory
+
+
+def _get_results_dir(results_directory, experiment_name):
+    return results_directory or os.path.join(_RESULTS_DIR, experiment_name)
 
 
 def run_batch(
@@ -354,6 +403,11 @@ def main(
     results_dir: Optional[str] = None,
     verbose: bool = False,
     dry_run: bool = False,
+    distributed: bool = False,
+    num_processes: Optional[int] = None,
+    use_slurm: bool = False,
+    scratch_dir: Optional[str] = None,
+    only_csv: bool = False,
 ):
     run_configs = get_run_configs(config, is_experiment)
     if verbose:
@@ -362,19 +416,55 @@ def main(
         run_configs = run_configs[:max_runs]
         if verbose:
             print(f"Throw out all but --max_runs={max_runs} run_configs.")
-    if not dry_run:
+    if distributed:
         if verbose:
-            print(f"Start executing {len(run_configs)} mrmc runs.")
-        results = run_batch(run_configs, verbose)
-        results_dir = save_results(results, results_dir, config)
+            print(
+                f"{len(run_configs)} runs will be distributed over "
+                f"{num_processes} processes."
+            )
+    if not dry_run:
+        if distributed:
+            runner = distributed_trial_runner.DistributedTrialRunner(
+                trial_runner_filename=__file__,
+                final_results_dir=_get_results_dir(
+                    results_dir, config["experiment_name"]
+                ),
+                num_processes=num_processes,
+                use_slurm=use_slurm,
+                random_seed=None,  # not needed for reproducibility.
+                scratch_dir=scratch_dir,
+                verbose=verbose,
+            )
+            if verbose:
+                print(f"Start executing {len(run_configs)} mrmc runs.")
+            results = runner.run_trials(run_configs)
+        else:
+            if verbose:
+                print(f"Start executing {len(run_configs)} mrmc runs.")
+            results = run_batch(run_configs, verbose)
+        results_dir = save_results(results, results_dir, config, only_csv)
         if verbose:
             print(f"Saved results to {results_dir}")
     elif verbose:
         print("Terminate without executing runs because --dry_run is set.")
 
 
+def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
+    if args.distributed and not args.n_procs:
+        parser.error("--n_procs is required if running with --distributed.")
+    if not args.distributed and args.n_procs:
+        parser.error("--n_procs is ignored if not running with --distributed.")
+    if not args.distributed and args.slurm:
+        parser.error("--slurm is ignored if not running with --distributed.")
+    if not args.distributed and args.scratch_dir:
+        parser.error(
+            "--scratch_dir is ignored if not running with --distributed."
+        )
+
+
 if __name__ == "__main__":
     args = parser.parse_args()
+    validate_args(args, parser)
     with open(args.config) as config_file:
         config = json.load(config_file)
     main(
@@ -384,4 +474,9 @@ if __name__ == "__main__":
         results_dir=args.results_dir,
         verbose=args.verbose,
         dry_run=args.dry_run,
+        distributed=args.distributed,
+        num_processes=args.n_procs,
+        use_slurm=args.slurm,
+        scratch_dir=args.scratch_dir,
+        only_csv=args.only_csv,
     )
