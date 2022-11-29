@@ -85,7 +85,7 @@ def random_poi(
     label_column: str,
     label_value: Any = -1,
     drop_label: bool = True,
-    seed: Optional[int] = None,
+    random_seed: Optional[int] = None,
 ) -> pd.Series:
     """Selects a random POI of the given label from the dataset.
 
@@ -94,12 +94,13 @@ def random_poi(
         label_column: The dataset column containing the class labels.
         label_value: The label value of the point to select.
         drop_label: Whether to drop the label from the returned POI.
+        random_seed: An optional random seed to select the POI with.
 
     Returns:
         A random row of the given label from the dataset.
     """
     poi = dataset[dataset[label_column] == label_value].sample(
-        1, random_state=seed
+        1, random_state=random_seed
     )
     if drop_label:
         poi = poi.drop(label_column, axis=1)
