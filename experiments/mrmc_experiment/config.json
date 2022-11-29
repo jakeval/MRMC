@@ -1,0 +1,18 @@
+{
+    "experiment_name": "mrmc_experiment",
+    "num_runs": 30,
+    "random_seed": 103932,
+    "parameter_ranges": {
+        "step_size": [0.5],
+        "confidence_cutoff": [0.6],
+        "noise_ratio": [null, 0.2],
+        "rescale_ratio": [null],
+        "volcano_degree": [2],
+        "volcano_cutoff": [0.5],
+        "num_paths": [2],
+        "dataset": ["credit_card_default"],
+        "model": ["logistic_regression"],
+        "max_iterations": [30],
+        "cluster_seed": [1834823]
+    }
+}
