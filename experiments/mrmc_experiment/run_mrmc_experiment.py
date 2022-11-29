@@ -2,7 +2,7 @@ import os
 import sys
 
 #  Append MRMC/. to the path to fix imports.
-sys.path.append(os.path.join(os.getcwd(), ".."))
+sys.path.append(os.path.join(os.getcwd(), "../.."))
 
 from typing import Optional, Mapping, Sequence, Tuple, Any
 import shutil
@@ -28,7 +28,7 @@ import pandas as pd
 
 
 _RESULTS_DIR = (  # MRMC/experiment_results/mrmc_results
-    pathlib.Path(os.path.abspath(__file__)).parent.parent
+    pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
     / "experiment_results/mrmc_results"
 )
 
@@ -168,11 +168,12 @@ def run_mrmc(
     max_iterations = run_config["max_iterations"]
     dataset_name = run_config["dataset"]
     model_type = run_config["model"]
+    cluster_seed = run_config["cluster_seed"]
 
     # generate random seeds
-    mrmc_seed, poi_seed, adapter_seed = np.random.default_rng(
-        run_seed
-    ).integers(0, 10000, size=3)
+    poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
+        0, 10000, size=2
+    )
 
     # initialize dataset, adapter, model, mrmc, and recourse iterator
     dataset, dataset_info = _get_dataset(dataset_name)
@@ -193,7 +194,7 @@ def run_mrmc(
         volcano_degree=volcano_degree,
         step_size=step_size,
         confidence_threshold=confidence_cutoff,
-        random_seed=mrmc_seed,
+        random_seed=cluster_seed,
     )
     iterator = _get_recourse_iterator(adapter, mrmc, confidence_cutoff, model)
 
@@ -202,7 +203,7 @@ def run_mrmc(
         dataset,
         label_column=dataset_info.label_column,
         label_value=adapter.negative_label,
-        seed=poi_seed,
+        random_seed=poi_seed,
     )
 
     # generate the paths
@@ -267,6 +268,7 @@ def merge_results(
         return merged_results
 
 
+# TODO(@jakeval): Unit test this eventually.
 def save_results(
     results: Mapping[str, pd.DataFrame],
     results_directory: Optional[str],
@@ -345,23 +347,41 @@ def get_run_configs(
         return config["run_configs"]
 
 
+def main(
+    config: Mapping[str, Any],
+    is_experiment: bool = False,
+    max_runs: Optional[int] = None,
+    results_dir: Optional[str] = None,
+    verbose: bool = False,
+    dry_run: bool = False,
+):
+    run_configs = get_run_configs(config, is_experiment)
+    if verbose:
+        print(f"Got configs for {len(run_configs)} runs.")
+    if max_runs:
+        run_configs = run_configs[:max_runs]
+        if verbose:
+            print(f"Throw out all but --max_runs={max_runs} run_configs.")
+    if not dry_run:
+        if verbose:
+            print(f"Start executing {len(run_configs)} mrmc runs.")
+        results = run_batch(run_configs, verbose)
+        results_dir = save_results(results, results_dir, config)
+        if verbose:
+            print(f"Saved results to {results_dir}")
+    elif verbose:
+        print("Terminate without executing runs because --dry_run is set.")
+
+
 if __name__ == "__main__":
     args = parser.parse_args()
     with open(args.config) as config_file:
         config = json.load(config_file)
-    run_configs = get_run_configs(config, args.experiment)
-    if args.verbose:
-        print(f"Got configs for {len(run_configs)} runs.")
-    if args.max_runs:
-        run_configs = run_configs[: args.max_runs]
-        if args.verbose:
-            print(f"Throw out all but --max_runs={args.max_runs} run_configs.")
-    if not args.dry_run:
-        if args.verbose:
-            print(f"Start executing {len(run_configs)} mrmc runs.")
-        results = run_batch(run_configs, args.verbose)
-        results_dir = save_results(results, args.results_dir, config)
-        if args.verbose:
-            print(f"Saved results to {results_dir}")
-    elif args.verbose:
-        print("Terminate without executing runs because --dry_run is set.")
+    main(
+        config=config,
+        is_experiment=args.experiment,
+        max_runs=args.max_runs,
+        results_dir=args.results_dir,
+        verbose=args.verbose,
+        dry_run=args.dry_run,
+    )
