@@ -62,7 +62,7 @@ class DistributedTrialRunner:
     def run_trials(self, trial_configs) -> Mapping[str, pd.DataFrame]:
         partitioned_trial_configs = self.partition_trials(trial_configs)
         with tempfile.TemporaryDirectory(
-            prefix=self.scratch_dir
+            prefix=os.path.join(self.scratch_dir, "")
         ) as scratch_dir:
             scratch_results_dir = self.run_processes(
                 partitioned_trial_configs, scratch_dir
