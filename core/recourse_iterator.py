@@ -33,7 +33,7 @@ class RecourseIterator:
 
     # TODO(@jakeval): Confidence check
     def iterate_k_recourse_paths(
-        self, poi: pd.Series, max_iterations: int
+        self, poi: pd.Series, max_iterations: int, k_paths: int
     ) -> Sequence[pd.DataFrame]:
         """Generates one recourse path for each of the model recourse
         directions.
@@ -46,9 +46,14 @@ class RecourseIterator:
             A sequence of DataFrames where each DataFrame is a path and each
             row of a given DataFrame is a single step in the path.
         """
+        paths = []
         all_instructions = self.recourse_method.get_all_recourse_instructions(
             poi
         )
+        # If the recourse method doesn't generate enough instructions, create
+        # empty paths.
+        if len(all_instructions) < k_paths:
+            paths = [poi.to_frame().T] * (k_paths - len(all_instructions))
         # Start the paths from the POI
         counterfactuals = []
         for instructions in all_instructions:
@@ -56,7 +61,6 @@ class RecourseIterator:
                 poi, instructions
             )
             counterfactuals.append(counterfactual)
-        paths = []
         # Finish the paths by iterating one path at a time
         for direction_index, counterfactual in enumerate(counterfactuals):
             rest_of_path = self.iterate_recourse_path(
