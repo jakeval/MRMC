@@ -100,7 +100,7 @@ class TestDICE(unittest.TestCase):
         expected_args = {
             "query_instances": pd.DataFrame({"col1": [0], "col2": [0]}),
             "total_CFs": 2,
-            "desired_class": "mock_value",
+            "desired_class": 1,
             "verbose": False,
         }
         expected_args.update(mock_counterfactual_kwargs)
