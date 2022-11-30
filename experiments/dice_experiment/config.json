@@ -1,0 +1,18 @@
+{
+    "experiment_name": "dice_experiment",
+    "num_runs": 2,
+    "random_seed": 103932,
+    "parameter_ranges": {
+        "confidence_cutoff": [0.6],
+        "noise_ratio": [null, 0.2],
+        "rescale_ratio": [null],
+        "num_paths": [2],
+        "dataset": ["credit_card_default"],
+        "model": ["logistic_regression"],
+        "max_iterations": [30],
+        "proximity_weight": [null],
+        "sparsity_weight": [null],
+        "diversity_weight": [null],
+        "method": [null]
+    }
+}
