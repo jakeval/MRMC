@@ -16,6 +16,7 @@ class ModelType(enum.Enum):
     """Enum for different model family types."""
 
     LOGISTIC_REGRESSION = "logistic_regression"
+    NEURAL_NETWORK = "neural_network"
     RANDOM_FOREST = "random_forest"
 
 
