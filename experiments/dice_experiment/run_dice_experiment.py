@@ -167,10 +167,10 @@ def _get_dice(
     method: Optional[str],
 ):
     if (
-        proximity_weight
-        or diversity_weight
-        or sparsity_weight
-        and not method == "genetic"
+        (proximity_weight
+         or diversity_weight
+         or sparsity_weight)
+        and not (method == "genetic")
     ):
         raise RuntimeError(
             "DICE optimization weights are only used when method='genetic'"
