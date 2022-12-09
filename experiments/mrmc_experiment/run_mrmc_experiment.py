@@ -1,8 +1,12 @@
 import os
 import sys
+import pathlib
+
+
+mrmc_path = pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
 
 #  Append MRMC/. to the path to fix imports.
-sys.path.append(os.path.join(os.getcwd(), "../.."))
+sys.path.append(str(mrmc_path))
 
 from typing import Optional, Mapping, Sequence, Tuple, Any
 import shutil

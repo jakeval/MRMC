@@ -249,4 +249,4 @@ class DistributedTrialRunner:
                 aggregated_results = pd.concat(
                     [old_results, new_results]
                 ).reset_index(drop=True)
-            aggregated_results.to_csv(aggregated_result_path)
+            aggregated_results.to_csv(aggregated_result_path, index=False)
