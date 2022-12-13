@@ -5,9 +5,9 @@ from core import utils
 from data import recourse_adapter
 
 
-class PassthroughAdapter(recourse_adapter.RecourseAdapter):
-    """A recourse adapter which passes through continuous data without
-    altering it.
+class IdentityAdapter(recourse_adapter.RecourseAdapter):
+    """A recourse adapter used for confidence checking which passes through
+    continuous data without altering it.
 
     The adapter also optionally simulates rescaling the recourse or adding
     random noise while interpreting recourse instructions.
@@ -27,7 +27,7 @@ class PassthroughAdapter(recourse_adapter.RecourseAdapter):
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
 
-    def fit(self, dataset: pd.DataFrame) -> PassthroughAdapter:
+    def fit(self, dataset: pd.DataFrame) -> IdentityAdapter:
         super().fit(dataset)
         self.columns = dataset.columns
         return self
