@@ -1,4 +1,9 @@
-"""A mainfile for running MRMC experiments."""
+"""A mainfile for running MRMC experiments.
+
+It executes a batch of MRMC runs. If the --experiment flag is provided, it
+constructs the batch of run configs from an experiment config by performing
+grid search over the experiment config parameters."""
+
 import os
 import sys
 import pathlib
@@ -322,6 +327,15 @@ def save_results(
     results_directory: Optional[str],
     config: Mapping[str, Any],
 ) -> str:
+    """Saves the results and experiment config to the local file system.
+
+    Args:
+        results: A mapping from filename to DataFrame.
+        results_directory: Where to save the results.
+        config: The config used to run this experiment.
+
+    Returns:
+        The directory where the results are saved."""
     if not results_directory:
         results_directory = os.path.join(
             _RESULTS_DIR, config["experiment_name"]
@@ -343,7 +357,10 @@ def save_results(
 def run_batch(
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
-) -> str:
+) -> Mapping[str, pd.DataFrame]:
+    """Executes a batch of runs. Each run is parameterized by a run_config.
+    The results of each run are concatenated together in DataFrames and
+    returned."""
     all_results = None
     for i, run_config in enumerate(run_configs):
         paths, clusters = run_mrmc(**run_config)
@@ -355,6 +372,7 @@ def run_batch(
 
 
 def validate_experiment_config(config: Mapping[str, Any]) -> None:
+    """Validates the formatting of an experiment config."""
     keys = set(config.keys())
     if keys != set(
         ["parameter_ranges", "num_runs", "random_seed", "experiment_name"]
@@ -369,6 +387,7 @@ def validate_experiment_config(config: Mapping[str, Any]) -> None:
 
 
 def validate_batch_config(config: Mapping[str, Any]) -> None:
+    """Validates the formatting of a batch config."""
     keys = set(config.keys())
     if keys != set(["run_configs", "experiment_name"]):
         raise RuntimeError(
@@ -383,6 +402,7 @@ def validate_batch_config(config: Mapping[str, Any]) -> None:
 def get_run_configs(
     config: Mapping[str, Any], is_experiment_config: bool
 ) -> Sequence[Mapping[str, Any]]:
+    """Returns the run configs from the provided config file."""
     if is_experiment_config:
         validate_experiment_config(config)
         return experiment_utils.create_run_configs(
