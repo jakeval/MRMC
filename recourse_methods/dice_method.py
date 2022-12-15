@@ -156,7 +156,7 @@ class DiCE(base_type.RecourseMethod):
             "desired_class": 1,
             "verbose": False,
         }
-        if self.random_seed:
+        if self.random_seed is not None:
             counterfactual_args.update({"random_seed": self.random_seed})
         if self.dice_counterfactual_kwargs:
             counterfactual_args.update(self.dice_counterfactual_kwargs)
