@@ -33,9 +33,9 @@ class SyntheticSKLearn(
         return proba
 
 
-class SyntheticModel(model_interface.Model):
+class ToyModel(model_interface.Model):
     """A classifier for the synthetic data defined in
-    confidence_checks/synthetic_data.py.
+    confidence_checks/toy_data.py.
 
     It predicts a linear probability gradient from (-1, 0) to (1, 2). The
     probability function has constant value outside of this box.
