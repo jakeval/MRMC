@@ -55,6 +55,9 @@ class IdentityAdapter(recourse_adapter.RecourseAdapter):
         """Interprets the recourse instructions by moving the POI in the
         direction.
 
+        Instructions are a set of vectors written in a dataframe, one for each
+        path. The POI is translated by adding the instruction vectors to it.
+
         It may also perturb or rescale the direction followed.
         """
         if self.perturb_ratio:
