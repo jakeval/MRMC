@@ -9,14 +9,14 @@ from sklearn import pipeline
 from sklearn import base as sklearn_base
 
 
-class SyntheticSKLearn(
+class ToySKLearn(
     sklearn_base.BaseEstimator,
     sklearn_base.ClassifierMixin,
 ):
-    """Adapts the SyntheticModel to satisfy the SKLearn interface for use by
+    """Adapts the ToyModel to satisfy the SKLearn interface for use by
     DICE."""
 
-    def __init__(self, model: SyntheticModel):
+    def __init__(self, model: ToyModel):
         self.model = model
 
     def fit(self, X, y):
@@ -62,7 +62,7 @@ class ToyModel(model_interface.Model):
         return np.where(proba > 0.5, 1, -1)
 
     def to_dice_model(self):
-        fake_sklearn_model = SyntheticSKLearn(self)
+        fake_sklearn_model = ToySKLearn(self)
         model_pipeline = pipeline.Pipeline(
             steps=[
                 ("adapter", self.adapter),

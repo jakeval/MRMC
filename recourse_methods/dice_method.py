@@ -153,7 +153,7 @@ class DiCE(base_type.RecourseMethod):
         counterfactual_args = {
             "query_instances": poi.to_frame().T,
             "total_CFs": num_counterfactuals,
-            "desired_class": self.adapter.positive_label,
+            "desired_class": 1,
             "verbose": False,
             "random_seed": self.random_seed,
         }
