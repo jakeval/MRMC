@@ -1,3 +1,9 @@
+"""A mainfile for running MRMC experiments.
+
+It executes a batch of MRMC runs. If the --experiment flag is provided, it
+constructs the batch of run configs from an experiment config by performing
+grid search over the experiment config parameters."""
+
 import os
 import sys
 import pathlib
@@ -127,8 +133,10 @@ parser.add_argument(
 )
 
 
-def _get_dataset(dataset_name) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
-    """Gets the dataset. Useful for unit testing."""
+def _get_dataset(
+    dataset_name: str,
+) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
+    """Gets the dataset. Useful for testing."""
     return data_loader.load_data(data_loader.DatasetName(dataset_name))
 
 
@@ -139,7 +147,7 @@ def _get_recourse_adapter(
     noise_ratio: Optional[float],
     rescale_ratio: Optional[float],
 ) -> recourse_adapter.RecourseAdapter:
-    """Gets the recourse adapter. Useful for unit testing."""
+    """Gets the recourse adapter. Useful for testing."""
     return continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
         rescale_ratio=rescale_ratio,
@@ -150,7 +158,7 @@ def _get_recourse_adapter(
 
 
 def _get_model(model_type: str, dataset_name: str) -> model_interface.Model:
-    """Gets the model. Useful for unit testing."""
+    """Gets the model. Useful for testing."""
     return model_loader.load_model(
         model_type=model_constants.ModelType(model_type),
         dataset_name=data_loader.DatasetName(dataset_name),
@@ -168,7 +176,7 @@ def _get_mrmc(
     confidence_threshold: float,
     random_seed: int,
 ) -> mrmc_method.MRMC:
-    """Gets the MRMC instance. Useful for unit testing."""
+    """Gets the MRMC instance. Useful for testing."""
     return mrmc_method.MRMC(
         k_directions=num_paths,
         adapter=adapter,
@@ -192,7 +200,7 @@ def _get_recourse_iterator(
     confidence_cutoff: float,
     model: model_interface.Model,
 ) -> recourse_iterator.RecourseIterator:
-    """Gets the recourse iterator. Useful for unit testing."""
+    """Gets the recourse iterator. Useful for testing."""
     return recourse_iterator.RecourseIterator(
         adapter=adapter,
         recourse_method=mrmc,
@@ -202,21 +210,42 @@ def _get_recourse_iterator(
 
 
 def run_mrmc(
-    run_config: Mapping[str, Any]
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    run_seed = run_config["run_seed"]
-    step_size = run_config["step_size"]
-    confidence_cutoff = run_config["confidence_cutoff"]
-    noise_ratio = run_config["noise_ratio"]
-    rescale_ratio = run_config["rescale_ratio"]
-    volcano_degree = run_config["volcano_degree"]
-    volcano_cutoff = run_config["volcano_cutoff"]
-    num_paths = run_config["num_paths"]
-    max_iterations = run_config["max_iterations"]
-    dataset_name = run_config["dataset"]
-    model_type = run_config["model"]
-    cluster_seed = run_config["cluster_seed"]
+    run_seed: int,
+    step_size: float,
+    confidence_cutoff: Optional[float],
+    noise_ratio: Optional[float],
+    rescale_ratio: Optional[float],
+    volcano_degree: float,
+    volcano_cutoff: float,
+    num_paths: int,
+    max_iterations: int,
+    dataset_name: str,
+    model_type: str,
+    cluster_seed: int,
+    **_unused_kwargs: Any,
+) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame]:
+    """Runs MRMC using the given configurations.
 
+    Args:
+        run_seed: The seed used in the run. All random numbers are derived from
+            this seed except the clustering, which uses cluster_seed.
+        step_size: The step size to use when rescaling the recourse.
+        confidence_cutoff: The target model confidence.
+        noise_ratio: The optional ratio of noise to add.
+        rescale_ratio: The optional ratio by which to rescale the direction.
+        volcano_degree: The degree to use in the MRM volcano alpha function.
+        volcano_cutoff: The cutoff to use in the MRM volcano alpha function.
+        num_paths: The number of paths to generate.
+        max_iterations: The maximum number of iterations to take recourse steps
+            for.
+        dataset_name: The name of the dataset to use.
+        model_type: The type of model to use.
+        cluster_seed: The seed to use for clustering.
+        _unused_kwargs: An argument used to capture kwargs from run_config that
+            aren't used by this function.
+
+    Returns:
+        A list of recourse paths and a dataframe containing cluster info."""
     # generate random seeds
     poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
         0, 10000, size=2
@@ -269,10 +298,22 @@ def run_mrmc(
 
 
 def format_results(
-    mrmc_paths: pd.DataFrame,
+    mrmc_paths: Sequence[pd.DataFrame],
     clusters_df: pd.DataFrame,
     run_config: Mapping[str, Any],
 ) -> Mapping[str, pd.DataFrame]:
+    """Formats the results as DataFrames ready for analysis.
+
+    It adds the path_id and step_id keys to the mrmc_paths dataframe. It also
+    adds keys from the experiment_utils.format_results() function.
+
+    Args:
+        mrmc_paths: The list of path dataframes output by recourse iteration.
+        clusters_df: A dataframe containing cluster information.
+        run_config: The run config used to generate these results.
+
+    Returns:
+        A mapping from dataframe name to formatted dataframe."""
     clusters_df["path_id"] = np.arange(len(clusters_df))
     for i, path in enumerate(mrmc_paths):
         path["step_id"] = np.arange(len(path))
@@ -292,6 +333,17 @@ def merge_results(
     all_results: Optional[Mapping[str, pd.DataFrame]],
     run_results: Mapping[str, pd.DataFrame],
 ):
+    """Concatenates newly generated result dataframes with previously generated
+    result dataframes.
+
+    Args:
+        all_results: The previously generated results.
+        run_results: The newly generated results to merge into the previous
+            results.
+
+    Returns:
+        A merged set of results containing data from all_results and
+        run_results."""
     if not all_results:
         return run_results
     else:
@@ -322,6 +374,15 @@ def save_results(
     config: Mapping[str, Any],
     only_csv: bool = False,
 ) -> str:
+    """Saves the results and experiment config to the local file system.
+
+    Args:
+        results: A mapping from filename to DataFrame.
+        results_directory: Where to save the results.
+        config: The config used to run this experiment.
+
+    Returns:
+        The directory where the results are saved."""
     if not results_directory:
         results_directory = os.path.join(
             _RESULTS_DIR, config["experiment_name"]
@@ -348,10 +409,13 @@ def _get_results_dir(results_directory, experiment_name):
 def run_batch(
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
-) -> str:
+) -> Mapping[str, pd.DataFrame]:
+    """Executes a batch of runs. Each run is parameterized by a run_config.
+    The results of each run are concatenated together in DataFrames and
+    returned."""
     all_results = None
     for i, run_config in enumerate(run_configs):
-        paths, clusters = run_mrmc(run_config)
+        paths, clusters = run_mrmc(**run_config)
         run_results = format_results(paths, clusters, run_config)
         all_results = merge_results(all_results, run_results)
         if verbose:
@@ -360,6 +424,7 @@ def run_batch(
 
 
 def validate_experiment_config(config: Mapping[str, Any]) -> None:
+    """Validates the formatting of an experiment config."""
     keys = set(config.keys())
     if keys != set(
         ["parameter_ranges", "num_runs", "random_seed", "experiment_name"]
@@ -374,6 +439,7 @@ def validate_experiment_config(config: Mapping[str, Any]) -> None:
 
 
 def validate_batch_config(config: Mapping[str, Any]) -> None:
+    """Validates the formatting of a batch config."""
     keys = set(config.keys())
     if keys != set(["run_configs", "experiment_name"]):
         raise RuntimeError(
@@ -388,6 +454,7 @@ def validate_batch_config(config: Mapping[str, Any]) -> None:
 def get_run_configs(
     config: Mapping[str, Any], is_experiment_config: bool
 ) -> Sequence[Mapping[str, Any]]:
+    """Returns the run configs from the provided config file."""
     if is_experiment_config:
         validate_experiment_config(config)
         return experiment_utils.create_run_configs(
