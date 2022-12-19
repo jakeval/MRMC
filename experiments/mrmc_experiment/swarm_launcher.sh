@@ -1,6 +1,6 @@
 #! /bin/bash
 
-rm result-*     # remove previous stdout and stderr logs
+rm result-*     # For convenience, remove previous stdout and stderr logs
 
 # Arg $1: number of processes
 # Arg $2: max_runs. Optional.
