@@ -31,6 +31,5 @@ srun -N 1 -n 1 --exclusive python ./run_mrmc_experiment.py \
 --n_procs $n_procs \
 --slurm \
 --distributed \
---scratch_dir \
-$2 \
+--scratch_dir $2 \
 $max_runs
