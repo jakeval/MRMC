@@ -2,8 +2,8 @@
     "experiment_name": "example_batch",
     "run_configs": [
         {
-            "dataset": "credit_card_default",
-            "model": "logistic_regression",
+            "dataset_name": "credit_card_default",
+            "model_type": "logistic_regression",
             "step_size": 0.5,
             "confidence_cutoff": 0.6,
             "noise_ratio": null,
@@ -18,8 +18,8 @@
             "cluster_seed": 1834823
         },
         {
-            "dataset": "credit_card_default",
-            "model": "logistic_regression",
+            "dataset_name": "credit_card_default",
+            "model_type": "logistic_regression",
             "step_size": 1,
             "confidence_cutoff": 0.6,
             "noise_ratio": null,

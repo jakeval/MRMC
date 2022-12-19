@@ -10,8 +10,8 @@
         "volcano_degree": [2],
         "volcano_cutoff": [0.5],
         "num_paths": [3],
-        "dataset": ["credit_card_default"],
-        "model": ["logistic_regression"],
+        "dataset_name": ["credit_card_default"],
+        "model_type": ["logistic_regression"],
         "max_iterations": [4],
         "cluster_seed": [1834823]
     }
