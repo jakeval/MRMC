@@ -2,16 +2,18 @@
 
 It executes a batch of MRMC runs. If the --experiment flag is provided, it
 constructs the batch of run configs from an experiment config by performing
-grid search over the experiment config parameters."""
+grid search over the experiment config parameters.
+
+If the --distributed flag is provided, it uses parallel_runner.py to
+split the runs into batches and execute them in parallel. The number of
+parallel processes is given by --num_processes."""
 
 import os
 import sys
 import pathlib
 
-
-mrmc_path = pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
-
 #  Append MRMC/. to the path to fix imports.
+mrmc_path = pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
 sys.path.append(str(mrmc_path))
 
 from typing import Optional, Mapping, Sequence, Tuple, Any
@@ -31,7 +33,7 @@ from recourse_methods import mrmc_method
 from core import recourse_iterator
 from core import utils
 from experiments import utils as experiment_utils
-from experiments import distributed_trial_runner
+from experiments import parallel_runner
 
 
 import numpy as np
@@ -495,7 +497,7 @@ def main(
             )
     if not dry_run:
         if distributed:
-            runner = distributed_trial_runner.DistributedTrialRunner(
+            runner = parallel_runner.ParallelRunner(
                 trial_runner_filename=__file__,
                 final_results_dir=_get_results_dir(
                     results_dir, config["experiment_name"]
@@ -521,6 +523,11 @@ def main(
 
 
 def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
+    """Validates the command line args.
+
+    If the --distributed flag is provided without the --n_procs flag, an error
+    is raised. If the --n_procs, --slurm, or --scratch_dir args are provided
+    without the --distributed flag, an error is raised."""
     if args.distributed and not args.n_procs:
         parser.error("--n_procs is required if running with --distributed.")
     if not args.distributed and args.n_procs:
