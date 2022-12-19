@@ -21,7 +21,7 @@ class ParallelRunner:
     The mainfile should accept accept the command --config command line
     argument, which is the path to a .json file of run configs.
 
-    The config.json file is created by the DistributedTrialRunner and contains
+    The config.json file is created by the ParallelRunner and contains
     a list of dictionaries mapping configuration variables to values. Each
     dictionary corresponds to one run.
 
@@ -45,7 +45,7 @@ class ParallelRunner:
         scratch_dir: Optional[str] = None,
         verbose: bool = False,
     ):
-        """Creates a new DistributedTrialRunner.
+        """Creates a new ParallelRunner.
 
         Args:
             experiment_mainfile_path: The python mainfile to run in parallel.
@@ -53,7 +53,7 @@ class ParallelRunner:
             num_processes: The number of child processes to run in parallel.
             use_slurm: Whether to use the SLURM job scheduler. This should be
                 True if you are executing this via the sbatch command.
-            random_seed: The random seed to use when assigning trials to
+            random_seed: The random seed to use when assigning runs to
                 processes. This has no impact on experiment results.
             scratch_dir: The directory to use for storing temporary results.
         """
@@ -236,7 +236,7 @@ class ParallelRunner:
         if self.use_slurm:
             process_cmd = "srun -N 1 -n 1 --exclusive "
         process_cmd += (
-            f"python {self.trial_runner_filename} "
+            f"python {self.experiment_mainfile_path} "
             f"--config {process_config_filename} --results_dir {results_dir} "
             "--only_csv"
         )

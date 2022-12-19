@@ -498,7 +498,7 @@ def main(
     if not dry_run:
         if distributed:
             runner = parallel_runner.ParallelRunner(
-                trial_runner_filename=__file__,
+                experiment_mainfile_path=__file__,
                 final_results_dir=_get_results_dir(
                     results_dir, config["experiment_name"]
                 ),
@@ -510,7 +510,7 @@ def main(
             )
             if verbose:
                 print(f"Start executing {len(run_configs)} mrmc runs.")
-            results = runner.run_trials(run_configs)
+            results = runner.execute_runs(run_configs)
         else:
             if verbose:
                 print(f"Start executing {len(run_configs)} mrmc runs.")
