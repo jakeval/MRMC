@@ -1,0 +1,37 @@
+{
+    "experiment_name": "example_batch",
+    "run_configs": [
+        {
+            "dataset": "credit_card_default",
+            "model": "logistic_regression",
+            "step_size": 0.5,
+            "confidence_cutoff": 0.6,
+            "noise_ratio": null,
+            "rescale_ratio": null,
+            "volcano_degree": 2,
+            "volcano_cutoff": 0.5,
+            "num_paths": 3,
+            "max_iterations": 4,
+            "batch_id": 1,
+            "run_id": 1,
+            "run_seed": 1,
+            "cluster_seed": 1834823
+        },
+        {
+            "dataset": "credit_card_default",
+            "model": "logistic_regression",
+            "step_size": 1,
+            "confidence_cutoff": 0.6,
+            "noise_ratio": null,
+            "rescale_ratio": null,
+            "volcano_degree": 2,
+            "volcano_cutoff": 0.5,
+            "num_paths": 3,
+            "max_iterations": 4,
+            "batch_id": 1,
+            "run_id": 1,
+            "run_seed": 1,
+            "cluster_seed": 1834823
+        }
+    ]
+}
