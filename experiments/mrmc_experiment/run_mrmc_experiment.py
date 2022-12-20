@@ -515,6 +515,7 @@ def main(
             if verbose:
                 print(f"Start executing {len(run_configs)} mrmc runs.")
             results = run_batch(run_configs, verbose)
+            print("got results")
         results_dir = save_results(results, results_dir, config, only_csv)
         if verbose:
             print(f"Saved results to {results_dir}")
