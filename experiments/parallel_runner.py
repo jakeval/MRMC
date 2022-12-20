@@ -1,3 +1,8 @@
+"""Tools for executing multiple recourse experiment runs in parallel.
+
+Given a list of run configs and a python mainfile capable of executing them,
+it partitions the run configs into batches and launches a subprocess to
+execute each batch."""
 import sys
 import os
 
