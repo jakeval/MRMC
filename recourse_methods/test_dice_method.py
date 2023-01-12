@@ -78,37 +78,21 @@ class TestDICE(unittest.TestCase):
             directions.to_numpy(), expected_directions.to_numpy()
         )
 
-    @mock.patch("dice_ml.Dice", autospec=True)
-    @mock.patch("data.recourse_adapter.RecourseAdapter", autospec=True)
-    def test_generate_counterfactuals(
-        self,
-        mock_adapter: mock.Mock,
-        mock_dice: mock.Mock,
-    ):
-        mock_counterfactual_kwargs = {"mock_arg": "mock_val"}
-        mock_self = mock.Mock(spec=dice_method.DiCE)
-        mock_self.adapter = mock_adapter
-        mock_adapter.label_column = "mock_label"
-        mock_adapter.positive_label = "mock_value"
-        mock_self.dice = mock_dice
-        mock_self.dice_counterfactual_kwargs = mock_counterfactual_kwargs
-        poi = pd.Series([0, 0], index=["col1", "col2"])
+    def test_format_dice_counterfactual_args(self):
+        poi = pd.Series([0, 1], index=["col1", "col2"])
         num_counterfactuals = 2
-
-        _ = dice_method.DiCE._generate_counterfactuals(
-            mock_self, poi, num_counterfactuals
-        )
-        args = mock_dice.generate_counterfactuals.call_args.kwargs
-
+        mock_counterfactual_kwargs = {"mock_arg": "mock_val"}
         expected_args = {
-            "query_instances": pd.DataFrame({"col1": [0], "col2": [0]}),
+            "query_instances": pd.DataFrame({"col1": [0], "col2": [1]}),
             "total_CFs": 2,
             "desired_class": 1,
             "verbose": False,
+            "mock_arg": "mock_val",
         }
-        expected_args.update(mock_counterfactual_kwargs)
+        args = dice_method.DiCE._format_dice_counterfactual_args(
+            poi, num_counterfactuals, mock_counterfactual_kwargs
+        )
 
-        # Check that DICE is called with correct arguments.
         self.assertEqual(set(expected_args.keys()), set(args.keys()))
         for arg in sorted(expected_args.keys()):
             val = args[arg]

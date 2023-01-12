@@ -146,19 +146,31 @@ class DiCE(base_type.RecourseMethod):
         Returns:
             A DataFrame of counterfactual examples.
         """
+        counterfactual_args = self._format_dice_counterfactual_args(
+            poi, num_counterfactuals, self.dice_counterfactual_kwargs
+        )
+        return (
+            self.dice.generate_counterfactuals(**counterfactual_args)
+            .cf_examples_list[0]
+            .final_cfs_df.drop(self.adapter.label_column, axis=1)
+        )
+
+    @staticmethod
+    def _format_dice_counterfactual_args(
+        poi: pd.Series,
+        num_counterfactuals: int,
+        dice_counterfactual_kwargs: Optional[Mapping[str, Any]] = None,
+    ) -> Mapping[str, Any]:
+        """Formats the arguments used by DICE to generate counterfactuals."""
         counterfactual_args = {
             "query_instances": poi.to_frame().T,
             "total_CFs": num_counterfactuals,
             "desired_class": 1,
             "verbose": False,
         }
-        if self.dice_counterfactual_kwargs:
-            counterfactual_args.update(self.dice_counterfactual_kwargs)
-        return (
-            self.dice.generate_counterfactuals(**counterfactual_args)
-            .cf_examples_list[0]
-            .final_cfs_df.drop(self.adapter.label_column, axis=1)
-        )
+        if dice_counterfactual_kwargs is not None:
+            counterfactual_args.update(dice_counterfactual_kwargs)
+        return counterfactual_args
 
     #  TODO(@jakeval): Unit test this
     def _counterfactuals_to_directions(
