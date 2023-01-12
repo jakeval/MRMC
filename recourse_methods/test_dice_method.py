@@ -60,10 +60,13 @@ class TestDICE(unittest.TestCase):
         counterfactuals = pd.DataFrame(
             {"col1": [5, -2], "col2": [3, 2]}, index=[10, 23]
         )
+
+        # multiple the POI and counterfactuals by 10 (because of the transform)
+        # then subtract the POI from the counterfactuals.
         expected_directions = pd.DataFrame(
             {
-                "col1": [50 - 0, -20 - 0],
-                "col2": [30 - 10, 20 - 10],
+                "col1": [50, -20],
+                "col2": [20, 10],
             }
         )
 
