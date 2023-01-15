@@ -273,13 +273,15 @@ def format_results(
         path["step_id"] = np.arange(len(path))
         path["path_id"] = i
     mrmc_paths_df = pd.concat(mrmc_paths).reset_index(drop=True)
-    index_df, clusters_df, mrmc_paths_df = experiment_utils.format_results(
-        run_config, clusters_df, mrmc_paths_df
-    )
+    (
+        experiment_config_df,
+        clusters_df,
+        mrmc_paths_df,
+    ) = experiment_utils.format_results(run_config, clusters_df, mrmc_paths_df)
     return {
-        "index_df": index_df,
+        "experiment_config_df": experiment_config_df,
         "cluster_df": clusters_df,
-        "path_df": mrmc_paths_df,
+        "mrmc_paths_df": mrmc_paths_df,
     }
 
 
