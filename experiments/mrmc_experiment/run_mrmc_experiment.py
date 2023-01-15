@@ -123,7 +123,7 @@ def _get_mrmc(
     dataset: pd.DataFrame,
     adapter: recourse_adapter.RecourseAdapter,
     model: model_interface.Model,
-    num_paths: int,
+    num_clusters: int,
     volcano_cutoff: float,
     volcano_degree: float,
     step_size: float,
@@ -132,7 +132,7 @@ def _get_mrmc(
 ) -> mrmc_method.MRMC:
     """Gets the MRMC instance. Useful for testing."""
     return mrmc_method.MRMC(
-        k_directions=num_paths,
+        k_directions=num_clusters,
         adapter=adapter,
         dataset=dataset,
         alpha=mrmc_method.get_volcano_alpha(
@@ -171,7 +171,7 @@ def run_mrmc(
     rescale_ratio: Optional[float],
     volcano_degree: float,
     volcano_cutoff: float,
-    num_paths: int,
+    num_clusters: int,
     max_iterations: int,
     dataset_name: str,
     model_type: str,
@@ -189,7 +189,7 @@ def run_mrmc(
         rescale_ratio: The optional ratio by which to rescale the direction.
         volcano_degree: The degree to use in the MRM volcano alpha function.
         volcano_cutoff: The cutoff to use in the MRM volcano alpha function.
-        num_paths: The number of paths to generate.
+        num_clusters: The number of clusters to use when generating paths.
         max_iterations: The maximum number of iterations to take recourse steps
             for.
         dataset_name: The name of the dataset to use.
@@ -219,7 +219,7 @@ def run_mrmc(
         dataset=dataset,
         adapter=adapter,
         model=model,
-        num_paths=num_paths,
+        num_clusters=num_clusters,
         volcano_cutoff=volcano_cutoff,
         volcano_degree=volcano_degree,
         step_size=step_size,
