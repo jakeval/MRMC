@@ -3,7 +3,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import dice_ml
-from dice_ml import constants
+
+# from dice_ml import constants
 from sklearn import pipeline
 
 
@@ -135,6 +136,14 @@ class Model(abc.ABC):
         return self.predict(dataset).iloc[0]
 
 
+class PyTorchModel(Model):
+    def __init__(
+        self, pytorch_model, adapter: recourse_adapter.RecourseAdapter
+    ):
+        super().__init__(adapter=adapter)
+        self.model = pytorch_model
+
+
 class SKLearnModel(Model):
     """An implementation of the Model class for SKLearn models."""
 
@@ -192,6 +201,4 @@ class SKLearnModel(Model):
             ]
         )
 
-        return dice_ml.Model(
-            model=model_pipeline, backend=constants.BackEndTypes.Sklearn
-        )
+        return dice_ml.Model(model=model_pipeline, backend="sklearn")
