@@ -6,6 +6,3 @@ rm result-*     # remove previous stdout and stderr logs
 # Arg $2: number of processes
 # Arg $3: max_runs. Optional.
 sbatch --ntasks $2 run.sbatch $2 /mnt/nfs/scratch1/$USER $1 $3
-
-
-./swarm_launcher.sh ./configs/face_test.json 
