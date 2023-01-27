@@ -25,12 +25,21 @@ parser.add_argument(
 )
 parser.add_argument(
     "--graph_filepath",
-    type=float,
+    type=str,
     help=("The *.npz filepath to save the graph to."),
+)
+parser.add_argument(
+    "--debug_subsample",
+    type=int,
+    default=None,
+    help=(
+        "Optionally, the number of points to use sample from the datase when",
+        " generating the graph.",
+    ),
 )
 
 
-def main(dataset_name, distance_threshold, graph_filepath):
+def main(dataset_name, distance_threshold, graph_filepath, debug_subsample):
     parent_directory = pathlib.Path(graph_filepath).parent
     if not os.path.exists(parent_directory):
         os.makedirs(parent_directory)
@@ -40,7 +49,9 @@ def main(dataset_name, distance_threshold, graph_filepath):
     adapter = continuous_adapter.StandardizingAdapter(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
-    )
+    ).fit(dataset)
+    if debug_subsample:
+        dataset = dataset.sample(n=debug_subsample)
     face = face_method.Face(
         dataset=dataset,
         adapter=adapter,
@@ -59,4 +70,9 @@ def main(dataset_name, distance_threshold, graph_filepath):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    main(args.dataset, args.distance_threshold, args.graph_filepath)
+    main(
+        args.dataset,
+        args.distance_threshold,
+        args.graph_filepath,
+        args.debug_subsample,
+    )
