@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from data import recourse_adapter
 from typing import Any, Optional
+from models import model_interface
 
 
 _MIN_DIRECTION = 1e-32
@@ -86,8 +87,13 @@ def random_poi(
     label_value: Any = -1,
     drop_label: bool = True,
     random_seed: Optional[int] = None,
+    model: Optional[model_interface.Model] = None,
 ) -> pd.Series:
     """Selects a random POI of the given label from the dataset.
+
+    Options:
+    - POI is negative and pos classified
+    -
 
     Args:
         dataset: The dataset to sample from.
@@ -99,9 +105,11 @@ def random_poi(
     Returns:
         A random row of the given label from the dataset.
     """
-    poi = dataset[dataset[label_column] == label_value].sample(
-        1, random_state=random_seed
-    )
+    mask = dataset[label_column] == label_value
+    if model is not None:
+        pos_proba = model.predict_pos_proba(dataset)
+        mask = mask & (pos_proba < 0.5)
+    poi = dataset[mask].sample(1, random_state=random_seed)
     if drop_label:
         poi = poi.drop(label_column, axis=1)
 
