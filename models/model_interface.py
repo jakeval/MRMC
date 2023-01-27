@@ -136,14 +136,6 @@ class Model(abc.ABC):
         return self.predict(dataset).iloc[0]
 
 
-class PyTorchModel(Model):
-    def __init__(
-        self, pytorch_model, adapter: recourse_adapter.RecourseAdapter
-    ):
-        super().__init__(adapter=adapter)
-        self.model = pytorch_model
-
-
 class SKLearnModel(Model):
     """An implementation of the Model class for SKLearn models."""
 

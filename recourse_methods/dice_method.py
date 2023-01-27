@@ -44,8 +44,6 @@ class DiCE(base_type.RecourseMethod):
             dataset: The dataset to perform recourse over.
             continuous_features: A list of the dataset's continuous features.
             model: An ML model satisfying one of the DiCE model backends.
-            model_backend: Model types recognized by DiCE (sklearn, pytorch,
-                and tensorflow).
             dice_kwargs: Optional arguments to pass to DiCE on instantiation.
             dice_counterfactual_kwargs: Optional arguments to pass to DiCE on
                 counterfactual explanation generation.

@@ -1,8 +1,5 @@
 from sklearn import linear_model
 
-import torch
-from torch import nn
-
 import numpy as np
 import pandas as pd
 import joblib
@@ -19,33 +16,6 @@ MODEL_FILENAME = "model.pkl"  # The default filename for saved LR models.
 TRAINING_PARAMS = {"class_weight": "balanced"}  # Params used for training.
 
 
-class BinaryClassifier(nn.Module):
-    def __init__(self, weights, bias, adapter):
-        super().__init__()
-        self.layer = nn.Linear(weights.shape[0], 1).float()
-        with torch.no_grad():
-            self.layer.weight.copy_(torch.tensor(weights))
-            self.layer.bias.copy_(torch.tensor(bias))
-        self.sigmoid = nn.Sigmoid()
-        # self.mean, self.stddev = self._get_standardize_params(adapter)
-
-    def _get_standardize_params(
-        adapter: continuous_adapter.StandardizingAdapter,
-    ):
-        mean = []
-        stddev = []
-        for column in adapter.column_names():
-            mean.append(adapter.standard_scaler_dict[column].mean_)
-            stddev.append(adapter.standard_scaler_dict[column].scale_)
-        return np.array(mean), np.array(stddev)
-
-    def _standardize(data):
-        pass
-
-    def forward(self, data):
-        return self.sigmoid(self.layer(data))
-
-
 class LogisticRegression(model_trainer.ModelTrainer):
     """A class for training, saving, and loading Logistic Regression models.
 
@@ -55,7 +25,6 @@ class LogisticRegression(model_trainer.ModelTrainer):
         self,
         dataset_name: data_loader.DatasetName,
         model_name: model_constants.ModelName,
-        backend: str = "sklearn",
     ):
         """Creates a new LogisticRegression class.
 
@@ -67,7 +36,6 @@ class LogisticRegression(model_trainer.ModelTrainer):
             dataset_name=dataset_name,
             model_name=model_name,
         )
-        self.backend = backend
 
     def train_model(
         self, dataset: pd.DataFrame, dataset_info: base_loader.DatasetInfo
@@ -102,11 +70,6 @@ class LogisticRegression(model_trainer.ModelTrainer):
 
     def _load_model(self, model_dir: str) -> model_interface.Model:
         """Loads a trained model from local disk."""
-        if self.backend == "pytorch":
-            model = joblib.load(os.path.join(model_dir, MODEL_FILENAME))
-            weights = model.model.coef_[0]
-            bias = model.model.intercept_
-            return BinaryClassifier(weights=weights, bias=bias, adapter=None)
         return joblib.load(os.path.join(model_dir, MODEL_FILENAME))
 
     def _get_adapter(
