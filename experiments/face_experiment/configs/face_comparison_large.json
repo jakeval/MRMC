@@ -1,0 +1,43 @@
+{
+    "experiment_name": "face_comparison_large",
+    "num_runs": 30,
+    "random_seed": 103932,
+    "parameter_ranges": {
+        "confidence_cutoff": [
+            0.6,
+            0.7,
+            0.8,
+            0.9
+        ],
+        "noise_ratio": [
+            null
+        ],
+        "rescale_ratio": [
+            null
+        ],
+        "num_paths": [
+            2,
+            3,
+            4,
+            5
+        ],
+        "graph_filepath": [
+            "recourse_methods/face_graphs/graph_5.0.npz"
+        ],
+        "counterfactual_mode": [
+            true
+        ],
+        "distance_threshold": [
+            5.0
+        ],
+        "dataset_name": [
+            "credit_card_default"
+        ],
+        "model_type": [
+            "logistic_regression"
+        ],
+        "max_iterations": [
+            30
+        ]
+    }
+}
