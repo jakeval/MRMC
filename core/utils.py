@@ -88,6 +88,7 @@ def random_poi(
     drop_label: bool = True,
     random_seed: Optional[int] = None,
     model: Optional[model_interface.Model] = None,
+    classifier_only: bool = False,
 ) -> pd.Series:
     """Selects a random POI of the given label from the dataset.
 
@@ -105,11 +106,15 @@ def random_poi(
     Returns:
         A random row of the given label from the dataset.
     """
-    mask = dataset[label_column] == label_value
-    if model is not None:
-        pos_proba = model.predict_pos_proba(dataset)
-        mask = mask & (pos_proba < 0.5)
-    poi = dataset[mask].sample(1, random_state=random_seed)
+    if classifier_only:
+        mask = model.predict(dataset) == label_value
+        poi = dataset[mask].sample(1, random_state=random_seed)
+    else:
+        mask = dataset[label_column] == label_value
+        if model is not None:
+            model_mask = model.predict(dataset) == label_value
+            mask = mask & model_mask
+        poi = dataset[mask].sample(1, random_state=random_seed)
     if drop_label:
         poi = poi.drop(label_column, axis=1)
 

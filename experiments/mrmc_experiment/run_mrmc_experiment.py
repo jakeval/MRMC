@@ -9,6 +9,7 @@ import shutil
 import pathlib
 import json
 import argparse
+import time
 
 from data import data_loader
 from data.datasets import base_loader
@@ -247,6 +248,8 @@ def run_mrmc(
         label_column=dataset_info.label_column,
         label_value=adapter.negative_label,
         random_seed=poi_seed,
+        model=model,
+        classifier_only=True,
     )
 
     # generate the paths
@@ -423,6 +426,7 @@ def main(
                 f"{num_processes} processes."
             )
     if not dry_run:
+        start_time = time.time()
         if distributed:
             runner = distributed_trial_runner.DistributedTrialRunner(
                 trial_runner_filename=__file__,
@@ -442,6 +446,12 @@ def main(
             if verbose:
                 print(f"Start executing {len(run_configs)} mrmc runs.")
             results = run_batch(run_configs, verbose)
+        execution_time = time.time() - start_time
+        config["run_metadata"] = {
+            "execution_time": execution_time,
+            "num_runs": len(run_configs),
+            "num_processes": num_processes or 1,
+        }
         results_dir = save_results(results, results_dir, config, only_csv)
         if verbose:
             print(f"Saved results to {results_dir}")
