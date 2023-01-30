@@ -1,8 +1,20 @@
+"""A mainfile for running MRMC experiments.
+
+It executes a batch of MRMC runs. If the --experiment flag is provided, it
+constructs the batch of run configs from an experiment config by performing
+grid search over the experiment config parameters.
+
+If the --distributed flag is provided, it uses parallel_runner.py to
+split the runs into batches and execute them in parallel. The number of
+parallel processes is given by --num_processes."""
+
 import os
 import sys
+import pathlib
 
 #  Append MRMC/. to the path to fix imports.
-sys.path.append(os.path.join(os.getcwd(), "../.."))
+mrmc_path = pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
+sys.path.append(str(mrmc_path))
 
 from typing import Optional, Mapping, Sequence, Tuple, Any
 import shutil
@@ -22,7 +34,7 @@ from recourse_methods import face_method
 from core import recourse_iterator
 from core import utils
 from experiments import utils as experiment_utils
-from experiments import distributed_trial_runner
+from experiments import parallel_runner
 
 
 import numpy as np
@@ -128,7 +140,9 @@ parser.add_argument(
 )
 
 
-def _get_dataset(dataset_name) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
+def _get_dataset(
+    dataset_name: str,
+) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
     """Gets the dataset. Useful for unit testing."""
     return data_loader.load_data(data_loader.DatasetName(dataset_name))
 
@@ -198,20 +212,41 @@ def _get_recourse_iterator(
 
 
 def run_face(
-    run_config: Mapping[str, Any]
+    run_seed: int,
+    confidence_cutoff: Optional[float],
+    noise_ratio: Optional[float],
+    rescale_ratio: Optional[float],
+    num_paths: int,
+    max_iterations: int,
+    dataset_name: str,
+    model_type: str,
+    distance_threshold: float,
+    graph_filepath: str,
+    counterfactual_mode: bool,
+    **_unused_kwargs: Any,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    run_seed = run_config["run_seed"]
-    confidence_cutoff = run_config["confidence_cutoff"]
-    noise_ratio = run_config["noise_ratio"]
-    rescale_ratio = run_config["rescale_ratio"]
-    num_paths = run_config["num_paths"]
-    max_iterations = run_config["max_iterations"]
-    dataset_name = run_config["dataset_name"]
-    model_type = run_config["model_type"]
-    distance_threshold = run_config["distance_threshold"]
-    graph_filepath = run_config["graph_filepath"]
-    counterfactual_mode = run_config["counterfactual_mode"]
+    """Runs FACE using the given configurations.
 
+    Args:
+        run_seed: The seed used in the run. All random numbers are derived from
+            this seed except the clustering, which uses cluster_seed.
+        confidence_cutoff: The target model confidence.
+        noise_ratio: The optional ratio of noise to add.
+        rescale_ratio: The optional ratio by which to rescale the direction.
+        num_paths: The number of recourse paths to generate.
+        max_iterations: The maximum number of iterations to take recourse steps
+            for.
+        dataset_name: The name of the dataset to use.
+        model_type: The type of model to use.
+        distance_threshold: The maximum edge length of the graph.
+        graph_filepath: Path to a graph which matches the distance_threshold.
+        counterfactual_mode: Whether to use the first or final point in the
+            path to create recourse directions.
+        _unused_kwargs: An argument used to capture kwargs from run_config that
+            aren't used by this function.
+
+    Returns:
+        A list of recourse paths and a dataframe containing cluster info."""
     # generate random seeds
     poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
         0, 10000, size=2
@@ -246,6 +281,7 @@ def run_face(
         label_value=adapter.negative_label,
         random_seed=poi_seed,
         model=model,
+        classifier_only=True,
     )
 
     # generate the paths
@@ -260,16 +296,27 @@ def format_results(
     face_paths: pd.DataFrame,
     run_config: Mapping[str, Any],
 ) -> Mapping[str, pd.DataFrame]:
+    """Formats the results as DataFrames ready for analysis.
+
+    It adds the path_id and step_id keys to the mrmc_paths dataframe. It also
+    adds keys from the experiment_utils.format_results() function.
+
+    Args:
+        mrmc_paths: The list of path dataframes output by recourse iteration.
+        run_config: The run config used to generate these results.
+
+    Returns:
+        A mapping from dataframe name to formatted dataframe."""
     for i, path in enumerate(face_paths):
         path["step_id"] = np.arange(len(path))
         path["path_id"] = i
     face_paths_df = pd.concat(face_paths).reset_index(drop=True)
-    index_df, face_paths_df = experiment_utils.format_results(
+    experiment_config_df, face_paths_df = experiment_utils.format_results(
         run_config, face_paths_df
     )
     return {
-        "index_df": index_df,
-        "path_df": face_paths_df,
+        "experiment_config_df": experiment_config_df,
+        "face_paths_df": face_paths_df,
     }
 
 
@@ -277,6 +324,17 @@ def merge_results(
     all_results: Optional[Mapping[str, pd.DataFrame]],
     run_results: Mapping[str, pd.DataFrame],
 ):
+    """Concatenates newly generated result dataframes with previously generated
+    result dataframes.
+
+    Args:
+        all_results: The previously generated results.
+        run_results: The newly generated results to merge into the previous
+            results.
+
+    Returns:
+        A merged set of results containing data from all_results and
+        run_results."""
     if not all_results:
         return run_results
     else:
@@ -307,6 +365,15 @@ def save_results(
     config: Mapping[str, Any],
     only_csv: bool = False,
 ) -> str:
+    """Saves the results and experiment config to the local file system.
+
+    Args:
+        results: A mapping from filename to DataFrame.
+        results_directory: Where to save the results.
+        config: The config used to run this experiment.
+
+    Returns:
+        The directory where the results are saved."""
     if not results_directory:
         results_directory = os.path.join(
             _RESULTS_DIR, config["experiment_name"]
@@ -334,9 +401,12 @@ def run_batch(
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
 ) -> Mapping[str, pd.DataFrame]:
+    """Executes a batch of runs. Each run is parameterized by a run_config.
+    The results of each run are concatenated together in DataFrames and
+    returned."""
     all_results = None
     for i, run_config in enumerate(run_configs):
-        paths = run_face(run_config)
+        paths = run_face(**run_config)
         run_results = format_results(paths, run_config)
         all_results = merge_results(all_results, run_results)
         if verbose:
@@ -345,6 +415,7 @@ def run_batch(
 
 
 def validate_experiment_config(config: Mapping[str, Any]) -> None:
+    """Validates the formatting of an experiment config."""
     keys = set(config.keys())
     if keys != set(
         ["parameter_ranges", "num_runs", "random_seed", "experiment_name"]
@@ -359,6 +430,7 @@ def validate_experiment_config(config: Mapping[str, Any]) -> None:
 
 
 def validate_batch_config(config: Mapping[str, Any]) -> None:
+    """Validates the formatting of a batch config."""
     keys = set(config.keys())
     if keys != set(["run_configs", "experiment_name"]):
         raise RuntimeError(
@@ -373,6 +445,7 @@ def validate_batch_config(config: Mapping[str, Any]) -> None:
 def get_run_configs(
     config: Mapping[str, Any], is_experiment_config: bool
 ) -> Sequence[Mapping[str, Any]]:
+    """Returns the run configs from the provided config file."""
     if is_experiment_config:
         validate_experiment_config(config)
         return experiment_utils.create_run_configs(
@@ -414,8 +487,8 @@ def main(
     if not dry_run:
         start_time = time.time()
         if distributed:
-            runner = distributed_trial_runner.DistributedTrialRunner(
-                trial_runner_filename=__file__,
+            runner = parallel_runner.ParallelRunner(
+                experiment_mainfile_path=__file__,
                 final_results_dir=_get_results_dir(
                     results_dir, config["experiment_name"]
                 ),
@@ -427,7 +500,7 @@ def main(
             )
             if verbose:
                 print(f"Start executing {len(run_configs)} face runs.")
-            results = runner.run_trials(run_configs)
+            results = runner.execute_runs(run_configs)
         else:
             if verbose:
                 print(f"Start executing {len(run_configs)} face runs.")
@@ -447,6 +520,11 @@ def main(
 
 
 def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
+    """Validates the command line args.
+
+    If the --distributed flag is provided without the --n_procs flag, an error
+    is raised. If the --n_procs, --slurm, or --scratch_dir args are provided
+    without the --distributed flag, an error is raised."""
     if args.distributed and not args.n_procs:
         parser.error("--n_procs is required if running with --distributed.")
     if not args.distributed and args.n_procs:

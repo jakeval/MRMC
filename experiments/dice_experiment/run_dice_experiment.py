@@ -296,12 +296,12 @@ def format_results(
         path["step_id"] = np.arange(len(path))
         path["path_id"] = i
     dice_paths_df = pd.concat(dice_paths).reset_index(drop=True)
-    index_df, dice_paths_df = experiment_utils.format_results(
+    experiment_config_df, dice_paths_df = experiment_utils.format_results(
         run_config, dice_paths_df
     )
     return {
-        "index_df": index_df,
-        "path_df": dice_paths_df,
+        "experiment_config_df": experiment_config_df,
+        "dice_paths_df": dice_paths_df,
     }
 
 
