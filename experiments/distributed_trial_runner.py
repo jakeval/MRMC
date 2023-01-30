@@ -105,7 +105,6 @@ class DistributedTrialRunner:
     def collect_results(
         self, scratch_results_directory: str
     ) -> Mapping[str, pd.DataFrame]:
-        print("collect results")
         result_dfs = {}
         for result_name in os.listdir(scratch_results_directory):
             result_path = os.path.join(scratch_results_directory, result_name)
