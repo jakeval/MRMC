@@ -1,5 +1,5 @@
 {
-    "experiment_name": "mrmc_experiment",
+    "experiment_name": "mrmc_comparison",
     "num_runs": 30,
     "random_seed": 103932,
     "parameter_ranges": {
