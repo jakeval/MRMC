@@ -333,7 +333,7 @@ def _get_results_dir(results_directory, experiment_name):
 def run_batch(
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
-) -> str:
+) -> Mapping[str, pd.DataFrame]:
     all_results = None
     for i, run_config in enumerate(run_configs):
         paths = run_face(run_config)
@@ -438,6 +438,7 @@ def main(
             "num_runs": len(run_configs),
             "num_processes": num_processes or 1,
         }
+
         results_dir = save_results(results, results_dir, config, only_csv)
         if verbose:
             print(f"Saved results to {results_dir}")

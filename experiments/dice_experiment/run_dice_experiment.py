@@ -353,7 +353,7 @@ def _get_results_dir(results_directory, experiment_name):
 def run_batch(
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
-) -> str:
+) -> Mapping[str, pd.DataFrame]:
     all_results = None
     for i, run_config in enumerate(run_configs):
         paths = run_dice(run_config)
