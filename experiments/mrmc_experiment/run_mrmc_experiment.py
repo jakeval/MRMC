@@ -210,8 +210,8 @@ def run_mrmc(
     volcano_cutoff = run_config["volcano_cutoff"]
     num_paths = run_config["num_paths"]
     max_iterations = run_config["max_iterations"]
-    dataset_name = run_config["dataset"]
-    model_type = run_config["model"]
+    dataset_name = run_config["dataset_name"]
+    model_type = run_config["model_type"]
     cluster_seed = run_config["cluster_seed"]
 
     # generate random seeds
