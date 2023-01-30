@@ -221,8 +221,8 @@ def run_dice(
     rescale_ratio = run_config["rescale_ratio"]
     num_paths = run_config["num_paths"]
     max_iterations = run_config["max_iterations"]
-    dataset_name = run_config["dataset"]
-    model_type = run_config["model"]
+    dataset_name = run_config["dataset_name"]
+    model_type = run_config["model_type"]
     proximity_weight = run_config.get("proximity_weight", None)
     diversity_weight = run_config.get("diversity_weight", None)
     sparsity_weight = run_config.get("sparsity_weight", None)
@@ -264,6 +264,8 @@ def run_dice(
         label_column=dataset_info.label_column,
         label_value=adapter.negative_label,
         random_seed=poi_seed,
+        model=model,
+        classifier_only=True,
     )
 
     # generate the paths
