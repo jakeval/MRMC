@@ -1,14 +1,27 @@
+"""A mainfile for running DICE experiments.
+
+It executes a batch of DICE runs. If the --experiment flag is provided, it
+constructs the batch of run configs from an experiment config by performing
+grid search over the experiment config parameters.
+
+If the --distributed flag is provided, it uses parallel_runner.py to
+split the runs into batches and execute them in parallel. The number of
+parallel processes is given by --num_processes."""
+
 import os
 import sys
+import pathlib
 
 #  Append MRMC/. to the path to fix imports.
-sys.path.append(os.path.join(os.getcwd(), "../.."))
+mrmc_path = pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
+sys.path.append(str(mrmc_path))
 
 from typing import Optional, Mapping, Sequence, Tuple, Any
 import shutil
 import pathlib
 import json
 import argparse
+import time
 
 from data import data_loader
 from data.datasets import base_loader
@@ -21,7 +34,7 @@ from recourse_methods import dice_method
 from core import recourse_iterator
 from core import utils
 from experiments import utils as experiment_utils
-from experiments import distributed_trial_runner
+from experiments import parallel_runner
 
 
 import numpy as np
@@ -123,7 +136,9 @@ parser.add_argument(
 )
 
 
-def _get_dataset(dataset_name) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
+def _get_dataset(
+    dataset_name: str,
+) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
     """Gets the dataset. Useful for unit testing."""
     return data_loader.load_data(data_loader.DatasetName(dataset_name))
 
@@ -161,29 +176,7 @@ def _get_dice(
     model: model_interface.Model,
     confidence_threshold: float,
     random_seed: int,
-    proximity_weight: Optional[float],
-    diversity_weight: Optional[float],
-    sparsity_weight: Optional[float],
-    method: Optional[str],
 ):
-    if (proximity_weight or diversity_weight or sparsity_weight) and not (
-        method == "genetic"
-    ):
-        raise RuntimeError(
-            "DICE optimization weights are only used when method='genetic'"
-        )
-    dice_kwargs = {}
-    if method:
-        dice_kwargs["method"] = method
-
-    dice_counterfactual_kwargs = {}
-    if proximity_weight:
-        dice_counterfactual_kwargs["proximity_weight"] = proximity_weight
-    if diversity_weight:
-        dice_counterfactual_kwargs["diversity_weight"] = diversity_weight
-    if sparsity_weight:
-        dice_counterfactual_kwargs["sparsity_weight"] = sparsity_weight
-
     return dice_method.DiCE(
         k_directions=num_paths,
         adapter=adapter,
@@ -191,8 +184,6 @@ def _get_dice(
         desired_confidence=confidence_threshold,
         continuous_features=dataset_info.continuous_features,
         model=model,
-        dice_kwargs=dice_kwargs,
-        dice_counterfactual_kwargs=dice_counterfactual_kwargs,
         random_seed=random_seed,
     )
 
@@ -213,20 +204,34 @@ def _get_recourse_iterator(
 
 
 def run_dice(
-    run_config: Mapping[str, Any]
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    run_seed = run_config["run_seed"]
-    confidence_cutoff = run_config["confidence_cutoff"]
-    noise_ratio = run_config["noise_ratio"]
-    rescale_ratio = run_config["rescale_ratio"]
-    num_paths = run_config["num_paths"]
-    max_iterations = run_config["max_iterations"]
-    dataset_name = run_config["dataset_name"]
-    model_type = run_config["model_type"]
-    proximity_weight = run_config.get("proximity_weight", None)
-    diversity_weight = run_config.get("diversity_weight", None)
-    sparsity_weight = run_config.get("sparsity_weight", None)
-    method = run_config.get("method", None)
+    run_seed: int,
+    confidence_cutoff: float,
+    noise_ratio: Optional[float],
+    rescale_ratio: Optional[float],
+    num_paths: int,
+    max_iterations: int,
+    dataset_name: str,
+    model_type: str,
+    **_unused_kwargs: Any,
+) -> pd.DataFrame:
+    """Runs MRMC using the given configurations.
+
+    Args:
+        run_seed: The seed used in the run. All random numbers are derived from
+            this seed except the clustering, which uses cluster_seed.
+        confidence_cutoff: The target model confidence.
+        noise_ratio: The optional ratio of noise to add.
+        rescale_ratio: The optional ratio by which to rescale the direction.
+        num_paths: The number of recourse paths to generate.
+        max_iterations: The maximum number of iterations to take recourse steps
+            for.
+        dataset_name: The name of the dataset to use.
+        model_type: The type of model to use.
+        _unused_kwargs: An argument used to capture kwargs from run_config that
+            aren't used by this function.
+
+    Returns:
+        A list of recourse paths."""
 
     # generate random seeds
     dice_seed, poi_seed, adapter_seed = np.random.default_rng(
@@ -251,10 +256,6 @@ def run_dice(
         model=model,
         confidence_threshold=confidence_cutoff,
         random_seed=dice_seed,
-        proximity_weight=proximity_weight,
-        diversity_weight=diversity_weight,
-        sparsity_weight=sparsity_weight,
-        method=method,
     )
     iterator = _get_recourse_iterator(adapter, dice, confidence_cutoff, model)
 
@@ -280,6 +281,17 @@ def format_results(
     dice_paths: pd.DataFrame,
     run_config: Mapping[str, Any],
 ) -> Mapping[str, pd.DataFrame]:
+    """Formats the results as DataFrames ready for analysis.
+
+    It adds the path_id and step_id keys to the mrmc_paths dataframe. It also
+    adds keys from the experiment_utils.format_results() function.
+
+    Args:
+        mrmc_paths: The list of path dataframes output by recourse iteration.
+        run_config: The run config used to generate these results.
+
+    Returns:
+        A mapping from dataframe name to formatted dataframe."""
     for i, path in enumerate(dice_paths):
         path["step_id"] = np.arange(len(path))
         path["path_id"] = i
@@ -297,6 +309,17 @@ def merge_results(
     all_results: Optional[Mapping[str, pd.DataFrame]],
     run_results: Mapping[str, pd.DataFrame],
 ):
+    """Concatenates newly generated result dataframes with previously generated
+    result dataframes.
+
+    Args:
+        all_results: The previously generated results.
+        run_results: The newly generated results to merge into the previous
+            results.
+
+    Returns:
+        A merged set of results containing data from all_results and
+        run_results."""
     if not all_results:
         return run_results
     else:
@@ -327,6 +350,15 @@ def save_results(
     config: Mapping[str, Any],
     only_csv: bool = False,
 ) -> str:
+    """Saves the results and experiment config to the local file system.
+
+    Args:
+        results: A mapping from filename to DataFrame.
+        results_directory: Where to save the results.
+        config: The config used to run this experiment.
+
+    Returns:
+        The directory where the results are saved."""
     if not results_directory:
         results_directory = os.path.join(
             _RESULTS_DIR, config["experiment_name"]
@@ -354,9 +386,12 @@ def run_batch(
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
 ) -> Mapping[str, pd.DataFrame]:
+    """Executes a batch of runs. Each run is parameterized by a run_config.
+    The results of each run are concatenated together in DataFrames and
+    returned."""
     all_results = None
     for i, run_config in enumerate(run_configs):
-        paths = run_dice(run_config)
+        paths = run_dice(**run_config)
         run_results = format_results(paths, run_config)
         all_results = merge_results(all_results, run_results)
         if verbose:
@@ -393,6 +428,7 @@ def validate_batch_config(config: Mapping[str, Any]) -> None:
 def get_run_configs(
     config: Mapping[str, Any], is_experiment_config: bool
 ) -> Sequence[Mapping[str, Any]]:
+    """Returns the run configs from the provided config file."""
     if is_experiment_config:
         validate_experiment_config(config)
         return experiment_utils.create_run_configs(
@@ -432,9 +468,10 @@ def main(
                 f"{num_processes} processes."
             )
     if not dry_run:
+        start_time = time.time()
         if distributed:
-            runner = distributed_trial_runner.DistributedTrialRunner(
-                trial_runner_filename=__file__,
+            runner = parallel_runner.ParallelRunner(
+                experiment_mainfile_path=__file__,
                 final_results_dir=_get_results_dir(
                     results_dir, config["experiment_name"]
                 ),
@@ -446,11 +483,17 @@ def main(
             )
             if verbose:
                 print(f"Start executing {len(run_configs)} dice runs.")
-            results = runner.run_trials(run_configs)
+            results = runner.execute_runs(run_configs)
         else:
             if verbose:
                 print(f"Start executing {len(run_configs)} dice runs.")
             results = run_batch(run_configs, verbose)
+        execution_time = time.time() - start_time
+        config["run_metadata"] = {
+            "execution_time": execution_time,
+            "num_runs": len(run_configs),
+            "num_processes": num_processes or 1,
+        }
         results_dir = save_results(results, results_dir, config, only_csv)
         if verbose:
             print(f"Saved results to {results_dir}")
@@ -459,6 +502,11 @@ def main(
 
 
 def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
+    """Validates the command line args.
+
+    If the --distributed flag is provided without the --n_procs flag, an error
+    is raised. If the --n_procs, --slurm, or --scratch_dir args are provided
+    without the --distributed flag, an error is raised."""
     if args.distributed and not args.n_procs:
         parser.error("--n_procs is required if running with --distributed.")
     if not args.distributed and args.n_procs:
