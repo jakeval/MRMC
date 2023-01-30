@@ -1,6 +1,6 @@
 #! /bin/bash
 
-rm result-*     # remove previous stdout and stderr logs
+rm result-*     # For convenience, remove previous stdout and stderr logs
 
 # Arg $1: The config file to run. Path can be relative.
 # Arg $2: number of processes

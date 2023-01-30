@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Sequence, Optional
 from matplotlib import pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -91,13 +91,25 @@ def plot_path(
 
 
 def plot_paths_results(
-    paths_df,
-    index_df=None,
-    label_column=None,
-    run_colors=None,
-    path_markers=None,
-    alpha=None,
+    paths_df: pd.DataFrame,
+    experiment_config_df: pd.DataFrame = None,
+    label_column: Optional[str] = None,
+    run_colors: Optional[Sequence[str]] = None,
+    path_markers: Optional[Sequence[str]] = None,
+    alpha: Optional[float] = None,
 ):
+    """Plots the paths of many runs overlapping on the same figure. Paths from
+    the same run have the same color, but have different point markers.
+
+    Args:
+        paths_df: The paths to plot.
+        experiment_config_df: The experiment results index dataframe.
+        label_column: If the runs all vary only one parameter, each run will
+            be labeled with its value for this parameter.
+        run_colors: A sequence of colors to use when plotting runs one by one.
+        path_markers: A sequence of markers to use when plotting a run's paths
+            one by one.
+        alpha: The alpha transparency to use when plotting paths."""
     run_colors = run_colors or [
         "green",
         "orange",
@@ -118,9 +130,9 @@ def plot_paths_results(
         if not label_column:
             label = f"Run {run_id} paths"
         else:
-            column_value = index_df[index_df.run_id == run_id][
-                label_column
-            ].iloc[0]
+            column_value = experiment_config_df[
+                experiment_config_df.run_id == run_id
+            ][label_column].iloc[0]
             label = f"Paths with {label_column}={column_value}"
         plt.plot(
             [-10, -10],
