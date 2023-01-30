@@ -28,13 +28,13 @@ import numpy as np
 import pandas as pd
 
 
-_RESULTS_DIR = (  # MRMC/experiment_results/mrmc_results
+_RESULTS_DIR = (  # MRMC/experiment_results/dice_results
     pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
-    / "experiment_results/mrmc_results"
+    / "experiment_results/dice_results"
 )
 
 
-parser = argparse.ArgumentParser(description="Run an MRMC experiment.")
+parser = argparse.ArgumentParser(description="Run an DICE experiment.")
 parser.add_argument(
     "--config",
     type=str,
@@ -63,7 +63,7 @@ parser.add_argument(
     type=str,
     help=(
         "The directory to save the results to. Defaults to "
-        "MRMC/experiment_results/mrmc_results."
+        "MRMC/experiment_results/dice_results."
     ),
     default=None,
 )
@@ -166,11 +166,8 @@ def _get_dice(
     sparsity_weight: Optional[float],
     method: Optional[str],
 ):
-    if (
-        (proximity_weight
-         or diversity_weight
-         or sparsity_weight)
-        and not (method == "genetic")
+    if (proximity_weight or diversity_weight or sparsity_weight) and not (
+        method == "genetic"
     ):
         raise RuntimeError(
             "DICE optimization weights are only used when method='genetic'"
@@ -236,7 +233,7 @@ def run_dice(
         run_seed
     ).integers(0, 10000, size=3)
 
-    # initialize dataset, adapter, model, mrmc, and recourse iterator
+    # initialize dataset, adapter, model, dice, and recourse iterator
     dataset, dataset_info = _get_dataset(dataset_name)
     adapter = _get_recourse_adapter(
         dataset=dataset,
@@ -446,11 +443,11 @@ def main(
                 verbose=verbose,
             )
             if verbose:
-                print(f"Start executing {len(run_configs)} mrmc runs.")
+                print(f"Start executing {len(run_configs)} dice runs.")
             results = runner.run_trials(run_configs)
         else:
             if verbose:
-                print(f"Start executing {len(run_configs)} mrmc runs.")
+                print(f"Start executing {len(run_configs)} dice runs.")
             results = run_batch(run_configs, verbose)
         results_dir = save_results(results, results_dir, config, only_csv)
         if verbose:
