@@ -17,11 +17,19 @@ source ./../../.env/bin/activate
 
 let n_procs=$1-1
 
-if [ -z $3 ]
+if [ -z $4 ]
 then
     max_runs=""
 else
-    max_runs="--max_runs ${3}"
+    max_runs="--max_runs ${4}"
 fi
 
-srun -N 1 -n 1 --exclusive python ./run_dice_experiment.py --experiment --verbose --config ./config.json --n_procs $n_procs --slurm --distributed --scratch_dir $2 $max_runs
+srun -N 1 -n 1 --exclusive python ./run_dice_experiment.py \
+--experiment \
+--verbose \
+--config $3 \
+--n_procs $n_procs \
+--slurm \
+--distributed \
+--scratch_dir $2 \
+$max_runs
