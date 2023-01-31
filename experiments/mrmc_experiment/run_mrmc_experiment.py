@@ -225,6 +225,7 @@ def run_mrmc(
     dataset_name: str,
     model_type: str,
     cluster_seed: int,
+    sparsity: Optional[int] = None,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame]:
     """Runs MRMC using the given configurations.
@@ -273,6 +274,7 @@ def run_mrmc(
         volcano_degree=volcano_degree,
         step_size=step_size,
         confidence_threshold=confidence_cutoff,
+        sparsity=sparsity,
         random_seed=cluster_seed,
     )
     iterator = _get_recourse_iterator(adapter, mrmc, confidence_cutoff, model)
