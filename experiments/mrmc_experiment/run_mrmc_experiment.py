@@ -178,6 +178,7 @@ def _get_mrmc(
     step_size: float,
     confidence_threshold: float,
     random_seed: int,
+    sparsity: Optional[int] = None,
 ) -> mrmc_method.MRMC:
     """Gets the MRMC instance. Useful for testing."""
     return mrmc_method.MRMC(
@@ -194,6 +195,7 @@ def _get_mrmc(
         random_seed=random_seed,
         confidence_threshold=confidence_threshold,
         model=model,
+        sparsity=sparsity,
     )
 
 
