@@ -24,6 +24,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         label_column: str,
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
+        max_step_size: Optional[float] = None,
         positive_label: Any = 1,
         random_seed: Optional[int] = None,
     ):
@@ -52,6 +53,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
         self.random_generator = None
+        self.max_step_size = max_step_size
         if random_seed:
             self.random_generator = np.random.default_rng(seed=random_seed)
 
@@ -166,6 +168,12 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
             )
         if self.rescale_ratio:
             instructions = instructions * self.rescale_ratio
+        if self.max_step_size:
+            instructions_norm = np.linalg.norm(instructions)
+            if instructions_norm > self.max_step_size:
+                instructions = (
+                    instructions / instructions_norm
+                ) * self.max_step_size
         poi = self.transform_series(poi)
         counterfactual = poi + instructions
         return self.inverse_transform_series(counterfactual)

@@ -149,6 +149,7 @@ def _get_recourse_adapter(
     random_seed: Optional[int],
     noise_ratio: Optional[float],
     rescale_ratio: Optional[float],
+    max_step_size: Optional[float] = None,
 ) -> recourse_adapter.RecourseAdapter:
     """Gets the recourse adapter. Useful for unit testing."""
     return continuous_adapter.StandardizingAdapter(
@@ -156,6 +157,7 @@ def _get_recourse_adapter(
         rescale_ratio=rescale_ratio,
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
+        max_step_size=max_step_size,
         random_seed=random_seed,
     ).fit(dataset)
 
@@ -212,6 +214,7 @@ def run_dice(
     max_iterations: int,
     dataset_name: str,
     model_type: str,
+    max_step_size: Optional[float] = None,
     **_unused_kwargs: Any,
 ) -> pd.DataFrame:
     """Runs MRMC using the given configurations.
@@ -246,6 +249,7 @@ def run_dice(
         random_seed=adapter_seed,
         noise_ratio=noise_ratio,
         rescale_ratio=rescale_ratio,
+        max_step_size=max_step_size,
     )
     model = _get_model(model_type, dataset_name)
     dice = _get_dice(
