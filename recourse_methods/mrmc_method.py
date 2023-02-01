@@ -180,10 +180,10 @@ class MRM:
         positive_mask = dataset[adapter.label_column] == adapter.positive_label
         # Keep positively-labeled points with sufficiently high model
         # prediction confidence
-        if confidence_threshold:
-            positive_mask = positive_mask & (
-                model.predict_pos_proba(dataset) > confidence_threshold
-            )
+        confidence_threshold = confidence_threshold or 0.5
+        positive_mask = positive_mask & (
+            model.predict_pos_proba(dataset) > confidence_threshold
+        )
         positive_dataset = dataset[positive_mask]
         positive_embedded_dataset = adapter.transform(
             positive_dataset.drop(adapter.label_column, axis=1)
