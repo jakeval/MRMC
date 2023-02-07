@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 
+# TODO(@jakeval): Reconsider naming. https://github.com/jakeval/MRMC/issues/41
 def format_results(
     run_config: Mapping[str, Any], *data_dfs: pd.DataFrame
 ) -> Sequence[pd.DataFrame]:
