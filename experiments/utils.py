@@ -4,21 +4,23 @@ import numpy as np
 import pandas as pd
 
 
+# TODO(@jakeval): Reconsider naming. https://github.com/jakeval/MRMC/issues/41
 def format_results(
     run_config: Mapping[str, Any], *data_dfs: pd.DataFrame
 ) -> Sequence[pd.DataFrame]:
     """Formats result DataFrames with meta data from the run_config.
 
     It adds a run_id and batch_id column to the dataframes and creates a new
-    index dataframe which tracks the run config parameters and ids.
+    experient_config dataframe which tracks the run config parameters and ids.
 
     Args:
         run_config: The config to use when formatting the dataframes.
         data_dfs: The dataframes to format.
 
     Returns:
-        A list of results where the first element is the newly created index_df
-        and subsequent results are formatted results DataFrames."""
+        A list of results where the first element is the newly created
+        experiment_config_df and subsequent results are formatted results
+        DataFrames."""
     run_id = run_config["run_id"]
     batch_id = run_config["batch_id"]
     result_dfs = []
@@ -27,8 +29,10 @@ def format_results(
         result_df["run_id"] = run_id
         result_df["batch_id"] = batch_id
         result_dfs.append(result_df)
-    index_df = pd.DataFrame(dict((k, [v]) for k, v in run_config.items()))
-    return index_df, *result_dfs
+    experiment_config_df = pd.DataFrame(
+        dict((k, [v]) for k, v in run_config.items())
+    )
+    return experiment_config_df, *result_dfs
 
 
 def create_run_configs(

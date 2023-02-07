@@ -92,7 +92,7 @@ def plot_path(
 
 def plot_paths_results(
     paths_df: pd.DataFrame,
-    index_df: pd.DataFrame = None,
+    experiment_config_df: pd.DataFrame = None,
     label_column: Optional[str] = None,
     run_colors: Optional[Sequence[str]] = None,
     path_markers: Optional[Sequence[str]] = None,
@@ -103,7 +103,7 @@ def plot_paths_results(
 
     Args:
         paths_df: The paths to plot.
-        index_df: The experiment results index dataframe.
+        experiment_config_df: The experiment results index dataframe.
         label_column: If the runs all vary only one parameter, each run will
             be labeled with its value for this parameter.
         run_colors: A sequence of colors to use when plotting runs one by one.
@@ -130,9 +130,9 @@ def plot_paths_results(
         if not label_column:
             label = f"Run {run_id} paths"
         else:
-            column_value = index_df[index_df.run_id == run_id][
-                label_column
-            ].iloc[0]
+            column_value = experiment_config_df[
+                experiment_config_df.run_id == run_id
+            ][label_column].iloc[0]
             label = f"Paths with {label_column}={column_value}"
         plt.plot(
             [-10, -10],

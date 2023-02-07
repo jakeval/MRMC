@@ -60,10 +60,13 @@ class TestDICE(unittest.TestCase):
         counterfactuals = pd.DataFrame(
             {"col1": [5, -2], "col2": [3, 2]}, index=[10, 23]
         )
+
+        # multiple the POI and counterfactuals by 10 (because of the transform)
+        # then subtract the POI from the counterfactuals.
         expected_directions = pd.DataFrame(
             {
-                "col1": [50 - 0, -20 - 0],
-                "col2": [30 - 10, 20 - 10],
+                "col1": [50, -20],
+                "col2": [20, 10],
             }
         )
 
@@ -75,39 +78,23 @@ class TestDICE(unittest.TestCase):
             directions.to_numpy(), expected_directions.to_numpy()
         )
 
-    @mock.patch("dice_ml.Dice", autospec=True)
-    @mock.patch("data.recourse_adapter.RecourseAdapter", autospec=True)
-    def test_generate_counterfactuals(
-        self,
-        mock_adapter: mock.Mock,
-        mock_dice: mock.Mock,
-    ):
-        mock_counterfactual_kwargs = {"mock_arg": "mock_val"}
-        mock_self = mock.Mock(spec=dice_method.DiCE)
-        mock_self.adapter = mock_adapter
-        mock_adapter.label_column = "mock_label"
-        mock_adapter.positive_label = "mock_value"
-        mock_self.dice = mock_dice
-        mock_self.dice_counterfactual_kwargs = mock_counterfactual_kwargs
-        mock_self.random_seed = 968934
-        poi = pd.Series([0, 0], index=["col1", "col2"])
+    def test_format_dice_counterfactual_args(self):
+        poi = pd.Series([0, 1], index=["col1", "col2"])
         num_counterfactuals = 2
-
-        _ = dice_method.DiCE._generate_counterfactuals(
-            mock_self, poi, num_counterfactuals
-        )
-        args = mock_dice.generate_counterfactuals.call_args.kwargs
-
+        mock_counterfactual_kwargs = {"mock_arg": "mock_val"}
+        mock_seed = 0
         expected_args = {
-            "query_instances": pd.DataFrame({"col1": [0], "col2": [0]}),
+            "query_instances": pd.DataFrame({"col1": [0], "col2": [1]}),
             "total_CFs": 2,
             "desired_class": 1,
             "verbose": False,
-            "random_seed": mock_self.random_seed,
+            "mock_arg": "mock_val",
+            "random_seed": mock_seed,
         }
-        expected_args.update(mock_counterfactual_kwargs)
+        args = dice_method.DiCE._format_dice_counterfactual_args(
+            poi, num_counterfactuals, mock_counterfactual_kwargs, mock_seed
+        )
 
-        # Check that DICE is called with correct arguments.
         self.assertEqual(set(expected_args.keys()), set(args.keys()))
         for arg in sorted(expected_args.keys()):
             val = args[arg]
