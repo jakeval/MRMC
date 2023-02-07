@@ -130,8 +130,11 @@ class TestMRMC(unittest.TestCase):
         expected_cluster_centers = "mock centers"
         mock_kmeans().fit_predict.return_value = expected_cluster_assignments
         mock_kmeans().cluster_centers_ = expected_cluster_centers
+        random_seed = 199318
 
-        clusters = mrmc_method.MRMC._cluster_data(mock_data, n_clusters)
+        clusters = mrmc_method.MRMC._cluster_data(
+            mock_data, n_clusters, random_seed=random_seed
+        )
 
         expected_cluster_assignment_df = pd.DataFrame(
             {
@@ -146,7 +149,9 @@ class TestMRMC(unittest.TestCase):
             .all()
         )
         self.assertEqual(clusters.cluster_centers, expected_cluster_centers)
-        mock_kmeans.assert_called_with(n_clusters=n_clusters)
+        mock_kmeans.assert_called_with(
+            n_clusters=n_clusters, random_state=random_seed
+        )
 
     @mock.patch(
         "recourse_methods.mrmc_method.MRM._process_data", autospec=True
@@ -180,6 +185,7 @@ class TestMRMC(unittest.TestCase):
             cluster_assignments=mock_cluster_assignments, cluster_centers=None
         )
         mock_clustering.return_value = mock_clusters
+        random_seed = 193572
 
         mrmc = mrmc_method.MRMC(
             k_directions=3,
@@ -187,6 +193,7 @@ class TestMRMC(unittest.TestCase):
             dataset=mock_dataset,
             confidence_threshold=None,
             model=None,
+            random_seed=random_seed,
         )
 
         # Check that _process_data was called with correct arguments.
@@ -198,7 +205,9 @@ class TestMRMC(unittest.TestCase):
         )
 
         # Check that _cluster_data was called with filtered data.
-        mock_clustering.assert_called_with(mock_dataset, 3)
+        mock_clustering.assert_called_with(
+            mock_dataset, 3, random_seed=random_seed
+        )
 
         # Check that each MRM instance has the expected data indices.
         expected_mrm_data_indices = [[0, 1, 2], [3, 4], [5, 6]]
@@ -246,12 +255,15 @@ class TestMRMC(unittest.TestCase):
         )
         mock_clustering.return_value = mock_clusters
 
+        random_seed = 18349572
+
         mrmc = mrmc_method.MRMC(
             k_directions=3,
             adapter=None,
             dataset=mock_dataset,
             confidence_threshold=mock_threshold,
             model=None,
+            random_seed=random_seed,
         )
 
         # Check that _process_data was called with correct arguments.
@@ -263,7 +275,9 @@ class TestMRMC(unittest.TestCase):
         )
 
         # Check that _cluster_data was called with filtered data.
-        mock_clustering.assert_called_with(mock_processed_data, 3)
+        mock_clustering.assert_called_with(
+            mock_processed_data, 3, random_seed=random_seed
+        )
 
         # Check that each MRM instance has the expected data indices.
         expected_mrm_data_indices = [[1, 2], [4], [5, 6]]

@@ -82,15 +82,17 @@ class TestDICE(unittest.TestCase):
         poi = pd.Series([0, 1], index=["col1", "col2"])
         num_counterfactuals = 2
         mock_counterfactual_kwargs = {"mock_arg": "mock_val"}
+        mock_seed = 0
         expected_args = {
             "query_instances": pd.DataFrame({"col1": [0], "col2": [1]}),
             "total_CFs": 2,
             "desired_class": 1,
             "verbose": False,
             "mock_arg": "mock_val",
+            "random_seed": mock_seed,
         }
         args = dice_method.DiCE._format_dice_counterfactual_args(
-            poi, num_counterfactuals, mock_counterfactual_kwargs
+            poi, num_counterfactuals, mock_counterfactual_kwargs, mock_seed
         )
 
         self.assertEqual(set(expected_args.keys()), set(args.keys()))

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from data import recourse_adapter
-from typing import Any
+from typing import Any, Optional
 
 
 _MIN_DIRECTION = 1e-32
@@ -10,7 +10,9 @@ division."""
 
 
 def randomly_perturb_direction(
-    direction: recourse_adapter.EmbeddedSeries, ratio: float
+    direction: recourse_adapter.EmbeddedSeries,
+    ratio: float,
+    random_generator: Optional[np.random.Generator] = None,
 ) -> recourse_adapter.EmbeddedSeries:
     """Randomly changes a vector's direction while maintaining its magnitude.
 
@@ -24,6 +26,8 @@ def randomly_perturb_direction(
         direction: The vector to perturb.
         ratio: The amount of random noise to add as a ratio of the direction's
             original magnitude.
+        random_generator: An optional random generator to use when perturbing
+            the direction. Otherwise defaults to np.random.normal().
 
     Returns:
         A new vector of equal magnitude to the original but with a randomly
@@ -35,7 +39,11 @@ def randomly_perturb_direction(
     direction_norm = np.linalg.norm(direction)
     if direction_norm == 0:
         return direction
-    noise = np.random.normal(0, 1, len(direction))
+
+    if random_generator:
+        noise = random_generator.normal(0, 1, len(direction))
+    else:
+        noise = np.random.normal(0, 1, len(direction))
     noise_norm = np.linalg.norm(noise)
     if noise_norm == 0:
         return direction
@@ -77,6 +85,7 @@ def random_poi(
     label_column: str,
     label_value: Any = -1,
     drop_label: bool = True,
+    random_seed: Optional[int] = None,
 ) -> pd.Series:
     """Selects a random POI of the given label from the dataset.
 
@@ -85,11 +94,14 @@ def random_poi(
         label_column: The dataset column containing the class labels.
         label_value: The label value of the point to select.
         drop_label: Whether to drop the label from the returned POI.
+        random_seed: An optional random seed to select the POI with.
 
     Returns:
         A random row of the given label from the dataset.
     """
-    poi = dataset[dataset[label_column] == label_value].sample(1)
+    poi = dataset[dataset[label_column] == label_value].sample(
+        1, random_state=random_seed
+    )
     if drop_label:
         poi = poi.drop(label_column, axis=1)
 

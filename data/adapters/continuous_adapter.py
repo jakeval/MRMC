@@ -4,6 +4,7 @@ from typing import Sequence, Optional, Mapping, Any
 from core import utils
 from sklearn import preprocessing
 import pandas as pd
+import numpy as np
 
 
 # TODO(@jakeval): Reduce code duplication between this file and
@@ -24,6 +25,7 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         perturb_ratio: Optional[float] = None,
         rescale_ratio: Optional[float] = None,
         positive_label: Any = 1,
+        random_seed: Optional[int] = None,
     ):
         """Creates a new StandardizingAdapter.
 
@@ -35,6 +37,8 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
                 while interpreting recourse instructions.
             label_column: The name of the class label feature.
             positive_label: The label value of the positive class.
+            random_seed: Initializes this class with a deterministic random
+                state.
         """
         super().__init__(
             label_column=label_column, positive_label=positive_label
@@ -47,6 +51,9 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         self.continuous_features = None
         self.perturb_ratio = perturb_ratio
         self.rescale_ratio = rescale_ratio
+        self.random_generator = None
+        if random_seed:
+            self.random_generator = np.random.default_rng(seed=random_seed)
 
     def fit(self, dataset: pd.DataFrame) -> StandardizingAdapter:
         """Fits the adapter to a dataset.
@@ -153,7 +160,9 @@ class StandardizingAdapter(recourse_adapter.RecourseAdapter):
         """
         if self.perturb_ratio:
             instructions = utils.randomly_perturb_direction(
-                instructions, self.perturb_ratio
+                instructions,
+                self.perturb_ratio,
+                random_generator=self.random_generator,
             )
         if self.rescale_ratio:
             instructions = instructions * self.rescale_ratio
