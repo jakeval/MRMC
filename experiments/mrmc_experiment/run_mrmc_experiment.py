@@ -21,7 +21,6 @@ import shutil
 import pathlib
 import json
 import argparse
-import time
 
 from data import data_loader
 from data.datasets import base_loader
@@ -178,7 +177,6 @@ def _get_mrmc(
     step_size: float,
     confidence_threshold: float,
     random_seed: int,
-    sparsity: Optional[int] = None,
 ) -> mrmc_method.MRMC:
     """Gets the MRMC instance. Useful for testing."""
     return mrmc_method.MRMC(
@@ -195,7 +193,6 @@ def _get_mrmc(
         random_seed=random_seed,
         confidence_threshold=confidence_threshold,
         model=model,
-        sparsity=sparsity,
     )
 
 
@@ -227,7 +224,6 @@ def run_mrmc(
     dataset_name: str,
     model_type: str,
     cluster_seed: int,
-    sparsity: Optional[int] = None,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame]:
     """Runs MRMC using the given configurations.
@@ -276,7 +272,6 @@ def run_mrmc(
         volcano_degree=volcano_degree,
         step_size=step_size,
         confidence_threshold=confidence_cutoff,
-        sparsity=sparsity,
         random_seed=cluster_seed,
     )
     iterator = _get_recourse_iterator(adapter, mrmc, confidence_cutoff, model)
@@ -287,8 +282,6 @@ def run_mrmc(
         label_column=dataset_info.label_column,
         label_value=adapter.negative_label,
         random_seed=poi_seed,
-        model=model,
-        classifier_only=True,
     )
 
     # generate the paths
@@ -505,7 +498,6 @@ def main(
                 f"{num_processes} processes."
             )
     if not dry_run:
-        start_time = time.time()
         if distributed:
             runner = parallel_runner.ParallelRunner(
                 experiment_mainfile_path=__file__,
@@ -525,12 +517,7 @@ def main(
             if verbose:
                 print(f"Start executing {len(run_configs)} mrmc runs.")
             results = run_batch(run_configs, verbose)
-        execution_time = time.time() - start_time
-        config["run_metadata"] = {
-            "execution_time": execution_time,
-            "num_runs": len(run_configs),
-            "num_processes": num_processes or 1,
-        }
+            print("got results")
         results_dir = save_results(results, results_dir, config, only_csv)
         if verbose:
             print(f"Saved results to {results_dir}")
