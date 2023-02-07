@@ -21,7 +21,6 @@ import shutil
 import pathlib
 import json
 import argparse
-import time
 
 from data import data_loader
 from data.datasets import base_loader
@@ -41,13 +40,13 @@ import numpy as np
 import pandas as pd
 
 
-_RESULTS_DIR = (  # MRMC/experiment_results/dice_results
+_RESULTS_DIR = (  # MRMC/experiment_results/mrmc_results
     pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
-    / "experiment_results/dice_results"
+    / "experiment_results/mrmc_results"
 )
 
 
-parser = argparse.ArgumentParser(description="Run an DICE experiment.")
+parser = argparse.ArgumentParser(description="Run an MRMC experiment.")
 parser.add_argument(
     "--config",
     type=str,
@@ -76,7 +75,7 @@ parser.add_argument(
     type=str,
     help=(
         "The directory to save the results to. Defaults to "
-        "MRMC/experiment_results/dice_results."
+        "MRMC/experiment_results/mrmc_results."
     ),
     default=None,
 )
@@ -139,7 +138,7 @@ parser.add_argument(
 def _get_dataset(
     dataset_name: str,
 ) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
-    """Gets the dataset. Useful for unit testing."""
+    """Gets the dataset. Useful for testing."""
     return data_loader.load_data(data_loader.DatasetName(dataset_name))
 
 
@@ -149,21 +148,19 @@ def _get_recourse_adapter(
     random_seed: Optional[int],
     noise_ratio: Optional[float],
     rescale_ratio: Optional[float],
-    max_step_size: Optional[float] = None,
 ) -> recourse_adapter.RecourseAdapter:
-    """Gets the recourse adapter. Useful for unit testing."""
+    """Gets the recourse adapter. Useful for testing."""
     return continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
         rescale_ratio=rescale_ratio,
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
-        max_step_size=max_step_size,
         random_seed=random_seed,
     ).fit(dataset)
 
 
 def _get_model(model_type: str, dataset_name: str) -> model_interface.Model:
-    """Gets the model. Useful for unit testing."""
+    """Gets the model. Useful for testing."""
     return model_loader.load_model(
         model_type=model_constants.ModelType(model_type),
         dataset_name=data_loader.DatasetName(dataset_name),
@@ -171,22 +168,23 @@ def _get_model(model_type: str, dataset_name: str) -> model_interface.Model:
 
 
 def _get_dice(
-    num_paths: int,
     dataset: pd.DataFrame,
     adapter: recourse_adapter.RecourseAdapter,
-    dataset_info: base_loader.DatasetInfo,
     model: model_interface.Model,
+    num_paths: int,
+    continuous_features: float,
     confidence_threshold: float,
     random_seed: int,
-):
+) -> dice_method.DiCE:
+    """Gets the DICE instance. Useful for testing."""
     return dice_method.DiCE(
         k_directions=num_paths,
         adapter=adapter,
         dataset=dataset,
-        desired_confidence=confidence_threshold,
-        continuous_features=dataset_info.continuous_features,
+        continuous_features=continuous_features,
         model=model,
         random_seed=random_seed,
+        desired_confidence=confidence_threshold,
     )
 
 
@@ -196,7 +194,7 @@ def _get_recourse_iterator(
     confidence_cutoff: float,
     model: model_interface.Model,
 ) -> recourse_iterator.RecourseIterator:
-    """Gets the recourse iterator. Useful for unit testing."""
+    """Gets the recourse iterator. Useful for testing."""
     return recourse_iterator.RecourseIterator(
         adapter=adapter,
         recourse_method=dice,
@@ -207,25 +205,24 @@ def _get_recourse_iterator(
 
 def run_dice(
     run_seed: int,
-    confidence_cutoff: float,
+    confidence_cutoff: Optional[float],
     noise_ratio: Optional[float],
     rescale_ratio: Optional[float],
     num_paths: int,
     max_iterations: int,
     dataset_name: str,
     model_type: str,
-    max_step_size: Optional[float] = None,
     **_unused_kwargs: Any,
-) -> pd.DataFrame:
+) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame]:
     """Runs MRMC using the given configurations.
 
     Args:
         run_seed: The seed used in the run. All random numbers are derived from
-            this seed except the clustering, which uses cluster_seed.
+            this seed.
         confidence_cutoff: The target model confidence.
         noise_ratio: The optional ratio of noise to add.
         rescale_ratio: The optional ratio by which to rescale the direction.
-        num_paths: The number of recourse paths to generate.
+        num_paths: The number of paths to generate.
         max_iterations: The maximum number of iterations to take recourse steps
             for.
         dataset_name: The name of the dataset to use.
@@ -235,13 +232,12 @@ def run_dice(
 
     Returns:
         A list of recourse paths."""
-
     # generate random seeds
-    dice_seed, poi_seed, adapter_seed = np.random.default_rng(
+    poi_seed, adapter_seed, dice_seed = np.random.default_rng(
         run_seed
     ).integers(0, 10000, size=3)
 
-    # initialize dataset, adapter, model, dice, and recourse iterator
+    # initialize dataset, adapter, model, mrmc, and recourse iterator
     dataset, dataset_info = _get_dataset(dataset_name)
     adapter = _get_recourse_adapter(
         dataset=dataset,
@@ -249,15 +245,14 @@ def run_dice(
         random_seed=adapter_seed,
         noise_ratio=noise_ratio,
         rescale_ratio=rescale_ratio,
-        max_step_size=max_step_size,
     )
     model = _get_model(model_type, dataset_name)
     dice = _get_dice(
-        num_paths=num_paths,
         dataset=dataset,
         adapter=adapter,
-        dataset_info=dataset_info,
         model=model,
+        num_paths=num_paths,
+        continuous_features=dataset_info.continuous_features,
         confidence_threshold=confidence_cutoff,
         random_seed=dice_seed,
     )
@@ -269,8 +264,6 @@ def run_dice(
         label_column=dataset_info.label_column,
         label_value=adapter.negative_label,
         random_seed=poi_seed,
-        model=model,
-        classifier_only=True,
     )
 
     # generate the paths
@@ -282,7 +275,7 @@ def run_dice(
 
 
 def format_results(
-    dice_paths: pd.DataFrame,
+    mrmc_paths: Sequence[pd.DataFrame],
     run_config: Mapping[str, Any],
 ) -> Mapping[str, pd.DataFrame]:
     """Formats the results as DataFrames ready for analysis.
@@ -296,16 +289,16 @@ def format_results(
 
     Returns:
         A mapping from dataframe name to formatted dataframe."""
-    for i, path in enumerate(dice_paths):
+    for i, path in enumerate(mrmc_paths):
         path["step_id"] = np.arange(len(path))
         path["path_id"] = i
-    dice_paths_df = pd.concat(dice_paths).reset_index(drop=True)
-    experiment_config_df, dice_paths_df = experiment_utils.format_results(
-        run_config, dice_paths_df
+    mrmc_paths_df = pd.concat(mrmc_paths).reset_index(drop=True)
+    index_df, mrmc_paths_df = experiment_utils.format_results(
+        run_config, mrmc_paths_df
     )
     return {
-        "experiment_config_df": experiment_config_df,
-        "dice_paths_df": dice_paths_df,
+        "index_df": index_df,
+        "path_df": mrmc_paths_df,
     }
 
 
@@ -404,6 +397,7 @@ def run_batch(
 
 
 def validate_experiment_config(config: Mapping[str, Any]) -> None:
+    """Validates the formatting of an experiment config."""
     keys = set(config.keys())
     if keys != set(
         ["parameter_ranges", "num_runs", "random_seed", "experiment_name"]
@@ -418,6 +412,7 @@ def validate_experiment_config(config: Mapping[str, Any]) -> None:
 
 
 def validate_batch_config(config: Mapping[str, Any]) -> None:
+    """Validates the formatting of a batch config."""
     keys = set(config.keys())
     if keys != set(["run_configs", "experiment_name"]):
         raise RuntimeError(
@@ -472,7 +467,6 @@ def main(
                 f"{num_processes} processes."
             )
     if not dry_run:
-        start_time = time.time()
         if distributed:
             runner = parallel_runner.ParallelRunner(
                 experiment_mainfile_path=__file__,
@@ -486,18 +480,12 @@ def main(
                 verbose=verbose,
             )
             if verbose:
-                print(f"Start executing {len(run_configs)} dice runs.")
+                print(f"Start executing {len(run_configs)} mrmc runs.")
             results = runner.execute_runs(run_configs)
         else:
             if verbose:
-                print(f"Start executing {len(run_configs)} dice runs.")
+                print(f"Start executing {len(run_configs)} mrmc runs.")
             results = run_batch(run_configs, verbose)
-        execution_time = time.time() - start_time
-        config["run_metadata"] = {
-            "execution_time": execution_time,
-            "num_runs": len(run_configs),
-            "num_processes": num_processes or 1,
-        }
         results_dir = save_results(results, results_dir, config, only_csv)
         if verbose:
             print(f"Saved results to {results_dir}")
