@@ -1,8 +1,11 @@
 {
-    "experiment_name": "dice_step_size",
+    "experiment_name": "mrmc_sparsity",
     "num_runs": 30,
     "random_seed": 103932,
     "parameter_ranges": {
+        "step_size": [
+            1
+        ],
         "confidence_cutoff": [
             0.7
         ],
@@ -12,7 +15,13 @@
         "rescale_ratio": [
             null
         ],
-        "num_paths": [
+        "volcano_degree": [
+            2
+        ],
+        "volcano_cutoff": [
+            0.5
+        ],
+        "num_clusters": [
             3
         ],
         "dataset_name": [
@@ -24,10 +33,21 @@
         "max_iterations": [
             30
         ],
-        "max_step_size": [
+        "cluster_seed": [
+            1834823
+        ],
+        "sparsity": [
             1,
             2,
+            3,
+            4,
+            5,
             null
         ]
+    },
+    "run_metadata": {
+        "execution_time": 164.19562411308289,
+        "num_runs": 180,
+        "num_processes": 15
     }
 }
