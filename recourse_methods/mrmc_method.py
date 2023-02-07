@@ -119,7 +119,6 @@ class MRM:
         rescale_direction: Optional[RecourseRescaler] = normalize_rescaler,
         confidence_threshold: Optional[float] = None,
         model: Optional[model_interface.Model] = None,
-        sparsity: Optional[int] = None,
         _processed_data: Optional[recourse_adapter.EmbeddedDataFrame] = None,
     ):
         """Creates an MRM instance.
@@ -134,8 +133,6 @@ class MRM:
                 pointing to areas of sufficiently high model confidence.
             model: Used to check per-datapoint model confidence if
                 confidence_threshold is given.
-            sparsity: An optional integer S that, if specified, causes MRMC to
-                return directions with no more than S non-zero elements.
             _processed_data: A processed, recourse-ready dataset to use instead
                 of the provided dataset.
         """
@@ -151,7 +148,6 @@ class MRM:
         self.adapter = adapter
         self.alpha = alpha
         self.rescale_direction = rescale_direction
-        self.sparsity = sparsity
 
     @staticmethod
     def _process_data(
@@ -180,10 +176,10 @@ class MRM:
         positive_mask = dataset[adapter.label_column] == adapter.positive_label
         # Keep positively-labeled points with sufficiently high model
         # prediction confidence
-        confidence_threshold = confidence_threshold or 0.5
-        positive_mask = positive_mask & (
-            model.predict_pos_proba(dataset) > confidence_threshold
-        )
+        if confidence_threshold:
+            positive_mask = positive_mask & (
+                model.predict_pos_proba(dataset) > confidence_threshold
+            )
         positive_dataset = dataset[positive_mask]
         positive_embedded_dataset = adapter.transform(
             positive_dataset.drop(adapter.label_column, axis=1)
@@ -234,9 +230,6 @@ class MRM:
         direction = self.get_unnormalized_direction(poi)
         if self.rescale_direction:
             direction = self.rescale_direction(self, direction)
-        if self.sparsity:
-            idx = np.argpartition(-np.abs(direction), self.sparsity)
-            direction[idx[self.sparsity :]] = 0
         return direction
 
     def get_recourse_instructions(self, poi: pd.Series) -> Any:
@@ -292,7 +285,6 @@ class MRMC(RecourseMethod):
         clusters: Optional[Clusters] = None,
         confidence_threshold: Optional[float] = None,
         model: Optional[model_interface.Model] = None,
-        sparsity: Optional[int] = None,
         random_seed: Optional[int] = None,
     ):
         """Creates a new MRMC instance.
@@ -311,8 +303,6 @@ class MRMC(RecourseMethod):
                 pointing to areas of sufficiently high model confidence.
             model: Used to check per-datapoint model confidence if
                 confidence_threshold is given.
-            sparsity: An optional integer S that, if specified, causes MRMC to
-                return directions with no more than S non-zero elements.
             random_seed: The seed used to initialize MRMC and its random
                 operations.
         """
@@ -331,7 +321,6 @@ class MRMC(RecourseMethod):
         MRMC._validate_cluster_assignments(
             clusters.cluster_assignments, self.k_directions
         )
-        self.sparsity = sparsity
 
         mrms = []
         for cluster_index in range(k_directions):
@@ -345,7 +334,6 @@ class MRMC(RecourseMethod):
                 adapter=adapter,
                 alpha=alpha,
                 rescale_direction=rescale_direction,
-                sparsity=sparsity,
                 _processed_data=data_cluster,
             )
             mrms.append(mrm)
