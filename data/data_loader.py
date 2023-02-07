@@ -1,6 +1,10 @@
 import pandas as pd
 from typing import Optional, Mapping, Tuple
-from data.datasets import credit_card_default_loader, base_loader
+from data.datasets import (
+    credit_card_default_loader,
+    infinite_form_loader,
+    base_loader,
+)
 import enum
 
 
@@ -11,6 +15,7 @@ class DatasetName(enum.Enum):
     """
 
     CREDIT_CARD_DEFAULT = credit_card_default_loader.DATASET_NAME
+    INFINITE_FORM = infinite_form_loader.DATASET_NAME
     TOY_DATASET = "toy_data"
 
 
@@ -38,6 +43,8 @@ def load_data(
         loader = credit_card_default_loader.CreditCardDefaultLoader(
             data_dir=data_dir, **loader_kwargs
         )
+    elif dataset_name == DatasetName.INFINITE_FORM:
+        loader = infinite_form_loader.InfiniteFormLoader(data_dir=data_dir)
     elif dataset_name == DatasetName.TOY_DATASET:
         from confidence_checks import toy_data
 
