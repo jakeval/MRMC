@@ -1,6 +1,6 @@
 #! /bin/bash
 
-#SBATCH --job-name=mrmc_experiment
+#SBATCH --job-name=dice_experiment
 #SBATCH --output=result-%A_%a.out
 #SBATCH --error=result-%A_%a.err
 #SBATCH --time=0-00:07
@@ -24,7 +24,7 @@ else
     max_runs="--max_runs ${3}"
 fi
 
-srun -N 1 -n 1 --exclusive python ./run_mrmc_experiment.py \
+srun -N 1 -n 1 --exclusive python ./run_dice_experiment.py \
 --experiment \
 --verbose \
 --config ./config.json \
