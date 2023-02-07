@@ -281,7 +281,6 @@ def run_face(
         label_value=adapter.negative_label,
         random_seed=poi_seed,
         model=model,
-        classifier_only=True,
     )
 
     # generate the paths
