@@ -208,7 +208,9 @@ class Face(base_type.RecourseMethod):
             A DataFrame containing recourse directions for the POI."""
         return self._get_k_recourse_directions(poi, self.k_directions)
 
-    def get_all_recourse_instructions(self, poi: pd.Series) -> Sequence[Any]:
+    def get_all_recourse_instructions(
+        self, poi: pd.Series
+    ) -> Sequence[Optional[Any]]:
         """Generates different recourse instructions for the poi for each of
         the k_directions.
 
@@ -220,7 +222,8 @@ class Face(base_type.RecourseMethod):
             poi: The Point of Interest (POI) to find recourse instructions for.
 
         Returns:
-            A Sequence recourse instructions for the POI."""
+            A Sequence of k recourse instructions for the POI. Elements may be
+            None if there is no recourse available."""
         poi = self.adapter.transform_series(poi)
 
         # this may be an empty or incomplete dataframe
@@ -238,7 +241,7 @@ class Face(base_type.RecourseMethod):
 
     def get_kth_recourse_instructions(
         self, poi: pd.Series, dir_index: int
-    ) -> Any:
+    ) -> Optional[Any]:
         """Generates a single set of recourse instructions for the kth
         direction.
 
@@ -247,7 +250,8 @@ class Face(base_type.RecourseMethod):
             instruction for.
 
         Returns:
-            Instructions for the POI to achieve the recourse."""
+            Instructions for the POI to achieve the recourse. Returns None
+            if no recourse is possible."""
         poi = self.adapter.transform_series(poi)
         recourse_directions = self._get_k_recourse_directions(poi, 1)
         if len(recourse_directions) == 0:
