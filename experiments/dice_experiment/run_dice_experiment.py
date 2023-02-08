@@ -213,7 +213,7 @@ def run_dice(
     dataset_name: str,
     model_type: str,
     **_unused_kwargs: Any,
-) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame]:
+) -> Sequence[pd.DataFrame]:
     """Runs DICE using the given configurations.
 
     Args:
