@@ -353,6 +353,7 @@ def save_results(
         results: A mapping from filename to DataFrame.
         results_directory: Where to save the results.
         config: The config used to run this experiment.
+        only_csv: Whether to exclude saving the config.json file.
 
     Returns:
         The directory where the results are saved."""
