@@ -297,8 +297,8 @@ def format_results(
         run_config, dice_paths_df
     )
     return {
-        "index_df": index_df,
-        "path_df": dice_paths_df,
+        "experiment_config_df": index_df,
+        "dice_paths_df": dice_paths_df,
     }
 
 
