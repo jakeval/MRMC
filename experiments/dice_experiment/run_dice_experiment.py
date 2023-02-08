@@ -40,13 +40,13 @@ import numpy as np
 import pandas as pd
 
 
-_RESULTS_DIR = (  # MRMC/experiment_results/mrmc_results
+_RESULTS_DIR = (  # MRMC/experiment_results/dice_results
     pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
-    / "experiment_results/mrmc_results"
+    / "experiment_results/dice_results"
 )
 
 
-parser = argparse.ArgumentParser(description="Run an MRMC experiment.")
+parser = argparse.ArgumentParser(description="Run an DICE experiment.")
 parser.add_argument(
     "--config",
     type=str,
@@ -75,7 +75,7 @@ parser.add_argument(
     type=str,
     help=(
         "The directory to save the results to. Defaults to "
-        "MRMC/experiment_results/mrmc_results."
+        "MRMC/experiment_results/dice_results."
     ),
     default=None,
 )
@@ -214,7 +214,7 @@ def run_dice(
     model_type: str,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame]:
-    """Runs MRMC using the given configurations.
+    """Runs DICE using the given configurations.
 
     Args:
         run_seed: The seed used in the run. All random numbers are derived from
@@ -237,7 +237,7 @@ def run_dice(
         run_seed
     ).integers(0, 10000, size=3)
 
-    # initialize dataset, adapter, model, mrmc, and recourse iterator
+    # initialize dataset, adapter, model, dice, and recourse iterator
     dataset, dataset_info = _get_dataset(dataset_name)
     adapter = _get_recourse_adapter(
         dataset=dataset,
@@ -275,30 +275,30 @@ def run_dice(
 
 
 def format_results(
-    mrmc_paths: Sequence[pd.DataFrame],
+    dice_paths: Sequence[pd.DataFrame],
     run_config: Mapping[str, Any],
 ) -> Mapping[str, pd.DataFrame]:
     """Formats the results as DataFrames ready for analysis.
 
-    It adds the path_id and step_id keys to the mrmc_paths dataframe. It also
+    It adds the path_id and step_id keys to the dice_paths dataframe. It also
     adds keys from the experiment_utils.format_results() function.
 
     Args:
-        mrmc_paths: The list of path dataframes output by recourse iteration.
+        dice_paths: The list of path dataframes output by recourse iteration.
         run_config: The run config used to generate these results.
 
     Returns:
         A mapping from dataframe name to formatted dataframe."""
-    for i, path in enumerate(mrmc_paths):
+    for i, path in enumerate(dice_paths):
         path["step_id"] = np.arange(len(path))
         path["path_id"] = i
-    mrmc_paths_df = pd.concat(mrmc_paths).reset_index(drop=True)
-    index_df, mrmc_paths_df = experiment_utils.format_results(
-        run_config, mrmc_paths_df
+    dice_paths_df = pd.concat(dice_paths).reset_index(drop=True)
+    index_df, dice_paths_df = experiment_utils.format_results(
+        run_config, dice_paths_df
     )
     return {
         "index_df": index_df,
-        "path_df": mrmc_paths_df,
+        "path_df": dice_paths_df,
     }
 
 
@@ -480,11 +480,11 @@ def main(
                 verbose=verbose,
             )
             if verbose:
-                print(f"Start executing {len(run_configs)} mrmc runs.")
+                print(f"Start executing {len(run_configs)} dice runs.")
             results = runner.execute_runs(run_configs)
         else:
             if verbose:
-                print(f"Start executing {len(run_configs)} mrmc runs.")
+                print(f"Start executing {len(run_configs)} dice runs.")
             results = run_batch(run_configs, verbose)
         results_dir = save_results(results, results_dir, config, only_csv)
         if verbose:
