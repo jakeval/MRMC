@@ -8,6 +8,8 @@ If the --distributed flag is provided, it uses parallel_runner.py to
 split the runs into batches and execute them in parallel. The number of
 parallel processes is given by --num_processes."""
 
+# TODO(@jakeval): Reduce duplication. https://github.com/jakeval/MRMC/issues/44
+
 import os
 import sys
 import pathlib
