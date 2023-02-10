@@ -18,7 +18,7 @@ class TestFACE(unittest.TestCase):
             [[0, w, w, 0], [w, 0, 0, w], [w, 0, 0, w], [0, w, w, 0]]
         ).astype(np.float64)
 
-        edge_weights = face_method.Face._get_e_graph_weights(
+        edge_weights = face_method.FACE._get_e_graph_weights(
             embedded_data=dataset, epsilon=1
         )
         np.testing.assert_almost_equal(expected_edge_weights, edge_weights)
@@ -63,7 +63,7 @@ class TestFACE(unittest.TestCase):
         # The only candidate index should be 2 (true positive, high confidence)
         expected_candidate_indices = np.array([2])
 
-        face_method.Face.fit(mock_self)
+        face_method.FACE.fit(mock_self)
 
         np.testing.assert_equal(
             mock_self.candidate_indices, expected_candidate_indices
@@ -83,7 +83,7 @@ class TestFACE(unittest.TestCase):
         # lower than the alternative it ties with.
         expected_candidate_indices = np.array([3, 1])
 
-        candidate_indices = face_method.Face.get_k_best_candidate_indices(
+        candidate_indices = face_method.FACE.get_k_best_candidate_indices(
             distances, candidate_indices, k_candidates
         )
 
@@ -103,7 +103,7 @@ class TestFACE(unittest.TestCase):
         # weight.
         expected_candidate_indices = np.array([3])
 
-        candidate_indices = face_method.Face.get_k_best_candidate_indices(
+        candidate_indices = face_method.FACE.get_k_best_candidate_indices(
             distances, candidate_indices, k_candidates
         )
 
@@ -135,7 +135,7 @@ class TestFACE(unittest.TestCase):
         # point at index 2.
         expected_paths = [pd.DataFrame({"a": [0, 2, 3]})]
 
-        paths = face_method.Face._get_paths_from_indices(
+        paths = face_method.FACE._get_paths_from_indices(
             mock_self, target_indices, poi, predecessors
         )
 
@@ -191,7 +191,7 @@ class TestFACE(unittest.TestCase):
 
         expected_new_point_index = 3
 
-        new_graph, new_point_index = face_method.Face.append_new_point(
+        new_graph, new_point_index = face_method.FACE.append_new_point(
             mock_self, poi, graph
         )
 
@@ -202,7 +202,7 @@ class TestFACE(unittest.TestCase):
         poi = pd.Series([0], index=["a"])
         mock_self = mock.Mock(spec=["generate_paths"])
         mock_self.generate_paths.return_value = []  # no recourse returned
-        directions = face_method.Face._get_k_recourse_directions(
+        directions = face_method.FACE._get_k_recourse_directions(
             mock_self, poi, 2
         )
 
@@ -231,7 +231,7 @@ class TestFACE(unittest.TestCase):
 
         expected_instructions = [pd.Series([1], index=["a"], name=0), None]
 
-        instructions = face_method.Face.get_all_recourse_instructions(
+        instructions = face_method.FACE.get_all_recourse_instructions(
             mock_self, poi
         )
 
@@ -255,7 +255,7 @@ class TestFACE(unittest.TestCase):
         mock_self._get_k_recourse_directions.return_value = pd.DataFrame(
             {"a": []}  # no recourse is available
         )
-        instructions = face_method.Face.get_kth_recourse_instructions(
+        instructions = face_method.FACE.get_kth_recourse_instructions(
             mock_self, poi, 0
         )
 

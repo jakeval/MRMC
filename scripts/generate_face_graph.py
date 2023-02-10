@@ -52,7 +52,7 @@ def main(dataset_name, distance_threshold, graph_filepath, debug_subsample):
     ).fit(dataset)
     if debug_subsample:
         dataset = dataset.sample(n=debug_subsample)
-    face = face_method.Face(
+    face = face_method.FACE(
         dataset=dataset,
         adapter=adapter,
         model=None,  # doesn't matter

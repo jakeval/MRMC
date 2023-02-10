@@ -8,7 +8,12 @@ from recourse_methods import base_type
 from models import model_interface
 
 
-class Face(base_type.RecourseMethod):
+@numba.jit(nopython=True)
+def _get_edge_weight(distance, weight_bias):
+    return -np.log(distance) + weight_bias
+
+
+class FACE(base_type.RecourseMethod):
     def __init__(
         self,
         dataset: pd.DataFrame,
@@ -19,6 +24,7 @@ class Face(base_type.RecourseMethod):
         confidence_threshold: Optional[float] = None,
         graph_filepath: Optional[str] = None,
         counterfactual_mode: bool = True,
+        weight_bias: float = 0,
     ):
         self.dataset = dataset
         self.adapter = adapter
@@ -32,6 +38,7 @@ class Face(base_type.RecourseMethod):
         self.distance_threshold = distance_threshold
         self.k_directions = k_directions
         self.counterfactual_mode = counterfactual_mode
+        self.weight_bias = weight_bias
 
     def generate_graph(
         self,
@@ -43,7 +50,7 @@ class Face(base_type.RecourseMethod):
             self.dataset.drop(columns=self.adapter.label_column)
         )
         data.to_numpy()
-        graph_weights = Face._get_e_graph_weights(
+        graph_weights = FACE._get_e_graph_weights(
             data.to_numpy(), distance_threshold
         )
         sparse_graph_weights = sparse.csr_array(graph_weights)
@@ -53,7 +60,9 @@ class Face(base_type.RecourseMethod):
 
     @staticmethod
     @numba.jit(nopython=True)
-    def _get_e_graph_weights(embedded_data: np.ndarray, epsilon: float):
+    def _get_e_graph_weights(
+        embedded_data: np.ndarray, epsilon: float, weight_bias: float = 0
+    ) -> np.ndarray:
         n_samples = embedded_data.shape[0]
         kernel = np.zeros((n_samples, n_samples))
         for i in range(n_samples):
@@ -62,7 +71,9 @@ class Face(base_type.RecourseMethod):
                     embedded_data[i] - embedded_data[j]
                 )
                 if (pairwise_distance <= epsilon) and pairwise_distance > 0:
-                    kernel[i, j] = -np.log(pairwise_distance) + 1
+                    kernel[i, j] = _get_edge_weight(
+                        pairwise_distance, weight_bias
+                    )
                     kernel[j, i] = kernel[i, j]
         return kernel
 
@@ -91,12 +102,12 @@ class Face(base_type.RecourseMethod):
     ) -> Sequence[recourse_adapter.EmbeddedDataFrame]:
         distances, predecessors = self.dijkstra_search(poi, self.graph)
         # return distances, predecessors
-        target_indices = self.get_k_best_candidate_indices(
+        target_indices = FACE.get_k_best_candidate_indices(
             distances, self.candidate_indices, num_paths
         )
         if debug:
             return distances, predecessors, target_indices
-        return self.get_paths_from_indices(target_indices, poi, predecessors)
+        return self._get_paths_from_indices(target_indices, poi, predecessors)
 
     def dijkstra_search(
         self, poi: recourse_adapter.EmbeddedSeries, graph: sparse.csr_array
@@ -116,14 +127,33 @@ class Face(base_type.RecourseMethod):
         predecessors = np.where(predecessors == new_index, -1, predecessors)
         return distances, predecessors
 
+    @staticmethod
     def get_k_best_candidate_indices(
-        self,
         distances: np.ndarray,
         candidate_indices: np.ndarray,
         k_candidates: int,
     ) -> np.ndarray:
+        """Attempts to return the indices of the k best candidate
+        counterfactuals.
+
+        "Best" means it minimizes the edge weights along the shortest path
+        between it and the POI.
+
+        Because the inputs and outputs of this function are numpy arrays, the
+        indices it returns don't correspond to pandas indices of the source
+        data (if any exist).
+
+        If fewer than k viable candidates exist, it returns only as many as
+        possible. If no candidates exist, it returns an empty list.
+
+        If two candidates have the same distance, the candidate with lower
+        index is preferred.
+
+        Returns:
+            A list of at most k indices.
+        """
         sorted_candidate_indices = candidate_indices[
-            np.argsort(distances[candidate_indices])
+            np.argsort(distances[candidate_indices], kind="stable")
         ]
         candidate_indices = []
         for target_index in sorted_candidate_indices:
@@ -132,14 +162,19 @@ class Face(base_type.RecourseMethod):
             if np.isinf(distances[target_index]):  # there is no path to here
                 continue
             candidate_indices.append(target_index)
-        return candidate_indices
+        return np.array(candidate_indices)
 
-    def get_paths_from_indices(
+    def _get_paths_from_indices(
         self,
         target_indices: Sequence[int],
         poi: recourse_adapter.EmbeddedSeries,
         predecessors: Sequence[int],
     ) -> Sequence[recourse_adapter.EmbeddedDataFrame]:
+        """Constructs the recourse paths given the counterfactuals and a
+        predecessors array.
+
+        Predecessors array: if point i preceeds j in a path, then
+        predecessors[j] = i."""
         paths = []
         data = self.adapter.transform(
             self.dataset.drop(columns=self.adapter.label_column)
@@ -157,14 +192,35 @@ class Face(base_type.RecourseMethod):
     def append_new_point(
         self, poi: recourse_adapter.EmbeddedSeries, graph: sparse.csr_array
     ) -> Tuple[sparse.csr_array, int]:
+        """Creates a graph identical to its input but with the addition of the
+        POI.
+
+        It calculates the weighted distances between the POI and the other
+        points in the graph and adds these distances to the graph by
+        concatenating to the distance matrix.
+
+        Returns:
+            A new graph including the POI and the index at which the POI
+            appears in the graph."""
         poi = poi.to_numpy()
         data = self.adapter.transform(
             self.dataset.drop(columns=self.adapter.label_column)
         ).to_numpy()
         distances = np.linalg.norm(data - poi, axis=1)
-        weights = -np.log(np.where(distances == 0, 1, distances)) + 1
-        weights[distances == 0] = 0
-        weights[distances > self.distance_threshold] = 0
+
+        # A mask for values we don't want to calculate weights on
+        exclude_mask = (distances == 0) | (distances > self.distance_threshold)
+
+        weights = distances.copy()
+
+        # excluded values are 0
+        weights[exclude_mask] = 0
+
+        # all other values get the appropriate weight
+        weights[~exclude_mask] = _get_edge_weight.pyfunc(
+            distances[~exclude_mask], self.weight_bias
+        )
+
         row_update = sparse.csr_array(weights)
         col_update = sparse.csr_array(np.hstack([weights, [0]])[None, :].T)
         graph = sparse.vstack([graph, row_update])
@@ -226,7 +282,7 @@ class Face(base_type.RecourseMethod):
             None if there is no recourse available."""
         poi = self.adapter.transform_series(poi)
 
-        # this may be an empty or incomplete dataframe
+        # this may be an empty dataframe
         recourse_directions = self.get_all_recourse_directions(poi)
         instructions = []
         for i in range(recourse_directions.shape[0]):
@@ -248,6 +304,8 @@ class Face(base_type.RecourseMethod):
         Args:
             poi: The Point of Interest (POI) to get the kth recourse
             instruction for.
+            dir_index: Which of the k sets of instructions to return. FACE
+                ignores this argument.
 
         Returns:
             Instructions for the POI to achieve the recourse. Returns None

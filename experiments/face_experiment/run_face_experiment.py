@@ -181,10 +181,10 @@ def _get_face(
     distance_threshold: float,
     graph_filepath: str,
     counterfactual_mode: bool,
-) -> face_method.Face:
+) -> face_method.FACE:
     """Gets the FACE instance. Useful for unit testing."""
     full_graph_filepath = os.path.join(_MRMC_DIR, graph_filepath)
-    return face_method.Face(
+    return face_method.FACE(
         dataset=dataset,
         adapter=adapter,
         model=model,
@@ -198,7 +198,7 @@ def _get_face(
 
 def _get_recourse_iterator(
     adapter: recourse_adapter.RecourseAdapter,
-    face: face_method.Face,
+    face: face_method.FACE,
     confidence_cutoff: float,
     model: model_interface.Model,
 ) -> recourse_iterator.RecourseIterator:
