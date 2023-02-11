@@ -83,7 +83,7 @@ class TestFACE(unittest.TestCase):
         # lower than the alternative it ties with.
         expected_candidate_indices = np.array([3, 1])
 
-        candidate_indices = face_method.FACE.get_k_best_candidate_indices(
+        candidate_indices = face_method.FACE._get_k_best_candidate_indices(
             distances, candidate_indices, k_candidates
         )
 
@@ -103,7 +103,7 @@ class TestFACE(unittest.TestCase):
         # weight.
         expected_candidate_indices = np.array([3])
 
-        candidate_indices = face_method.FACE.get_k_best_candidate_indices(
+        candidate_indices = face_method.FACE._get_k_best_candidate_indices(
             distances, candidate_indices, k_candidates
         )
 

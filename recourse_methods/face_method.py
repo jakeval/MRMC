@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Sequence, Any, Optional, Tuple
 import pandas as pd
 import numpy as np
@@ -10,7 +11,7 @@ from models import model_interface
 
 @numba.jit(nopython=True)
 def _get_edge_weight(distance, weight_bias):
-    """Calculates edge weights.
+    """Converts pairwise distances to edge weights in the FACE graph.
 
     Args:
         distance: a float or a numpy array.
@@ -60,6 +61,11 @@ class FACE(base_type.RecourseMethod):
         counterfactual_mode: bool = True,
         weight_bias: float = 0,
     ):
+        """Creates a new FACE object.
+
+        If `graph_filepath` is not provided, the user should provide the graph
+        using FACE.generate_graph().
+        """
         self.dataset = dataset
         self.adapter = adapter
         self.model = model
@@ -77,8 +83,12 @@ class FACE(base_type.RecourseMethod):
     def generate_graph(
         self,
         filepath_to_save_to: Optional[str] = None,
-    ):
-        """Generates and saves an epsilon-graph."""
+    ) -> FACE:
+        """Generates and saves an epsilon-graph.
+
+        If `filepath_to_save_to` is provided, the graph is saved to that
+        path as an .npz file. All directories along the path must already
+        exist."""
         data = self.adapter.transform(
             self.dataset.drop(columns=self.adapter.label_column)
         )
@@ -98,6 +108,22 @@ class FACE(base_type.RecourseMethod):
     def _get_e_graph_weights(
         embedded_data: np.ndarray, epsilon: float, weight_bias: float = 0
     ) -> np.ndarray:
+        """Calculates a epsilon-weighted adjacency matrix from the data.
+
+        This adjacency matrix is the FACE graph. Edges of distance greater
+        than epsilon are zero-weighted. All other edges are weighted according
+        to a weighting function (typically -log(x)).
+
+        Args:
+            embedded_data: The data to calculate a graph over.
+            epsilon: Edges greater than epsilon have weight zero.
+            weight_bias: This value is added to all non-zero edge weights. It
+                is useful for avoiding negative values when epsilon is large.
+
+        Returns:
+            An adjacency matrix where the i,jth entry is the edge weight
+            between points i and j.
+        """
         n_samples = embedded_data.shape[0]
         kernel = np.zeros((n_samples, n_samples))
         for i in range(n_samples):
@@ -112,12 +138,8 @@ class FACE(base_type.RecourseMethod):
                     kernel[j, i] = kernel[i, j]
         return kernel
 
-    def fit(self):
-        """Fits FACE to a dataset.
-
-        It does this by finding the indices of each point to use as a candidate
-        when performing graph search. These candidates are the potential
-        counterfactuals returned by FACE."""
+    def fit(self) -> FACE:
+        """Fits FACE by finding candidate counterfactuals in the dataset."""
         candidate_mask = (
             self.dataset[self.adapter.label_column]
             == self.adapter.positive_label
@@ -133,20 +155,43 @@ class FACE(base_type.RecourseMethod):
         return self
 
     def generate_paths(
-        self, poi: recourse_adapter.EmbeddedSeries, num_paths: int, debug=False
+        self, poi: recourse_adapter.EmbeddedSeries, num_paths: int
     ) -> Sequence[recourse_adapter.EmbeddedDataFrame]:
-        distances, predecessors = self.dijkstra_search(poi, self.graph)
-        # return distances, predecessors
-        target_indices = FACE.get_k_best_candidate_indices(
+        """Generates FACE paths for the Point of Interest (POI)."""
+        distances, predecessors = self._dijkstra_search(poi, self.graph)
+        target_indices = FACE._get_k_best_candidate_indices(
             distances, self.candidate_indices, num_paths
         )
-        if debug:
-            return distances, predecessors, target_indices
         return self._get_paths_from_indices(target_indices, poi, predecessors)
 
-    def dijkstra_search(
+    def _dijkstra_search(
         self, poi: recourse_adapter.EmbeddedSeries, graph: sparse.csr_array
-    ):
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Perform dijkstra's search over the FACE graph.
+
+        In addition to the distance array described below, it also returns a
+        predecessors array encoding the shortest paths found by dijkstra's
+        algorithm. The ith entry of the predecessors array is the index of its
+        direct predecessor along the shortest path from the POI to i.
+
+        For example, if the path to point 3 is POI->0->1->2, then
+        predecessors[2] = 1.
+
+        If there is no path between the POI and i, then
+        predecessors[i] = -9999.
+
+        If the ith entry is preceeded by the POI itself, then
+        predecessors[i] = -1.
+
+        Args:
+            poi: The Point of Interest to start the search from.
+            graph: The weighted adjacency matrix to search over.
+
+        Returns:
+            A distance array where the ith entry is the length of the shortest
+                path between datapoint i and the POI.
+            A predecessors array where the ith entry is the index of the point
+                preceeding point i in the shortest path from the POI to i."""
         # temporarily add the POI to the graph so we can use it in graph search
         graph, new_index = self.append_new_point(poi, graph)
         distances, predecessors = sparse.csgraph.dijkstra(
@@ -163,7 +208,7 @@ class FACE(base_type.RecourseMethod):
         return distances, predecessors
 
     @staticmethod
-    def get_k_best_candidate_indices(
+    def _get_k_best_candidate_indices(
         distances: np.ndarray,
         candidate_indices: np.ndarray,
         k_candidates: int,
@@ -183,6 +228,13 @@ class FACE(base_type.RecourseMethod):
 
         If two candidates have the same distance, the candidate with lower
         index is preferred.
+
+        Args:
+            distances: A distance array where the ith entry is the length of
+                the shortest path between datapoint i and the POI.
+            candidate_indices: The indices of potential counterfactuals in the
+                dataset.
+            k_candidates: The number of candidate indices to return.
 
         Returns:
             A list of at most k indices.
@@ -205,11 +257,31 @@ class FACE(base_type.RecourseMethod):
         poi: recourse_adapter.EmbeddedSeries,
         predecessors: Sequence[int],
     ) -> Sequence[recourse_adapter.EmbeddedDataFrame]:
-        """Constructs the recourse paths given the counterfactuals and a
+        """Constructs the recourse paths given the target counterfactuals and a
         predecessors array.
 
-        Predecessors array: if point i preceeds j in a path, then
-        predecessors[j] = i."""
+        The ith entry of the predecessors array is the index of its
+        direct predecessor along the shortest path from the POI to i.
+
+        For example, if the path to point 3 is POI->0->1->2, then
+        predecessors[2] = 1.
+
+        If there is no path between the POI and i, then
+        predecessors[i] = -9999.
+
+        If the ith entry is preceeded by the POI itself, then
+        predecessors[i] = -1.
+
+        Args:
+            target_indices: The indices of the counterfactuals to use as path
+                targets.
+            poi: The Point of Interest which starts the path.
+            predecessors: An array of direct predecessor indices along the
+                shortest path from the POI.
+
+        Returns:
+            A list of recourse paths written as DataFrames.
+        """
         paths = []
         data = self.adapter.transform(
             self.dataset.drop(columns=self.adapter.label_column)
@@ -251,11 +323,12 @@ class FACE(base_type.RecourseMethod):
         # excluded values are 0
         weights[exclude_mask] = 0
 
-        # all other values get the appropriate weight
+        # all other values get the appropriate weight for the POI
         weights[~exclude_mask] = _get_edge_weight.pyfunc(
             distances[~exclude_mask], self.weight_bias
         )
 
+        # update the adjacency matrix with the POI's weights
         row_update = sparse.csr_array(weights)
         col_update = sparse.csr_array(np.hstack([weights, [0]])[None, :].T)
         graph = sparse.vstack([graph, row_update])
@@ -268,8 +341,12 @@ class FACE(base_type.RecourseMethod):
         """Generates different recourse directions for the poi for each of the
         k_directions.
 
+        If all k recourse directions are available, returns a dataframe with k
+        rows. If no recourse is available, returns an empty dataframe.
+
         Args:
             poi: The Point of Interest (POI) to find recourse directions for.
+            k_directionts: The number of recourse directions to generate.
 
         Returns:
             A DataFrame containing recourse directions for the POI."""
@@ -291,6 +368,9 @@ class FACE(base_type.RecourseMethod):
     ) -> recourse_adapter.EmbeddedDataFrame:
         """Generates different recourse directions for the poi for each of the
         k_directions.
+
+        If all k recourse directions are available, returns a dataframe with k
+        rows. If no recourse is available, returns an empty dataframe.
 
         Args:
             poi: The Point of Interest (POI) to find recourse directions for.
