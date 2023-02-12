@@ -135,6 +135,24 @@ parser.add_argument(
 )
 
 
+def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
+    """Validates the command line args.
+
+    If the --distributed flag is provided without the --n_procs flag, an error
+    is raised. If the --n_procs, --slurm, or --scratch_dir args are provided
+    without the --distributed flag, an error is raised."""
+    if args.distributed and not args.n_procs:
+        parser.error("--n_procs is required if running with --distributed.")
+    if not args.distributed and args.n_procs:
+        parser.error("--n_procs is ignored if not running with --distributed.")
+    if not args.distributed and args.slurm:
+        parser.error("--slurm is ignored if not running with --distributed.")
+    if not args.distributed and args.scratch_dir:
+        parser.error(
+            "--scratch_dir is ignored if not running with --distributed."
+        )
+
+
 def _get_dataset(
     dataset_name: str,
 ) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
@@ -523,24 +541,6 @@ def main(
             print(f"Saved results to {results_dir}")
     elif verbose:
         print("Terminate without executing runs because --dry_run is set.")
-
-
-def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
-    """Validates the command line args.
-
-    If the --distributed flag is provided without the --n_procs flag, an error
-    is raised. If the --n_procs, --slurm, or --scratch_dir args are provided
-    without the --distributed flag, an error is raised."""
-    if args.distributed and not args.n_procs:
-        parser.error("--n_procs is required if running with --distributed.")
-    if not args.distributed and args.n_procs:
-        parser.error("--n_procs is ignored if not running with --distributed.")
-    if not args.distributed and args.slurm:
-        parser.error("--slurm is ignored if not running with --distributed.")
-    if not args.distributed and args.scratch_dir:
-        parser.error(
-            "--scratch_dir is ignored if not running with --distributed."
-        )
 
 
 if __name__ == "__main__":
