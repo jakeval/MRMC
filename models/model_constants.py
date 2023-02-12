@@ -17,6 +17,7 @@ class ModelType(enum.Enum):
 
     LOGISTIC_REGRESSION = "logistic_regression"
     RANDOM_FOREST = "random_forest"
+    TOY_MODEL = "toy_model"
 
 
 class ModelName(enum.Enum):

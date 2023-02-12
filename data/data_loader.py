@@ -11,6 +11,7 @@ class DatasetName(enum.Enum):
     """
 
     CREDIT_CARD_DEFAULT = credit_card_default_loader.DATASET_NAME
+    TOY_DATASET = "toy_data"
 
 
 def load_data(
@@ -37,6 +38,10 @@ def load_data(
         loader = credit_card_default_loader.CreditCardDefaultLoader(
             data_dir=data_dir, **loader_kwargs
         )
+    elif dataset_name == DatasetName.TOY_DATASET:
+        from confidence_checks import toy_data
+
+        return toy_data.get_data()
     else:
         raise NotImplementedError(f"Dataset {dataset_name} isn't supported.")
     return loader.load_data(), loader.dataset_info
