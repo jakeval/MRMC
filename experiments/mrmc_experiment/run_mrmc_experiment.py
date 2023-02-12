@@ -95,10 +95,13 @@ parser.add_argument(
     "--distributed",
     action="store_true",
     default=False,
-    help="If true, execute the runs in parallel across -n_procs processes.",
+    help=(
+        "If true, execute the runs in parallel across -num_processes "
+        "processes."
+    ),
 )
 parser.add_argument(
-    "--n_procs",
+    "--num_processes",
     type=int,
     default=None,
     help=(
@@ -138,13 +141,17 @@ parser.add_argument(
 def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
     """Validates the command line args.
 
-    If the --distributed flag is provided without the --n_procs flag, an error
-    is raised. If the --n_procs, --slurm, or --scratch_dir args are provided
-    without the --distributed flag, an error is raised."""
-    if args.distributed and not args.n_procs:
-        parser.error("--n_procs is required if running with --distributed.")
-    if not args.distributed and args.n_procs:
-        parser.error("--n_procs is ignored if not running with --distributed.")
+    If the --distributed flag is provided without the --num_processes flag, an
+    error is raised. If the --num_processes, --slurm, or --scratch_dir args are
+    provided without the --distributed flag, an error is raised."""
+    if args.distributed and not args.num_processes:
+        parser.error(
+            "--num_processes is required if running with --distributed."
+        )
+    if not args.distributed and args.num_processes:
+        parser.error(
+            "--num_processes is ignored if not running with --distributed."
+        )
     if not args.distributed and args.slurm:
         parser.error("--slurm is ignored if not running with --distributed.")
     if not args.distributed and args.scratch_dir:
@@ -556,7 +563,7 @@ if __name__ == "__main__":
         verbose=args.verbose,
         dry_run=args.dry_run,
         distributed=args.distributed,
-        num_processes=args.n_procs,
+        num_processes=args.num_processes,
         use_slurm=args.slurm,
         scratch_dir=args.scratch_dir,
         only_csv=args.only_csv,
