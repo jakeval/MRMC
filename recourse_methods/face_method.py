@@ -89,6 +89,12 @@ class FACE(base_type.RecourseMethod):
         If `filepath_to_save_to` is provided, the graph is saved to that
         path as an .npz file. All directories along the path must already
         exist."""
+        if self.distance_threshold >= np.exp(self.weight_bias):
+            raise RuntimeError(
+                "Tried to generate a graph with negative edge weights. This ",
+                "This happens if the distance threshold is equal to or ",
+                "greater than exp(weight_bias). Try increasing weight_bias.",
+            )
         data = self.adapter.transform(
             self.dataset.drop(columns=self.adapter.label_column)
         )
@@ -324,6 +330,7 @@ class FACE(base_type.RecourseMethod):
         weights[exclude_mask] = 0
 
         # all other values get the appropriate weight for the POI
+
         weights[~exclude_mask] = _get_edge_weight.pyfunc(
             distances[~exclude_mask], self.weight_bias
         )
