@@ -70,8 +70,6 @@ class TestFACE(unittest.TestCase):
         )
 
     def test_get_k_best_candidate_indices(self):
-        # test when everything works
-
         # There are four points, but only the last three are candidates.
         distances = np.array([1, 2, 2, 1])
         candidate_indices = np.array([1, 2, 3])
@@ -90,8 +88,6 @@ class TestFACE(unittest.TestCase):
         np.testing.assert_equal(candidate_indices, expected_candidate_indices)
 
     def test_get_k_best_candidate_indices_failure(self):
-        # test when everything works
-
         # There are four points, but only the last three are candidates.
         distances = np.array([1, np.inf, np.inf, 1])
         candidate_indices = np.array([1, 2, 3])
@@ -114,13 +110,14 @@ class TestFACE(unittest.TestCase):
         autospec=True,
     )
     def test_get_paths_from_indices(self, mock_adapter):
+        # Test reconstructing the path POI -> 1 -> 2
         dataset = pd.DataFrame({"a": [1, 2, 3], "label": [0, 1, 1]})
         poi = pd.Series([0], index=["a"])
         target_indices = [2]
         predecessors = [
-            -9999,  # there is no path to this point
-            -1,  # this point is connected to the POI
-            1,  # the path to here runs through point 1
+            -9999,  # there is no path to point 0
+            -1,  # point 1 is connected to the POI
+            1,  # the path to point 2 runs through point 1
         ]
 
         # The adapter is the identity function
@@ -184,12 +181,12 @@ class TestFACE(unittest.TestCase):
             [
                 [0, 1, 0, 0],  # The distance is 0
                 [1, 0, 1, 1],  # The distance is 1
-                [0, 1, 0, 0],  # The distance is 2, which is set to 0
+                [0, 1, 0, 0],  # The distance is 2, which has weight 0
                 [0, 1, 0, 0],  # The distance is 0
             ]
         )
 
-        expected_new_point_index = 3
+        expected_new_point_index = 3  # The point should be appended to the end
 
         new_graph, new_point_index = face_method.FACE.append_new_point(
             mock_self, poi, graph
@@ -199,6 +196,7 @@ class TestFACE(unittest.TestCase):
         np.testing.assert_equal(new_graph.toarray(), expected_new_graph)
 
     def test_get_k_recourse_directions_no_recourse(self):
+        # Test getting recourse directions when no recourse is available.
         poi = pd.Series([0], index=["a"])
         mock_self = mock.Mock(spec=["generate_paths"])
         mock_self.generate_paths.return_value = []  # no recourse returned
@@ -215,6 +213,7 @@ class TestFACE(unittest.TestCase):
         autospec=True,
     )
     def test_get_all_recourse_instructions_nones(self, mock_adapter):
+        # Test getting recourse instructions when no recourse is available.
         poi = pd.Series([0], index=["a"])
 
         # adapter is the identity function
@@ -229,6 +228,7 @@ class TestFACE(unittest.TestCase):
             {"a": [1]}  # but only one direction is returned
         )
 
+        # we expect the missing instructions to be replaced with None
         expected_instructions = [pd.Series([1], index=["a"], name=0), None]
 
         instructions = face_method.FACE.get_all_recourse_instructions(
@@ -247,7 +247,8 @@ class TestFACE(unittest.TestCase):
         "recourse_methods.face_method.recourse_adapter.RecourseAdapter",
         autospec=True,
     )
-    def test_get_kth_recourse_instructions(self, mock_adapter):
+    def test_get_kth_recourse_instructions_none(self, mock_adapter):
+        # Test getting a recourse instruction when no recourse is available.
         poi = pd.Series([0], index=["a"])
 
         mock_self = mock.Mock(spec=["adapter", "_get_k_recourse_directions"])
