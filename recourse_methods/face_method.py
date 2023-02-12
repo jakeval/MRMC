@@ -63,7 +63,7 @@ class FACE(base_type.RecourseMethod):
     ):
         """Creates a new FACE object.
 
-        If `graph_filepath` is not provided, the user should provide the graph
+        If `graph_filepath` is not provided, the user should create the graph
         using FACE.generate_graph().
         """
         self.dataset = dataset
