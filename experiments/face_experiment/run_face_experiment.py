@@ -483,6 +483,19 @@ def get_run_configs(
         return config["run_configs"]
 
 
+def do_dry_run(
+    config: Mapping[str, Any],
+    is_experiment: bool = False,
+    max_runs: Optional[int] = None,
+):
+    run_configs = get_run_configs(config, is_experiment)
+    print(f"Got configs for {len(run_configs)} runs.")
+    if max_runs:
+        run_configs = run_configs[:max_runs]
+        print(f"Throw out all but --max_runs={max_runs} run_configs.")
+    print("Terminate without executing runs because --dry_run is set.")
+
+
 def main(
     config: Mapping[str, Any],
     is_experiment: bool = False,
@@ -496,6 +509,9 @@ def main(
     scratch_dir: Optional[str] = None,
     only_csv: bool = False,
 ):
+    if dry_run:
+        do_dry_run(config, is_experiment, max_runs)
+        return
     run_configs = get_run_configs(config, is_experiment)
     if verbose:
         print(f"Got configs for {len(run_configs)} runs.")
@@ -509,39 +525,27 @@ def main(
                 f"{len(run_configs)} runs will be distributed over "
                 f"{num_processes} processes."
             )
-    if not dry_run:
-        start_time = time.time()
-        if distributed:
-            runner = parallel_runner.ParallelRunner(
-                experiment_mainfile_path=__file__,
-                final_results_dir=_get_results_dir(
-                    results_dir, config["experiment_name"]
-                ),
-                num_processes=num_processes,
-                use_slurm=use_slurm,
-                random_seed=None,  # not needed for reproducibility.
-                scratch_dir=scratch_dir,
-                verbose=verbose,
-            )
-            if verbose:
-                print(f"Start executing {len(run_configs)} face runs.")
-            results = runner.execute_runs(run_configs)
-        else:
-            if verbose:
-                print(f"Start executing {len(run_configs)} face runs.")
-            results = run_batch(run_configs, verbose)
-        execution_time = time.time() - start_time
-        config["run_metadata"] = {
-            "execution_time": execution_time,
-            "num_runs": len(run_configs),
-            "num_processes": num_processes or 1,
-        }
-
-        results_dir = save_results(results, results_dir, config, only_csv)
+        runner = parallel_runner.ParallelRunner(
+            experiment_mainfile_path=__file__,
+            final_results_dir=_get_results_dir(
+                results_dir, config["experiment_name"]
+            ),
+            num_processes=num_processes,
+            use_slurm=use_slurm,
+            random_seed=None,  # not needed for reproducibility.
+            scratch_dir=scratch_dir,
+            verbose=verbose,
+        )
         if verbose:
-            print(f"Saved results to {results_dir}")
-    elif verbose:
-        print("Terminate without executing runs because --dry_run is set.")
+            print(f"Start executing {len(run_configs)} mrmc runs.")
+        results = runner.execute_runs(run_configs)
+    else:
+        if verbose:
+            print(f"Start executing {len(run_configs)} mrmc runs.")
+        results = run_batch(run_configs, verbose)
+    results_dir = save_results(results, results_dir, config, only_csv)
+    if verbose:
+        print(f"Saved results to {results_dir}")
 
 
 if __name__ == "__main__":
