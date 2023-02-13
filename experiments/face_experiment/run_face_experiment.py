@@ -41,6 +41,8 @@ import numpy as np
 import pandas as pd
 
 
+# TODO(@jakeval): https://github.com/jakeval/MRMC/issues/44
+
 _RESULTS_DIR = (  # MRMC/experiment_results/face_results
     pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
     / "experiment_results/face_results"
