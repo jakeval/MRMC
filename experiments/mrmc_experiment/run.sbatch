@@ -17,17 +17,17 @@ source ./../../.env/bin/activate
 
 let num_processes=$1-1
 
-if [ -z $3 ]
+if [ -z $4 ]
 then
     max_runs=""
 else
-    max_runs="--max_runs ${3}"
+    max_runs="--max_runs ${4}"
 fi
 
 srun -N 1 -n 1 --exclusive python ./run_mrmc_experiment.py \
 --experiment \
 --verbose \
---config ./config.json \
+--config $3 \
 --num_processes $num_processes \
 --slurm \
 --distributed \

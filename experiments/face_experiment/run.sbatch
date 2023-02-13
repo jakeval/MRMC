@@ -28,7 +28,7 @@ srun -N 1 -n 1 --exclusive python ./run_face_experiment.py \
 --experiment \
 --verbose \
 --config $3 \
---n_procs $n_procs \
+--num_processes $num_processes \
 --slurm \
 --distributed \
 --scratch_dir $2 \
