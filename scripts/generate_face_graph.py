@@ -1,9 +1,12 @@
+"""Generates and saves a FACE graph for a given dataset."""
+
 import os
 import sys
 
 #  Append MRMC/. to the path to fix imports.
 sys.path.append(os.path.join(os.getcwd(), ".."))
 
+from typing import Optional
 import pathlib
 import argparse
 
@@ -39,18 +42,18 @@ parser.add_argument(
     type=int,
     default=None,
     help=(
-        "Optionally, the number of points to use sample from the datase when",
+        "Optionally, the number of points to sample from the datase when",
         " generating the graph.",
     ),
 )
 
 
 def main(
-    dataset_name,
-    distance_threshold,
-    weight_bias,
-    graph_filepath,
-    debug_subsample,
+    dataset_name: str,
+    distance_threshold: float,
+    weight_bias: float,
+    graph_filepath: str,
+    debug_subsample: Optional[int],
 ):
     parent_directory = pathlib.Path(graph_filepath).parent
     if not os.path.exists(parent_directory):
