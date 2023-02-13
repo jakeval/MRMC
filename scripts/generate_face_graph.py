@@ -1,9 +1,12 @@
+"""Generates and saves a FACE graph for a given dataset."""
+
 import os
 import sys
 
 #  Append MRMC/. to the path to fix imports.
 sys.path.append(os.path.join(os.getcwd(), ".."))
 
+from typing import Optional
 import pathlib
 import argparse
 
@@ -24,6 +27,12 @@ parser.add_argument(
     help=("The maximum distance to create edges between."),
 )
 parser.add_argument(
+    "--weight_bias",
+    type=float,
+    default=0,
+    help=("The bias to add to each edge weight."),
+)
+parser.add_argument(
     "--graph_filepath",
     type=str,
     help=("The *.npz filepath to save the graph to."),
@@ -33,13 +42,19 @@ parser.add_argument(
     type=int,
     default=None,
     help=(
-        "Optionally, the number of points to use sample from the datase when",
+        "Optionally, the number of points to sample from the datase when",
         " generating the graph.",
     ),
 )
 
 
-def main(dataset_name, distance_threshold, graph_filepath, debug_subsample):
+def main(
+    dataset_name: str,
+    distance_threshold: float,
+    weight_bias: float,
+    graph_filepath: str,
+    debug_subsample: Optional[int],
+):
     parent_directory = pathlib.Path(graph_filepath).parent
     if not os.path.exists(parent_directory):
         os.makedirs(parent_directory)
@@ -52,17 +67,17 @@ def main(dataset_name, distance_threshold, graph_filepath, debug_subsample):
     ).fit(dataset)
     if debug_subsample:
         dataset = dataset.sample(n=debug_subsample)
-    face = face_method.Face(
+    face = face_method.FACE(
         dataset=dataset,
         adapter=adapter,
         model=None,  # doesn't matter
         k_directions=1,  # doesn't matter
         distance_threshold=distance_threshold,
         confidence_threshold=0.6,  # doesn't matter
+        weight_bias=weight_bias,
     )
     print("Begin graph generation...")
     face.generate_graph(
-        distance_threshold=distance_threshold,
         filepath_to_save_to=graph_filepath,
     )
     print("Finished!")
@@ -73,6 +88,7 @@ if __name__ == "__main__":
     main(
         args.dataset,
         args.distance_threshold,
+        args.weight_bias,
         args.graph_filepath,
         args.debug_subsample,
     )

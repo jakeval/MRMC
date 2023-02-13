@@ -418,7 +418,9 @@ class MRMC(RecourseMethod):
             directions.append(mrm.get_recourse_direction(poi).to_frame().T)
         return pd.concat(directions).reset_index(drop=True)
 
-    def get_all_recourse_instructions(self, poi: pd.Series) -> Sequence[Any]:
+    def get_all_recourse_instructions(
+        self, poi: pd.Series
+    ) -> Sequence[Optional[Any]]:
         """Generates different recourse instructions for the poi for each of
         the k_directions.
 
@@ -428,6 +430,7 @@ class MRMC(RecourseMethod):
 
         Returns:
             A list where each element is a different recourse instruction.
+            MRMC always returns all k requested recourse instructions.
         """
         instructions = []
         for mrm in self.mrms:
@@ -436,9 +439,11 @@ class MRMC(RecourseMethod):
 
     def get_kth_recourse_instructions(
         self, poi: pd.Series, direction_index: int
-    ) -> Any:
+    ) -> Optional[Any]:
         """Generates a single set of recourse instructions for the kth
-        direction."""
+        direction.
+
+        MRMC never returns None instructions."""
         return self.mrms[direction_index].get_recourse_instructions(poi)
 
 

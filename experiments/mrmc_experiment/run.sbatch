@@ -15,7 +15,7 @@ export OMP_NUM_THREADS=2
 
 source ./../../.env/bin/activate
 
-let n_procs=$1-1
+let num_processes=$1-1
 
 if [ -z $3 ]
 then
@@ -28,7 +28,7 @@ srun -N 1 -n 1 --exclusive python ./run_mrmc_experiment.py \
 --experiment \
 --verbose \
 --config ./config.json \
---n_procs $n_procs \
+--num_processes $num_processes \
 --slurm \
 --distributed \
 --scratch_dir $2 \

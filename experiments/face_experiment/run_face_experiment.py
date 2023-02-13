@@ -1,6 +1,6 @@
-"""A mainfile for running MRMC experiments.
+"""A mainfile for running FACE experiments.
 
-It executes a batch of MRMC runs. If the --experiment flag is provided, it
+It executes a batch of FACE runs. If the --experiment flag is provided, it
 constructs the batch of run configs from an experiment config by performing
 grid search over the experiment config parameters.
 
@@ -40,6 +40,8 @@ from experiments import parallel_runner
 import numpy as np
 import pandas as pd
 
+
+# TODO(@jakeval): https://github.com/jakeval/MRMC/issues/44
 
 _RESULTS_DIR = (  # MRMC/experiment_results/face_results
     pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
@@ -100,10 +102,13 @@ parser.add_argument(
     "--distributed",
     action="store_true",
     default=False,
-    help="If true, execute the runs in parallel across -n_procs processes.",
+    help=(
+        "If true, execute the runs in parallel across -num_processes "
+        "processes."
+    ),
 )
 parser.add_argument(
-    "--n_procs",
+    "--num_processes",
     type=int,
     default=None,
     help=(
@@ -138,6 +143,28 @@ parser.add_argument(
         "won't be saved alongside the results."
     ),
 )
+
+
+def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
+    """Validates the command line args.
+
+    If the --distributed flag is provided without the --num_processes flag, an
+    error is raised. If the --num_processes, --slurm, or --scratch_dir args are
+    provided without the --distributed flag, an error is raised."""
+    if args.distributed and not args.num_processes:
+        parser.error(
+            "--num_processes is required if running with --distributed."
+        )
+    if not args.distributed and args.num_processes:
+        parser.error(
+            "--num_processes is ignored if not running with --distributed."
+        )
+    if not args.distributed and args.slurm:
+        parser.error("--slurm is ignored if not running with --distributed.")
+    if not args.distributed and args.scratch_dir:
+        parser.error(
+            "--scratch_dir is ignored if not running with --distributed."
+        )
 
 
 def _get_dataset(
@@ -181,10 +208,10 @@ def _get_face(
     distance_threshold: float,
     graph_filepath: str,
     counterfactual_mode: bool,
-) -> face_method.Face:
+) -> face_method.FACE:
     """Gets the FACE instance. Useful for unit testing."""
     full_graph_filepath = os.path.join(_MRMC_DIR, graph_filepath)
-    return face_method.Face(
+    return face_method.FACE(
         dataset=dataset,
         adapter=adapter,
         model=model,
@@ -198,7 +225,7 @@ def _get_face(
 
 def _get_recourse_iterator(
     adapter: recourse_adapter.RecourseAdapter,
-    face: face_method.Face,
+    face: face_method.FACE,
     confidence_cutoff: float,
     model: model_interface.Model,
 ) -> recourse_iterator.RecourseIterator:
@@ -297,7 +324,7 @@ def format_results(
 ) -> Mapping[str, pd.DataFrame]:
     """Formats the results as DataFrames ready for analysis.
 
-    It adds the path_id and step_id keys to the mrmc_paths dataframe. It also
+    It adds the path_id and step_id keys to the face_paths dataframe. It also
     adds keys from the experiment_utils.format_results() function.
 
     Args:
@@ -457,6 +484,19 @@ def get_run_configs(
         return config["run_configs"]
 
 
+def do_dry_run(
+    config: Mapping[str, Any],
+    is_experiment: bool = False,
+    max_runs: Optional[int] = None,
+):
+    run_configs = get_run_configs(config, is_experiment)
+    print(f"Got configs for {len(run_configs)} runs.")
+    if max_runs:
+        run_configs = run_configs[:max_runs]
+        print(f"Throw out all but --max_runs={max_runs} run_configs.")
+    print("Terminate without executing runs because --dry_run is set.")
+
+
 def main(
     config: Mapping[str, Any],
     is_experiment: bool = False,
@@ -470,6 +510,9 @@ def main(
     scratch_dir: Optional[str] = None,
     only_csv: bool = False,
 ):
+    if dry_run:
+        do_dry_run(config, is_experiment, max_runs)
+        return
     run_configs = get_run_configs(config, is_experiment)
     if verbose:
         print(f"Got configs for {len(run_configs)} runs.")
@@ -483,57 +526,27 @@ def main(
                 f"{len(run_configs)} runs will be distributed over "
                 f"{num_processes} processes."
             )
-    if not dry_run:
-        start_time = time.time()
-        if distributed:
-            runner = parallel_runner.ParallelRunner(
-                experiment_mainfile_path=__file__,
-                final_results_dir=_get_results_dir(
-                    results_dir, config["experiment_name"]
-                ),
-                num_processes=num_processes,
-                use_slurm=use_slurm,
-                random_seed=None,  # not needed for reproducibility.
-                scratch_dir=scratch_dir,
-                verbose=verbose,
-            )
-            if verbose:
-                print(f"Start executing {len(run_configs)} face runs.")
-            results = runner.execute_runs(run_configs)
-        else:
-            if verbose:
-                print(f"Start executing {len(run_configs)} face runs.")
-            results = run_batch(run_configs, verbose)
-        execution_time = time.time() - start_time
-        config["run_metadata"] = {
-            "execution_time": execution_time,
-            "num_runs": len(run_configs),
-            "num_processes": num_processes or 1,
-        }
-
-        results_dir = save_results(results, results_dir, config, only_csv)
-        if verbose:
-            print(f"Saved results to {results_dir}")
-    elif verbose:
-        print("Terminate without executing runs because --dry_run is set.")
-
-
-def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
-    """Validates the command line args.
-
-    If the --distributed flag is provided without the --n_procs flag, an error
-    is raised. If the --n_procs, --slurm, or --scratch_dir args are provided
-    without the --distributed flag, an error is raised."""
-    if args.distributed and not args.n_procs:
-        parser.error("--n_procs is required if running with --distributed.")
-    if not args.distributed and args.n_procs:
-        parser.error("--n_procs is ignored if not running with --distributed.")
-    if not args.distributed and args.slurm:
-        parser.error("--slurm is ignored if not running with --distributed.")
-    if not args.distributed and args.scratch_dir:
-        parser.error(
-            "--scratch_dir is ignored if not running with --distributed."
+        runner = parallel_runner.ParallelRunner(
+            experiment_mainfile_path=__file__,
+            final_results_dir=_get_results_dir(
+                results_dir, config["experiment_name"]
+            ),
+            num_processes=num_processes,
+            use_slurm=use_slurm,
+            random_seed=None,  # not needed for reproducibility.
+            scratch_dir=scratch_dir,
+            verbose=verbose,
         )
+        if verbose:
+            print(f"Start executing {len(run_configs)} mrmc runs.")
+        results = runner.execute_runs(run_configs)
+    else:
+        if verbose:
+            print(f"Start executing {len(run_configs)} mrmc runs.")
+        results = run_batch(run_configs, verbose)
+    results_dir = save_results(results, results_dir, config, only_csv)
+    if verbose:
+        print(f"Saved results to {results_dir}")
 
 
 if __name__ == "__main__":
@@ -549,7 +562,7 @@ if __name__ == "__main__":
         verbose=args.verbose,
         dry_run=args.dry_run,
         distributed=args.distributed,
-        num_processes=args.n_procs,
+        num_processes=args.num_processes,
         use_slurm=args.slurm,
         scratch_dir=args.scratch_dir,
         only_csv=args.only_csv,

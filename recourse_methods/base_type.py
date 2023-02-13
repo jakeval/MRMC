@@ -1,5 +1,5 @@
 import abc
-from typing import Sequence, Any
+from typing import Sequence, Any, Optional
 import pandas as pd
 from data import recourse_adapter
 
@@ -22,13 +22,18 @@ class RecourseMethod(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_all_recourse_instructions(self, poi: pd.Series) -> Sequence[Any]:
+    def get_all_recourse_instructions(
+        self, poi: pd.Series
+    ) -> Sequence[Optional[Any]]:
         """Generates different recourse instructions for the poi for each of
         the k_directions.
 
         Whereas recourse directions are vectors in embedded space,
         instructions are human-readable guides for how to follow those
         directions in the original data space.
+
+        It always returns a sequence of length k. If no recourse is possible,
+        it returns a sequence of k None values.
 
         Args:
             poi: The Point of Interest (POI) to find recourse instructions for.
@@ -40,7 +45,7 @@ class RecourseMethod(abc.ABC):
     @abc.abstractmethod
     def get_kth_recourse_instructions(
         self, poi: pd.Series, direction_index: int
-    ) -> Any:
+    ) -> Optional[Any]:
         """Generates a single set of recourse instructions for the kth
         direction.
 
@@ -49,5 +54,6 @@ class RecourseMethod(abc.ABC):
             instruction for.
 
         Returns:
-            Instructions for the POI to achieve the recourse.
+            Instructions for the POI to achieve the recourse. If no recourse
+            is possible, returns None.
         """
