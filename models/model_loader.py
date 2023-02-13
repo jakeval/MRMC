@@ -27,11 +27,11 @@ def load_model(
     elif model_type == model_constants.ModelType.TOY_MODEL:
         from confidence_checks import identity_adapter, toy_model, toy_data
 
-        _, dataset_info = toy_data.get_data()
+        dataset, dataset_info = toy_data.get_data()
         adapter = identity_adapter.IdentityAdapter(
             label_column=dataset_info.label_column,
             positive_label=dataset_info.positive_label,
-        )
+        ).fit(dataset)
         return toy_model.ToyModel(adapter)
     else:
         raise NotImplementedError(
