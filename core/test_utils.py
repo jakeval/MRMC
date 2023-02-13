@@ -1,6 +1,7 @@
 import unittest
 from unittest import mock
 import numpy as np
+import pandas as pd
 from core import utils
 
 
@@ -70,3 +71,12 @@ class TestUtils(unittest.TestCase):
         new_direction = utils.constant_step_size(np.array([1, 1]), 0)
         expected_direction = np.array([0, 0])
         np.testing.assert_almost_equal(new_direction, expected_direction)
+
+    @mock.patch("core.utils.model_interface.Model", autospec=True)
+    def test_random_poi(self, mock_model):
+        # Test that random_poi selects the negatively classified point
+        dataset = pd.DataFrame({"a": [0, 1], "label": [-1, 1]})
+        mock_model.predict.return_value = np.array([1, -1])
+        poi = utils.random_poi(dataset, "label", -1, mock_model)
+        expected_poi = dataset.drop(columns="label").iloc[1]
+        pd.testing.assert_series_equal(poi, expected_poi)
