@@ -434,6 +434,8 @@ def _get_results_dir(results_directory, experiment_name):
     return results_directory or os.path.join(_RESULTS_DIR, experiment_name)
 
 
+# TODO(@jakeval): The `run` naming here is unclear due to Issue 41
+# https://github.com/jakeval/MRMC/issues/41
 def run_batch(
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
