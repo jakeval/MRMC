@@ -31,7 +31,6 @@ class RecourseIterator:
         self.model = model
         self.adapter = adapter
 
-    # TODO(@jakeval): Confidence check
     def iterate_k_recourse_paths(
         self, poi: pd.Series, max_iterations: int
     ) -> Sequence[pd.DataFrame]:
@@ -46,19 +45,21 @@ class RecourseIterator:
             A sequence of DataFrames where each DataFrame is a path and each
             row of a given DataFrame is a single step in the path.
         """
+        paths = []
+
+        # Generate the instructions for how to start the paths.
         all_instructions = self.recourse_method.get_all_recourse_instructions(
             poi
         )
-        # Start the paths from the POI
-        counterfactuals = []
-        for instructions in all_instructions:
+
+        # Follow the instructions and continue each path
+        for direction_index, instructions in enumerate(all_instructions):
+            if instructions is None:
+                paths.append(poi.to_frame().T)
+                continue
             counterfactual = self.adapter.interpret_instructions(
                 poi, instructions
             )
-            counterfactuals.append(counterfactual)
-        paths = []
-        # Finish the paths by iterating one path at a time
-        for direction_index, counterfactual in enumerate(counterfactuals):
             rest_of_path = self.iterate_recourse_path(
                 counterfactual, direction_index, max_iterations - 1
             )
@@ -68,7 +69,6 @@ class RecourseIterator:
             paths.append(path)
         return paths
 
-    # TODO(@jakeval): Confidence check
     def iterate_recourse_path(
         self, poi: pd.Series, direction_index: int, max_iterations: int
     ) -> pd.DataFrame:
@@ -101,6 +101,8 @@ class RecourseIterator:
             instructions = self.recourse_method.get_kth_recourse_instructions(
                 poi, direction_index
             )
+            if instructions is None:
+                break
             poi = self.adapter.interpret_instructions(poi, instructions)
             path.append(poi.to_frame().T)
         return pd.concat(path).reset_index(drop=True)

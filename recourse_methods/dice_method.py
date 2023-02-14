@@ -91,7 +91,9 @@ class DiCE(base_type.RecourseMethod):
         directions = self._counterfactuals_to_directions(poi, counterfactuals)
         return directions
 
-    def get_all_recourse_instructions(self, poi: pd.Series) -> Sequence[Any]:
+    def get_all_recourse_instructions(
+        self, poi: pd.Series
+    ) -> Sequence[Optional[Any]]:
         """Generates different recourse instructions for the poi for each of
         the k_directions.
 
@@ -119,7 +121,7 @@ class DiCE(base_type.RecourseMethod):
 
     def get_kth_recourse_instructions(
         self, poi: pd.Series, direction_index: int
-    ) -> Any:
+    ) -> Optional[Any]:
         """Generates a single set of recourse instructions for the kth
         direction.
 
