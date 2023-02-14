@@ -1,12 +1,14 @@
-"""A mainfile for running MRMC experiments.
+"""A mainfile for running DICE experiments.
 
-It executes a batch of MRMC runs. If the --experiment flag is provided, it
+It executes a batch of DICE runs. If the --experiment flag is provided, it
 constructs the batch of run configs from an experiment config by performing
 grid search over the experiment config parameters.
 
 If the --distributed flag is provided, it uses parallel_runner.py to
 split the runs into batches and execute them in parallel. The number of
 parallel processes is given by --num_processes."""
+
+# TODO(@jakeval): Reduce duplication. https://github.com/jakeval/MRMC/issues/44
 
 import os
 import sys
@@ -29,7 +31,7 @@ from data import recourse_adapter
 from models import model_constants
 from models import model_interface
 from models import model_loader
-from recourse_methods import mrmc_method
+from recourse_methods import dice_method
 from core import recourse_iterator
 from core import utils
 from experiments import utils as experiment_utils
@@ -39,13 +41,13 @@ import numpy as np
 import pandas as pd
 
 
-_RESULTS_DIR = (  # MRMC/experiment_results/mrmc_results
+_RESULTS_DIR = (  # MRMC/experiment_results/dice_results
     pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
-    / "experiment_results/mrmc_results"
+    / "experiment_results/dice_results"
 )
 
 
-parser = argparse.ArgumentParser(description="Run an MRMC experiment.")
+parser = argparse.ArgumentParser(description="Run an DICE experiment.")
 parser.add_argument(
     "--config",
     type=str,
@@ -74,7 +76,7 @@ parser.add_argument(
     type=str,
     help=(
         "The directory to save the results to. Defaults to "
-        "MRMC/experiment_results/mrmc_results."
+        "MRMC/experiment_results/dice_results."
     ),
     default=None,
 )
@@ -191,93 +193,77 @@ def _get_model(model_type: str, dataset_name: str) -> model_interface.Model:
     )
 
 
-def _get_mrmc(
+def _get_dice(
     dataset: pd.DataFrame,
     adapter: recourse_adapter.RecourseAdapter,
     model: model_interface.Model,
-    num_clusters: int,
-    volcano_cutoff: float,
-    volcano_degree: float,
-    step_size: float,
+    num_paths: int,
+    continuous_features: float,
     confidence_threshold: float,
     random_seed: int,
-) -> mrmc_method.MRMC:
-    """Gets the MRMC instance. Useful for testing."""
-    return mrmc_method.MRMC(
-        k_directions=num_clusters,
+) -> dice_method.DiCE:
+    """Gets the DICE instance. Useful for testing."""
+    return dice_method.DiCE(
+        k_directions=num_paths,
         adapter=adapter,
         dataset=dataset,
-        alpha=mrmc_method.get_volcano_alpha(
-            cutoff=volcano_cutoff,
-            degree=volcano_degree,
-        ),
-        rescale_direction=mrmc_method.get_constant_step_size_rescaler(
-            step_size
-        ),
-        random_seed=random_seed,
-        confidence_threshold=confidence_threshold,
+        continuous_features=continuous_features,
         model=model,
+        random_seed=random_seed,
+        desired_confidence=confidence_threshold,
     )
 
 
 def _get_recourse_iterator(
     adapter: recourse_adapter.RecourseAdapter,
-    mrmc: mrmc_method.MRMC,
+    dice: dice_method.DiCE,
     confidence_cutoff: float,
     model: model_interface.Model,
 ) -> recourse_iterator.RecourseIterator:
     """Gets the recourse iterator. Useful for testing."""
     return recourse_iterator.RecourseIterator(
         adapter=adapter,
-        recourse_method=mrmc,
+        recourse_method=dice,
         certainty_cutoff=confidence_cutoff,
         model=model,
     )
 
 
-def run_mrmc(
+def run_dice(
     run_seed: int,
-    step_size: float,
     confidence_cutoff: Optional[float],
     noise_ratio: Optional[float],
     rescale_ratio: Optional[float],
-    volcano_degree: float,
-    volcano_cutoff: float,
-    num_clusters: int,
+    num_paths: int,
     max_iterations: int,
     dataset_name: str,
     model_type: str,
-    cluster_seed: int,
     **_unused_kwargs: Any,
-) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame]:
-    """Runs MRMC using the given configurations.
+) -> Sequence[pd.DataFrame]:
+    """Runs DICE using the given configurations.
 
     Args:
         run_seed: The seed used in the run. All random numbers are derived from
-            this seed except the clustering, which uses cluster_seed.
-        step_size: The step size to use when rescaling the recourse.
+            this seed.
         confidence_cutoff: The target model confidence.
         noise_ratio: The optional ratio of noise to add.
         rescale_ratio: The optional ratio by which to rescale the direction.
-        volcano_degree: The degree to use in the MRM volcano alpha function.
-        volcano_cutoff: The cutoff to use in the MRM volcano alpha function.
-        num_clusters: The number of clusters to use when generating paths.
+        num_paths: The number of paths to generate.
         max_iterations: The maximum number of iterations to take recourse steps
             for.
         dataset_name: The name of the dataset to use.
         model_type: The type of model to use.
-        cluster_seed: The seed to use for clustering.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
     Returns:
-        A list of recourse paths and a dataframe containing cluster info."""
+        A list of recourse paths."""
     # generate random seeds
-    poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
-        0, 10000, size=2
-    )
+    poi_seed, adapter_seed, dice_seed = np.random.default_rng(
+        run_seed
+    ).integers(0, 10000, size=3)
 
-    # initialize dataset, adapter, model, mrmc, and recourse iterator
+    # initialize dataset, adapter, model, dice, and recourse iterator
     dataset, dataset_info = _get_dataset(dataset_name)
     adapter = _get_recourse_adapter(
         dataset=dataset,
@@ -287,18 +273,16 @@ def run_mrmc(
         rescale_ratio=rescale_ratio,
     )
     model = _get_model(model_type, dataset_name)
-    mrmc = _get_mrmc(
+    dice = _get_dice(
         dataset=dataset,
         adapter=adapter,
         model=model,
-        num_clusters=num_clusters,
-        volcano_cutoff=volcano_cutoff,
-        volcano_degree=volcano_degree,
-        step_size=step_size,
+        num_paths=num_paths,
+        continuous_features=dataset_info.continuous_features,
         confidence_threshold=confidence_cutoff,
-        random_seed=cluster_seed,
+        random_seed=dice_seed,
     )
-    iterator = _get_recourse_iterator(adapter, mrmc, confidence_cutoff, model)
+    iterator = _get_recourse_iterator(adapter, dice, confidence_cutoff, model)
 
     # get the POI
     poi = utils.random_poi(
@@ -313,47 +297,34 @@ def run_mrmc(
         poi=poi, max_iterations=max_iterations
     )
 
-    # retrieve the clusters
-    clusters = mrmc.clusters.cluster_centers
-    cluster_df = pd.DataFrame(
-        data=clusters,
-        columns=adapter.embedded_column_names(),
-    )
-
-    return paths, cluster_df
+    return paths
 
 
 def format_results(
-    mrmc_paths: Sequence[pd.DataFrame],
-    clusters_df: pd.DataFrame,
+    dice_paths: Sequence[pd.DataFrame],
     run_config: Mapping[str, Any],
 ) -> Mapping[str, pd.DataFrame]:
     """Formats the results as DataFrames ready for analysis.
 
-    It adds the path_id and step_id keys to the mrmc_paths dataframe. It also
+    It adds the path_id and step_id keys to the dice_paths dataframe. It also
     adds keys from the experiment_utils.format_results() function.
 
     Args:
-        mrmc_paths: The list of path dataframes output by recourse iteration.
-        clusters_df: A dataframe containing cluster information.
+        dice_paths: The list of path dataframes output by recourse iteration.
         run_config: The run config used to generate these results.
 
     Returns:
         A mapping from dataframe name to formatted dataframe."""
-    clusters_df["path_id"] = np.arange(len(clusters_df))
-    for i, path in enumerate(mrmc_paths):
+    for i, path in enumerate(dice_paths):
         path["step_id"] = np.arange(len(path))
         path["path_id"] = i
-    mrmc_paths_df = pd.concat(mrmc_paths).reset_index(drop=True)
-    (
-        experiment_config_df,
-        clusters_df,
-        mrmc_paths_df,
-    ) = experiment_utils.format_results(run_config, clusters_df, mrmc_paths_df)
+    dice_paths_df = pd.concat(dice_paths).reset_index(drop=True)
+    index_df, dice_paths_df = experiment_utils.format_results(
+        run_config, dice_paths_df
+    )
     return {
-        "experiment_config_df": experiment_config_df,
-        "cluster_df": clusters_df,
-        "mrmc_paths_df": mrmc_paths_df,
+        "experiment_config_df": index_df,
+        "dice_paths_df": dice_paths_df,
     }
 
 
@@ -408,6 +379,7 @@ def save_results(
         results: A mapping from filename to DataFrame.
         results_directory: Where to save the results.
         config: The config used to run this experiment.
+        only_csv: Whether to exclude saving the config.json file.
 
     Returns:
         The directory where the results are saved."""
@@ -445,8 +417,8 @@ def run_batch(
     returned."""
     all_results = None
     for i, run_config in enumerate(run_configs):
-        paths, clusters = run_mrmc(**run_config)
-        run_results = format_results(paths, clusters, run_config)
+        paths = run_dice(**run_config)
+        run_results = format_results(paths, run_config)
         all_results = merge_results(all_results, run_results)
         if verbose:
             print(f"Finished run {i+1}/{len(run_configs)}")
