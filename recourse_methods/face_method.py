@@ -303,7 +303,7 @@ class FACE(base_type.RecourseMethod):
             A predecessors array where the ith entry is the index of the point
                 preceeding point i in the shortest path from the POI to i."""
         # temporarily add the POI to the graph so we can use it in graph search
-        graph, new_index = self._append_new_point(poi, graph)
+        graph, new_index = self._add_point_to_graph(poi, graph)
         distances, predecessors = sparse.csgraph.dijkstra(
             graph, indices=new_index, return_predecessors=True
         )
@@ -317,7 +317,7 @@ class FACE(base_type.RecourseMethod):
         predecessors = np.where(predecessors == new_index, -1, predecessors)
         return distances, predecessors
 
-    def _append_new_point(
+    def _add_point_to_graph(
         self, poi: recourse_adapter.EmbeddedSeries, graph: sparse.csr_array
     ) -> Tuple[sparse.csr_array, int]:
         """Creates a graph identical to its input but with the addition of the
@@ -334,10 +334,35 @@ class FACE(base_type.RecourseMethod):
         data = self.adapter.transform(
             self.dataset.drop(columns=self.adapter.label_column)
         ).to_numpy()
+        weight_vector = FACE._calculate_weight_vector(
+            poi, data, self.distance_threshold, self.weight_bias
+        )
+        return FACE._add_edges_to_graph(weight_vector, graph)
+
+    @staticmethod
+    def _calculate_weight_vector(
+        poi: np.ndarray,
+        data: np.ndarray,
+        distance_threshold: float,
+        weight_bias: float,
+    ) -> np.ndarray:
+        """Calculates a weight vector where the ith entry is the edge weight
+        between the ith datapoint and the point of interest (POI).
+
+        Args:
+            poi: A vector of shape (D).
+            data: A dataset of shape (N, D).
+            distance_threshold: The maximum distance across which an edge will
+                be created.
+            weight_bias: The bias term to use when calculating edge weight.
+
+        Returns:
+            A weight vector where the ith entry is the edge weight bewteen the
+            ith datapoint and the poi."""
         distances = np.linalg.norm(data - poi, axis=1)
 
         # A mask for values we don't want to calculate weights on
-        exclude_mask = (distances == 0) | (distances > self.distance_threshold)
+        exclude_mask = (distances == 0) | (distances > distance_threshold)
 
         weights = distances.copy()
 
@@ -345,14 +370,35 @@ class FACE(base_type.RecourseMethod):
         weights[exclude_mask] = 0
 
         # all other values get the appropriate weight for the POI
-
         weights[~exclude_mask] = _get_edge_weight.pyfunc(
-            distances[~exclude_mask], self.weight_bias
+            distances[~exclude_mask], weight_bias
         )
+        return weights
 
-        # update the adjacency matrix with the POI's weights
-        row_update = sparse.csr_array(weights)
-        col_update = sparse.csr_array(np.hstack([weights, [0]])[None, :].T)
+    @staticmethod
+    def _add_edges_to_graph(
+        weight_vector: np.ndarray, graph: sparse.csr_array
+    ) -> Tuple[sparse.csr_array, int]:
+        """Creates a graph identical to its input but with the addition of
+        weighted edges linking to a newly-added point.
+
+        Args:
+            weight_vector: The densely-encoded edge weights to add to the
+                graph. Where no edge is added, the edge weight in the vector is
+                0.
+            graph: The (N, N) adjacency matrix representing a graph's weighted
+                edges.
+
+        Returns:
+            An (N+1, N+1) adjacency matrix including weighted edges to a newly
+            added point. It also returns the index at which the point
+            corresponding to the new edge weights was added."""
+        row_update = sparse.csr_array(weight_vector)
+        # The column update has size N+1. The extra index includes the edge
+        # weight between the newly added point and itself (which is 0).
+        col_update = sparse.csr_array(
+            np.hstack([weight_vector, [0]])[None, :].T
+        )
         graph = sparse.vstack([graph, row_update])
         graph = sparse.hstack([graph, col_update])
         return graph, graph.shape[0] - 1
