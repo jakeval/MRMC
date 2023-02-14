@@ -140,22 +140,12 @@ class TestFACE(unittest.TestCase):
 
         pd.testing.assert_frame_equal(paths[0], expected_paths[0])
 
-    @mock.patch(
-        "recourse_methods.face_method.recourse_adapter.RecourseAdapter",
-        autospec=True,
-    )
     @mock.patch("recourse_methods.face_method._get_edge_weight")
-    def test_append_new_point(self, mock_get_edge_weight, mock_adapter):
+    def test_calculate_weight_vector(self, mock_get_edge_weight):
         distance_threshold = 1
-        dataset = pd.DataFrame({"a": [0, 1, 2], "label": [0, 1, 1]})
-
-        # The graph to append a new point to
-        graph = sparse.csr_array(
-            [[0, 1, 0], [1, 0, 1], [0, 1, 0]]  # distance matrix
-        )
-
-        # The new point to append
-        poi = pd.Series([0], index=["a"])
+        weight_bias = 0
+        dataset = np.array([[0], [1], [2]])  # Three one-dimensional points.
+        poi = dataset[0]  # The POI is the same as the first datapoint.
 
         # The edge weight function is 1/x. This is the identity for 1 and
         # inf for 0, which is good because append_new_point should check for
@@ -165,31 +155,51 @@ class TestFACE(unittest.TestCase):
             lambda distances, bias: 1 / distances
         )
 
-        # The adapter is the identity function
-        mock_adapter.label_column = "label"
-        mock_adapter.transform.side_effect = lambda x: x
-
-        mock_self = mock.Mock(
-            spec=["adapter", "dataset", "distance_threshold", "weight_bias"]
-        )
-        mock_self.adapter = mock_adapter
-        mock_self.dataset = dataset
-        mock_self.distance_threshold = distance_threshold
-        mock_self.weight_bias = 0
-
-        expected_new_graph = np.array(
+        expected_weight_vector = np.array(
             [
-                [0, 1, 0, 0],  # The distance is 0
-                [1, 0, 1, 1],  # The distance is 1
-                [0, 1, 0, 0],  # The distance is 2, which has weight 0
-                [0, 1, 0, 0],  # The distance is 0
+                0,  # The distance is 0 which has weight 0
+                1,  # The distance is 1 which has weight 1
+                0,  # Distance 2 has weight 0 (2 > distance_threshold)
             ]
         )
 
-        expected_new_point_index = 3  # The point should be appended to the end
+        weight_vector = face_method.FACE._calculate_weight_vector(
+            poi, dataset, distance_threshold, weight_bias
+        )
 
-        new_graph, new_point_index = face_method.FACE.append_new_point(
-            mock_self, poi, graph
+        np.testing.assert_equal(weight_vector, expected_weight_vector)
+
+    def test_add_edges_to_graph(self):
+        edge_weight_vector = np.array(
+            [
+                0,  # The new point is not connected to the first point
+                1,  # The new point is connected to the second point
+            ]
+        )
+        graph = sparse.csr_array(
+            [
+                [0, 1],  # The first point is connected to the second point
+                [1, 0],
+            ]
+        )
+
+        # This is the same as the original graph but concatenated with the edge
+        # weight vector along both axes. The new index at (N+1, N+1) is zero
+        # because the edge connected the new point to itself has zero weight.
+        expected_new_graph = np.array(
+            [
+                [0, 1, 0],
+                [1, 0, 1],
+                [0, 1, 0],
+            ]
+        )
+
+        # The entry for the new point should appear at the index [N+1, N+1].
+        # This corresponds to appending the new point to the end of the dataset
+        expected_new_point_index = 2
+
+        new_graph, new_point_index = face_method.FACE._add_edges_to_graph(
+            edge_weight_vector, graph
         )
 
         self.assertEqual(new_point_index, expected_new_point_index)

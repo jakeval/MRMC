@@ -28,6 +28,9 @@ class FACE(base_type.RecourseMethod):
     This method is based on the Feasible and Actionable Counterfactual
     Explanations method described here: https://arxiv.org/abs/1909.09369.
 
+    This class is partly based on the author's repo at
+    https://github.com/RafaelPo/face.
+
     Attributes:
         dataset: The dataset to provide recourse over.
         adapter: The adapter to convert data into an embedded space.
@@ -109,12 +112,139 @@ class FACE(base_type.RecourseMethod):
             sparse.save_npz(filepath_to_save_to, sparse_graph_weights)
         self.graph = sparse_graph_weights
 
+    def fit(self) -> FACE:
+        """Fits FACE by finding candidate counterfactuals in the dataset."""
+        candidate_mask = (
+            self.dataset[self.adapter.label_column]
+            == self.adapter.positive_label
+        ).to_numpy()
+        if self.confidence_threshold is not None:
+            pos_proba = self.model.predict_pos_proba(self.dataset)
+            candidate_mask = candidate_mask & (
+                pos_proba >= self.confidence_threshold
+            )
+        self.candidate_indices = np.arange(self.dataset.shape[0])[
+            candidate_mask
+        ]
+        return self
+
+    def generate_paths(
+        self, poi: recourse_adapter.EmbeddedSeries, num_paths: int
+    ) -> Sequence[recourse_adapter.EmbeddedDataFrame]:
+        """Generates FACE paths for the Point of Interest (POI)."""
+        distances, predecessors = self._dijkstra_search(poi, self.graph)
+        target_indices = FACE._get_k_best_candidate_indices(
+            distances, self.candidate_indices, num_paths
+        )
+        return self._get_paths_from_indices(target_indices, poi, predecessors)
+
+    def get_all_recourse_directions(
+        self, poi: recourse_adapter.EmbeddedSeries
+    ) -> recourse_adapter.EmbeddedDataFrame:
+        """Generates different recourse directions for the poi for each of the
+        k_directions.
+
+        If all k recourse directions are available, returns a dataframe with k
+        rows. If no recourse is available, returns an empty dataframe.
+
+        Args:
+            poi: The Point of Interest (POI) to find recourse directions for.
+
+        Returns:
+            A DataFrame containing recourse directions for the POI."""
+        return self._get_k_recourse_directions(poi, self.k_directions)
+
+    def _get_k_recourse_directions(
+        self, poi: recourse_adapter.EmbeddedSeries, k_directions: int
+    ) -> recourse_adapter.EmbeddedDataFrame:
+        """Generates different recourse directions for the poi for each of the
+        k_directions.
+
+        If all k recourse directions are available, returns a dataframe with k
+        rows. If no recourse is available, returns an empty dataframe.
+
+        Args:
+            poi: The Point of Interest (POI) to find recourse directions for.
+            k_directionts: The number of recourse directions to generate.
+
+        Returns:
+            A DataFrame containing recourse directions for the POI."""
+        paths = self.generate_paths(poi, k_directions)
+        if len(paths) == 0:
+            return pd.DataFrame(columns=poi.index)
+        recourse_points = []  # These can be counterfactuals or steps in a path
+        for path in paths:
+            if self.counterfactual_mode:
+                recourse_points.append(path.iloc[-1].to_numpy())
+            else:
+                recourse_points.append(path.iloc[1].to_numpy())
+        recourse_points = np.vstack(recourse_points)
+        directions = recourse_points - poi.to_numpy()
+        return pd.DataFrame(data=directions, columns=poi.index)
+
+    def get_all_recourse_instructions(
+        self, poi: pd.Series
+    ) -> Sequence[Optional[Any]]:
+        """Generates different recourse instructions for the poi for each of
+        the k_directions.
+
+        Whereas recourse directions are vectors in embedded space,
+        instructions are human-readable guides for how to follow those
+        directions in the original data space.
+
+        Args:
+            poi: The Point of Interest (POI) to find recourse instructions for.
+
+        Returns:
+            A Sequence of k recourse instructions for the POI. Elements may be
+            None if there is no recourse available."""
+        poi = self.adapter.transform_series(poi)
+
+        # this may be an empty dataframe
+        recourse_directions = self.get_all_recourse_directions(poi)
+        instructions = []
+        for i in range(recourse_directions.shape[0]):
+            instructions.append(
+                self.adapter.directions_to_instructions(
+                    recourse_directions.iloc[i]
+                )
+            )
+        if len(instructions) < self.k_directions:
+            instructions += [None] * (self.k_directions - len(instructions))
+        return instructions
+
+    def get_kth_recourse_instructions(
+        self, poi: pd.Series, dir_index: int
+    ) -> Optional[Any]:
+        """Generates a single set of recourse instructions for the kth
+        direction.
+
+        Args:
+            poi: The Point of Interest (POI) to get the kth recourse
+            instruction for.
+            dir_index: Which of the k sets of instructions to return. FACE
+                ignores this argument.
+
+        Returns:
+            Instructions for the POI to achieve the recourse. Returns None
+            if no recourse is possible."""
+        poi = self.adapter.transform_series(poi)
+        recourse_directions = self._get_k_recourse_directions(poi, 1)
+        if len(recourse_directions) == 0:
+            return None
+        return self.adapter.directions_to_instructions(
+            recourse_directions.iloc[0]
+        )
+
     @staticmethod
     @numba.jit(nopython=True)
     def _get_e_graph_weights(
         embedded_data: np.ndarray, epsilon: float, weight_bias: float = 0
     ) -> np.ndarray:
         """Calculates a epsilon-weighted adjacency matrix from the data.
+
+        This function is based on the get_weights_e() function from the
+        original FACE authors' repo. (https://github.com/RafaelPo/face).
 
         This adjacency matrix is the FACE graph. Edges of distance greater
         than epsilon are zero-weighted. All other edges are weighted according
@@ -143,32 +273,6 @@ class FACE(base_type.RecourseMethod):
                     )
                     kernel[j, i] = kernel[i, j]
         return kernel
-
-    def fit(self) -> FACE:
-        """Fits FACE by finding candidate counterfactuals in the dataset."""
-        candidate_mask = (
-            self.dataset[self.adapter.label_column]
-            == self.adapter.positive_label
-        ).to_numpy()
-        if self.confidence_threshold is not None:
-            pos_proba = self.model.predict_pos_proba(self.dataset)
-            candidate_mask = candidate_mask & (
-                pos_proba >= self.confidence_threshold
-            )
-        self.candidate_indices = np.arange(self.dataset.shape[0])[
-            candidate_mask
-        ]
-        return self
-
-    def generate_paths(
-        self, poi: recourse_adapter.EmbeddedSeries, num_paths: int
-    ) -> Sequence[recourse_adapter.EmbeddedDataFrame]:
-        """Generates FACE paths for the Point of Interest (POI)."""
-        distances, predecessors = self._dijkstra_search(poi, self.graph)
-        target_indices = FACE._get_k_best_candidate_indices(
-            distances, self.candidate_indices, num_paths
-        )
-        return self._get_paths_from_indices(target_indices, poi, predecessors)
 
     def _dijkstra_search(
         self, poi: recourse_adapter.EmbeddedSeries, graph: sparse.csr_array
@@ -199,7 +303,7 @@ class FACE(base_type.RecourseMethod):
             A predecessors array where the ith entry is the index of the point
                 preceeding point i in the shortest path from the POI to i."""
         # temporarily add the POI to the graph so we can use it in graph search
-        graph, new_index = self.append_new_point(poi, graph)
+        graph, new_index = self._add_point_to_graph(poi, graph)
         distances, predecessors = sparse.csgraph.dijkstra(
             graph, indices=new_index, return_predecessors=True
         )
@@ -212,6 +316,92 @@ class FACE(base_type.RecourseMethod):
         )
         predecessors = np.where(predecessors == new_index, -1, predecessors)
         return distances, predecessors
+
+    def _add_point_to_graph(
+        self, poi: recourse_adapter.EmbeddedSeries, graph: sparse.csr_array
+    ) -> Tuple[sparse.csr_array, int]:
+        """Creates a graph identical to its input but with the addition of the
+        POI.
+
+        It calculates the weighted distances between the POI and the other
+        points in the graph and adds these distances to the graph by
+        concatenating to the distance matrix.
+
+        Returns:
+            A new graph including the POI and the index at which the POI
+            appears in the graph."""
+        poi = poi.to_numpy()
+        data = self.adapter.transform(
+            self.dataset.drop(columns=self.adapter.label_column)
+        ).to_numpy()
+        weight_vector = FACE._calculate_weight_vector(
+            poi, data, self.distance_threshold, self.weight_bias
+        )
+        return FACE._add_edges_to_graph(weight_vector, graph)
+
+    @staticmethod
+    def _calculate_weight_vector(
+        poi: np.ndarray,
+        data: np.ndarray,
+        distance_threshold: float,
+        weight_bias: float,
+    ) -> np.ndarray:
+        """Calculates a weight vector where the ith entry is the edge weight
+        between the ith datapoint and the point of interest (POI).
+
+        Args:
+            poi: A vector of shape (D).
+            data: A dataset of shape (N, D).
+            distance_threshold: The maximum distance across which an edge will
+                be created.
+            weight_bias: The bias term to use when calculating edge weight.
+
+        Returns:
+            A weight vector where the ith entry is the edge weight bewteen the
+            ith datapoint and the poi."""
+        distances = np.linalg.norm(data - poi, axis=1)
+
+        # A mask for values we don't want to calculate weights on
+        exclude_mask = (distances == 0) | (distances > distance_threshold)
+
+        weights = distances.copy()
+
+        # excluded values are 0
+        weights[exclude_mask] = 0
+
+        # all other values get the appropriate weight for the POI
+        weights[~exclude_mask] = _get_edge_weight.pyfunc(
+            distances[~exclude_mask], weight_bias
+        )
+        return weights
+
+    @staticmethod
+    def _add_edges_to_graph(
+        weight_vector: np.ndarray, graph: sparse.csr_array
+    ) -> Tuple[sparse.csr_array, int]:
+        """Creates a graph identical to its input but with the addition of
+        weighted edges linking to a newly-added point.
+
+        Args:
+            weight_vector: The densely-encoded edge weights to add to the
+                graph. Where no edge is added, the edge weight in the vector is
+                0.
+            graph: The (N, N) adjacency matrix representing a graph's weighted
+                edges.
+
+        Returns:
+            An (N+1, N+1) adjacency matrix including weighted edges to a newly
+            added point. It also returns the index at which the point
+            corresponding to the new edge weights was added."""
+        row_update = sparse.csr_array(weight_vector)
+        # The column update has size N+1. The extra index includes the edge
+        # weight between the newly added point and itself (which is 0).
+        col_update = sparse.csr_array(
+            np.hstack([weight_vector, [0]])[None, :].T
+        )
+        graph = sparse.vstack([graph, row_update])
+        graph = sparse.hstack([graph, col_update])
+        return graph, graph.shape[0] - 1
 
     @staticmethod
     def _get_k_best_candidate_indices(
@@ -301,141 +491,3 @@ class FACE(base_type.RecourseMethod):
             path = [poi.to_numpy()] + path
             paths.append(pd.DataFrame(columns=poi.index, data=np.vstack(path)))
         return paths
-
-    def append_new_point(
-        self, poi: recourse_adapter.EmbeddedSeries, graph: sparse.csr_array
-    ) -> Tuple[sparse.csr_array, int]:
-        """Creates a graph identical to its input but with the addition of the
-        POI.
-
-        It calculates the weighted distances between the POI and the other
-        points in the graph and adds these distances to the graph by
-        concatenating to the distance matrix.
-
-        Returns:
-            A new graph including the POI and the index at which the POI
-            appears in the graph."""
-        poi = poi.to_numpy()
-        data = self.adapter.transform(
-            self.dataset.drop(columns=self.adapter.label_column)
-        ).to_numpy()
-        distances = np.linalg.norm(data - poi, axis=1)
-
-        # A mask for values we don't want to calculate weights on
-        exclude_mask = (distances == 0) | (distances > self.distance_threshold)
-
-        weights = distances.copy()
-
-        # excluded values are 0
-        weights[exclude_mask] = 0
-
-        # all other values get the appropriate weight for the POI
-
-        weights[~exclude_mask] = _get_edge_weight.pyfunc(
-            distances[~exclude_mask], self.weight_bias
-        )
-
-        # update the adjacency matrix with the POI's weights
-        row_update = sparse.csr_array(weights)
-        col_update = sparse.csr_array(np.hstack([weights, [0]])[None, :].T)
-        graph = sparse.vstack([graph, row_update])
-        graph = sparse.hstack([graph, col_update])
-        return graph, graph.shape[0] - 1
-
-    def _get_k_recourse_directions(
-        self, poi: recourse_adapter.EmbeddedSeries, k_directions: int
-    ) -> recourse_adapter.EmbeddedDataFrame:
-        """Generates different recourse directions for the poi for each of the
-        k_directions.
-
-        If all k recourse directions are available, returns a dataframe with k
-        rows. If no recourse is available, returns an empty dataframe.
-
-        Args:
-            poi: The Point of Interest (POI) to find recourse directions for.
-            k_directionts: The number of recourse directions to generate.
-
-        Returns:
-            A DataFrame containing recourse directions for the POI."""
-        paths = self.generate_paths(poi, k_directions)
-        if len(paths) == 0:
-            return pd.DataFrame(columns=poi.index)
-        recourse_points = []  # These can be counterfactuals or steps in a path
-        for path in paths:
-            if self.counterfactual_mode:
-                recourse_points.append(path.iloc[-1].to_numpy())
-            else:
-                recourse_points.append(path.iloc[1].to_numpy())
-        recourse_points = np.vstack(recourse_points)
-        directions = recourse_points - poi.to_numpy()
-        return pd.DataFrame(data=directions, columns=poi.index)
-
-    def get_all_recourse_directions(
-        self, poi: recourse_adapter.EmbeddedSeries
-    ) -> recourse_adapter.EmbeddedDataFrame:
-        """Generates different recourse directions for the poi for each of the
-        k_directions.
-
-        If all k recourse directions are available, returns a dataframe with k
-        rows. If no recourse is available, returns an empty dataframe.
-
-        Args:
-            poi: The Point of Interest (POI) to find recourse directions for.
-
-        Returns:
-            A DataFrame containing recourse directions for the POI."""
-        return self._get_k_recourse_directions(poi, self.k_directions)
-
-    def get_all_recourse_instructions(
-        self, poi: pd.Series
-    ) -> Sequence[Optional[Any]]:
-        """Generates different recourse instructions for the poi for each of
-        the k_directions.
-
-        Whereas recourse directions are vectors in embedded space,
-        instructions are human-readable guides for how to follow those
-        directions in the original data space.
-
-        Args:
-            poi: The Point of Interest (POI) to find recourse instructions for.
-
-        Returns:
-            A Sequence of k recourse instructions for the POI. Elements may be
-            None if there is no recourse available."""
-        poi = self.adapter.transform_series(poi)
-
-        # this may be an empty dataframe
-        recourse_directions = self.get_all_recourse_directions(poi)
-        instructions = []
-        for i in range(recourse_directions.shape[0]):
-            instructions.append(
-                self.adapter.directions_to_instructions(
-                    recourse_directions.iloc[i]
-                )
-            )
-        if len(instructions) < self.k_directions:
-            instructions += [None] * (self.k_directions - len(instructions))
-        return instructions
-
-    def get_kth_recourse_instructions(
-        self, poi: pd.Series, dir_index: int
-    ) -> Optional[Any]:
-        """Generates a single set of recourse instructions for the kth
-        direction.
-
-        Args:
-            poi: The Point of Interest (POI) to get the kth recourse
-            instruction for.
-            dir_index: Which of the k sets of instructions to return. FACE
-                ignores this argument.
-
-        Returns:
-            Instructions for the POI to achieve the recourse. Returns None
-            if no recourse is possible."""
-        poi = self.adapter.transform_series(poi)
-        recourse_directions = self._get_k_recourse_directions(poi, 1)
-        if len(recourse_directions) == 0:
-            return None
-        return self.adapter.directions_to_instructions(
-            recourse_directions.iloc[0]
-        )
