@@ -35,7 +35,6 @@ from core import utils
 from experiments import utils as experiment_utils
 from experiments import parallel_runner
 
-
 import numpy as np
 import pandas as pd
 
@@ -435,6 +434,8 @@ def _get_results_dir(results_directory, experiment_name):
     return results_directory or os.path.join(_RESULTS_DIR, experiment_name)
 
 
+# TODO(@jakeval): The `run` naming here is unclear due to Issue 41
+# https://github.com/jakeval/MRMC/issues/41
 def run_batch(
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
@@ -452,47 +453,37 @@ def run_batch(
     return all_results
 
 
-def validate_experiment_config(config: Mapping[str, Any]) -> None:
-    """Validates the formatting of an experiment config."""
-    keys = set(config.keys())
-    if keys != set(
-        ["parameter_ranges", "num_runs", "random_seed", "experiment_name"]
-    ) and keys != set(["parameter_ranges", "num_runs", "experiment_name"]):
-        raise RuntimeError(
-            (
-                "The experiment config should have only the top-level keys "
-                "called 'run_configs', 'num_runs', 'experiment_name', and "
-                f"optionally 'random_seed'. Instead it has keys {keys}."
-            )
-        )
-
-
-def validate_batch_config(config: Mapping[str, Any]) -> None:
-    """Validates the formatting of a batch config."""
-    keys = set(config.keys())
-    if keys != set(["run_configs", "experiment_name"]):
-        raise RuntimeError(
-            (
-                "The batch config should only have top-level keys called "
-                "'run_configs' and 'experiment_name'. Instead it has keys "
-                f"{keys}."
-            )
-        )
-
-
 def get_run_configs(
     config: Mapping[str, Any], is_experiment_config: bool
 ) -> Sequence[Mapping[str, Any]]:
     """Returns the run configs from the provided config file."""
     if is_experiment_config:
-        validate_experiment_config(config)
+        keys = set(config.keys())
+        if keys != set(
+            ["parameter_ranges", "num_runs", "random_seed", "experiment_name"]
+        ) and keys != set(["parameter_ranges", "num_runs", "experiment_name"]):
+            raise RuntimeError(
+                (
+                    "The experiment config should have only the top-level keys"
+                    " called 'run_configs', 'num_runs', 'experiment_name', and"
+                    f" optionally 'random_seed'. Instead it has keys {keys}."
+                )
+            )
         return experiment_utils.create_run_configs(
             parameter_ranges=config["parameter_ranges"],
             num_runs=config["num_runs"],
             random_seed=config.get("random_seed", None),
         )
     else:
-        validate_batch_config(config)
+        keys = set(config.keys())
+        if keys != set(["run_configs", "experiment_name"]):
+            raise RuntimeError(
+                (
+                    "The batch config should only have top-level keys called "
+                    "'run_configs' and 'experiment_name'. Instead it has keys "
+                    f"{keys}."
+                )
+            )
         return config["run_configs"]
 
 
