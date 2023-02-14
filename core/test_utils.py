@@ -75,6 +75,8 @@ class TestUtils(unittest.TestCase):
     @mock.patch("core.utils.model_interface.Model", autospec=True)
     def test_random_poi(self, mock_model):
         # Test that random_poi selects the negatively classified point
+
+        # A one-dimensional dataset with two points.
         dataset = pd.DataFrame({"a": [0, 1], "label": [-1, 1]})
         mock_model.predict.return_value = np.array([1, -1])
         poi = utils.random_poi(dataset, "label", -1, mock_model)
