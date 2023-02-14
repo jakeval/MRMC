@@ -236,6 +236,44 @@ class FACE(base_type.RecourseMethod):
             recourse_directions.iloc[0]
         )
 
+    @staticmethod
+    @numba.jit(nopython=True)
+    def _get_e_graph_weights(
+        embedded_data: np.ndarray, epsilon: float, weight_bias: float = 0
+    ) -> np.ndarray:
+        """Calculates a epsilon-weighted adjacency matrix from the data.
+
+        This function is based on the get_weights_e() function from the
+        original FACE authors' repo. (https://github.com/RafaelPo/face).
+
+        This adjacency matrix is the FACE graph. Edges of distance greater
+        than epsilon are zero-weighted. All other edges are weighted according
+        to a weighting function (typically -log(x)).
+
+        Args:
+            embedded_data: The data to calculate a graph over.
+            epsilon: Edges greater than epsilon have weight zero.
+            weight_bias: This value is added to all non-zero edge weights. It
+                is useful for avoiding negative values when epsilon is large.
+
+        Returns:
+            An adjacency matrix where the i,jth entry is the edge weight
+            between points i and j.
+        """
+        n_samples = embedded_data.shape[0]
+        kernel = np.zeros((n_samples, n_samples))
+        for i in range(n_samples):
+            for j in range(i):
+                pairwise_distance = np.linalg.norm(
+                    embedded_data[i] - embedded_data[j]
+                )
+                if (pairwise_distance <= epsilon) and pairwise_distance > 0:
+                    kernel[i, j] = _get_edge_weight(
+                        pairwise_distance, weight_bias
+                    )
+                    kernel[j, i] = kernel[i, j]
+        return kernel
+
     def _dijkstra_search(
         self, poi: recourse_adapter.EmbeddedSeries, graph: sparse.csr_array
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -407,41 +445,3 @@ class FACE(base_type.RecourseMethod):
             path = [poi.to_numpy()] + path
             paths.append(pd.DataFrame(columns=poi.index, data=np.vstack(path)))
         return paths
-
-    @staticmethod
-    @numba.jit(nopython=True)
-    def _get_e_graph_weights(
-        embedded_data: np.ndarray, epsilon: float, weight_bias: float = 0
-    ) -> np.ndarray:
-        """Calculates a epsilon-weighted adjacency matrix from the data.
-
-        This function is based on the get_weights_e() function from the
-        original FACE authors' repo. (https://github.com/RafaelPo/face).
-
-        This adjacency matrix is the FACE graph. Edges of distance greater
-        than epsilon are zero-weighted. All other edges are weighted according
-        to a weighting function (typically -log(x)).
-
-        Args:
-            embedded_data: The data to calculate a graph over.
-            epsilon: Edges greater than epsilon have weight zero.
-            weight_bias: This value is added to all non-zero edge weights. It
-                is useful for avoiding negative values when epsilon is large.
-
-        Returns:
-            An adjacency matrix where the i,jth entry is the edge weight
-            between points i and j.
-        """
-        n_samples = embedded_data.shape[0]
-        kernel = np.zeros((n_samples, n_samples))
-        for i in range(n_samples):
-            for j in range(i):
-                pairwise_distance = np.linalg.norm(
-                    embedded_data[i] - embedded_data[j]
-                )
-                if (pairwise_distance <= epsilon) and pairwise_distance > 0:
-                    kernel[i, j] = _get_edge_weight(
-                        pairwise_distance, weight_bias
-                    )
-                    kernel[j, i] = kernel[i, j]
-        return kernel
