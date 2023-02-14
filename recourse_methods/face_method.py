@@ -28,6 +28,9 @@ class FACE(base_type.RecourseMethod):
     This method is based on the Feasible and Actionable Counterfactual
     Explanations method described here: https://arxiv.org/abs/1909.09369.
 
+    This class is partly based on the author's repo at
+    https://github.com/RafaelPo/face.
+
     Attributes:
         dataset: The dataset to provide recourse over.
         adapter: The adapter to convert data into an embedded space.
@@ -115,6 +118,9 @@ class FACE(base_type.RecourseMethod):
         embedded_data: np.ndarray, epsilon: float, weight_bias: float = 0
     ) -> np.ndarray:
         """Calculates a epsilon-weighted adjacency matrix from the data.
+
+        This function is based on the get_weights_e() function from the
+        original FACE authors' repo. (https://github.com/RafaelPo/face).
 
         This adjacency matrix is the FACE graph. Edges of distance greater
         than epsilon are zero-weighted. All other edges are weighted according
