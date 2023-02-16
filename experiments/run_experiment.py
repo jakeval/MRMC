@@ -16,6 +16,7 @@ field."""
 
 # TODO(@jakeval): Revisit file structure -- do we still need separate
 # directories for dice_experiment, mrmc_experiment, etc?
+# https://github.com/jakeval/MRMC/issues/53
 
 import os
 import sys
@@ -32,11 +33,8 @@ import json
 import argparse
 
 from data import data_loader
-from data.datasets import base_loader
 from data.adapters import continuous_adapter
-from data import recourse_adapter
 from models import model_constants
-from models import model_interface
 from models import model_loader
 from recourse_methods import mrmc_method, dice_method, face_method
 from core import recourse_iterator
