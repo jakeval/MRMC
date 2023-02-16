@@ -35,6 +35,7 @@ class ParallelRunner:
         final_results_dir: The directory to write the final results to.
         scratch_dir: The process-local directory to write temporary resutls to.
         num_processes: The number of processes to execute in parallel.
+        recourse_method: The recourse method to use when executing batches.
         use_slurm: Whether to use the SLURM distributed job scheduler.
         rng: The random generator used to distribute runs across processes.
             It does not effect the results, but may effect load balancing.
@@ -45,6 +46,7 @@ class ParallelRunner:
         experiment_mainfile_path: str,
         final_results_dir: str,
         num_processes: int,
+        recourse_method: str,
         use_slurm: bool = True,
         random_seed: Optional[int] = None,
         scratch_dir: Optional[str] = None,
@@ -67,12 +69,15 @@ class ParallelRunner:
         self.scratch_dir = scratch_dir
         self.num_processes = num_processes
         self.use_slurm = use_slurm
+        self.recourse_method = recourse_method
         if not random_seed:
             random_seed = np.random.randint(0, 100000)
         self.rng = np.random.default_rng(random_seed)
         self.verbose = verbose
 
-    def execute_runs(self, run_configs) -> Mapping[str, pd.DataFrame]:
+    def execute_runs(
+        self, run_configs: Sequence[Mapping[str, Any]]
+    ) -> Mapping[str, pd.DataFrame]:
         """Partitions a set of runs into batches and executes them in parallel.
 
         Each run_config is a dictionary whose format is specified by the
@@ -223,6 +228,7 @@ class ParallelRunner:
         process_config = {
             "run_configs": run_configs,
             "experiment_name": "experiment_scratch_work",
+            "recourse_method": self.recourse_method,
         }
         process_config_filename = os.path.join(
             process_io_directory, "config.json"
