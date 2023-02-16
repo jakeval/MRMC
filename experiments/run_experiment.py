@@ -47,7 +47,7 @@ import pandas as pd
 
 
 # MRMC/experiment_results/mrmc_results
-_RESULTS_DIR = _MRMC_PATH / "experiment_results/mrmc_results"
+_RESULTS_DIR = _MRMC_PATH / "experiment_results"
 
 
 parser = argparse.ArgumentParser(description="Run an MRMC experiment.")
@@ -525,7 +525,7 @@ def save_results(
         The directory where the results are saved."""
     if not results_directory:
         results_directory = os.path.join(
-            _RESULTS_DIR, config["experiment_name"]
+            _RESULTS_DIR, config["recourse_method"], config["experiment_name"]
         )
     if os.path.exists(results_directory):
         shutil.rmtree(results_directory)
@@ -542,8 +542,12 @@ def save_results(
     return results_directory
 
 
-def _get_results_dir(results_directory, experiment_name):
-    return results_directory or os.path.join(_RESULTS_DIR, experiment_name)
+def _get_results_dir(
+    results_directory: Optional[str], config: Mapping[str, Any]
+) -> str:
+    return results_directory or os.path.join(
+        _RESULTS_DIR, config["recourse_method"], config["experiment_name"]
+    )
 
 
 # TODO(@jakeval): The `run` naming here is unclear due to Issue 41
@@ -678,9 +682,7 @@ def main(
             )
         runner = parallel_runner.ParallelRunner(
             experiment_mainfile_path=__file__,
-            final_results_dir=_get_results_dir(
-                results_dir, config["experiment_name"]
-            ),
+            final_results_dir=_get_results_dir(results_dir, config),
             num_processes=num_processes,
             use_slurm=use_slurm,
             recourse_method=recourse_method,
