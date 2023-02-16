@@ -289,6 +289,7 @@ def run_dice(
         dataset,
         label_column=dataset_info.label_column,
         label_value=adapter.negative_label,
+        model=model,
         random_seed=poi_seed,
     )
 

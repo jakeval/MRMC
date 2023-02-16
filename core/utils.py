@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from data import recourse_adapter
 from typing import Any, Optional
+from models import model_interface
 
 
 _MIN_DIRECTION = 1e-32
@@ -83,23 +84,26 @@ def constant_step_size(
 def random_poi(
     dataset: pd.DataFrame,
     label_column: str,
-    label_value: Any = -1,
+    label_value: Any,
+    model: model_interface.Model,
     drop_label: bool = True,
     random_seed: Optional[int] = None,
 ) -> pd.Series:
-    """Selects a random POI of the given label from the dataset.
+    """Selects a random POI of the given model classification from the dataset.
 
     Args:
         dataset: The dataset to sample from.
         label_column: The dataset column containing the class labels.
-        label_value: The label value of the point to select.
+        label_value: The classification label of the point to select.
+        model: The classification model to use when selecting a point.
         drop_label: Whether to drop the label from the returned POI.
         random_seed: An optional random seed to select the POI with.
 
     Returns:
         A random row of the given label from the dataset.
     """
-    poi = dataset[dataset[label_column] == label_value].sample(
+    pred_labels = model.predict(dataset)
+    poi = dataset[pred_labels == label_value].sample(
         1, random_state=random_seed
     )
     if drop_label:
