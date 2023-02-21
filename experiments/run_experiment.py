@@ -573,13 +573,19 @@ def run_batch(
                 "cluster_df": cluster_df,
             }
         elif recourse_method == "dice":
-            experiment_config_df, dice_paths_df = run_dice(**run_config)
+            dice_paths = run_dice(**run_config)
+            experiment_config_df, dice_paths_df = format_results(
+                dice_paths, run_config
+            )
             run_results = {
                 "experiment_config_df": experiment_config_df,
                 "dice_paths_df": dice_paths_df,
             }
         else:
-            experiment_config_df, face_paths_df = run_face(**run_config)
+            face_paths = run_face(**run_config)
+            experiment_config_df, face_paths_df = format_results(
+                face_paths, run_config
+            )
             run_results = {
                 "experiment_config_df": experiment_config_df,
                 "face_paths_df": face_paths_df,
