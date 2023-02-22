@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Sequence, Any
+from typing import Sequence, Any, Union
 from dataclasses import dataclass
 import abc
 import os
@@ -65,7 +65,11 @@ class DataLoader(abc.ABC):
         """
 
     @abc.abstractmethod
-    def process_data(self, data: pd.DataFrame) -> pd.DataFrame:
+    def process_data(
+        self,
+        data: pd.DataFrame,
+        split: Union[str, Sequence[str]] = ["train", "val", "test"],
+    ) -> Sequence[pd.DataFrame]:
         """Processes the raw data.
 
         Data processing will be different for every dataset. Example operations
@@ -73,19 +77,23 @@ class DataLoader(abc.ABC):
 
         Args:
             data: The data to process.
+            split: The data split(s) to return.
 
         Returns:
-            A processed DataFrame.
+            The processed data split(s). If only one split is requested, a
+            tuple of length one is returned.
         """
 
-    def load_data(self) -> pd.DataFrame:
+    def load_data(
+        self, split: Union[str, Sequence[str]] = ["train", "val", "test"]
+    ) -> Sequence[pd.DataFrame]:
         """Loads the data from the internet or local disk.
 
         First checks local disk at self.data_dir. If not saved there, downloads
         the data with self.download_data().
 
         Returns:
-            A DataFrame containing the dataset.
+            The Dataset split(s) requested in the order they are requested.
         """
         data_dir = self.data_dir or _DEFAULT_DATA_DIR
         dataset_dir = pathlib.Path(data_dir) / self.dataset_name
@@ -97,7 +105,7 @@ class DataLoader(abc.ABC):
         else:
             data = self.load_local_data(dataset_filepath)
 
-        data = self.process_data(data)
+        data = self.process_data(data, split)
         return data
 
     def save_data(self, data: pd.DataFrame, dataset_filepath: str) -> None:

@@ -3,7 +3,6 @@ import os
 from typing import Tuple, Mapping, Any, Optional
 import json
 import pandas as pd
-import numpy as np
 from dataclasses import dataclass
 from models import model_constants, model_interface
 from data import data_loader
@@ -31,14 +30,18 @@ class ModelTrainer(abc.ABC):
 
     @abc.abstractmethod
     def train_model(
-        self, dataset: pd.DataFrame, dataset_info: base_loader.DatasetInfo
+        self,
+        train_data: pd.DataFrame,
+        val_data: pd.DataFrame,
+        dataset_info: base_loader.DatasetInfo,
     ) -> model_interface.Model:
         """Trains a model on the given training dataset.
 
         Evaluation on a test dataset is performed separately.
 
         Args:
-            dataset: The training dataset to use.
+            train_data: The training dataset to use.
+            val_data: The validation dataset to use.
             dataset_info: Information on the training dataset.
 
         Returns:
@@ -91,113 +94,80 @@ class ModelTrainer(abc.ABC):
 
         Returns:
             The trained model and a dictionary of results."""
-        dataset, dataset_info = data_loader.load_data(
+        train_data, val_data, test_data, dataset_info = data_loader.load_data(
             self.dataset_name, **(data_loader_kwargs or {})
         )
-        train, test = self.split_dataset(dataset)
-        model = self.train_model(train, dataset_info)
-
-        results = self.evaluate_model(model, train, test, dataset_info)
+        model = self.train_model(train_data, val_data, dataset_info)
+        results = self.evaluate_model(
+            model, train_data, val_data, test_data, dataset_info
+        )
         model_dir = self._get_model_dir()
         self.save_model(model, model_dir)
         self.save_results(results, model_dir)
         return model, results
 
-    def split_dataset(
-        self, dataset: pd.DataFrame, split_ratio: float = SPLIT_RATIO
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """Randomly splits the dataset.
-
-        A random seed from model_constants.RANDOM_SEED is used.
-
-        Args:
-            dataset: The dataset to split.
-            split_ratio: The ratio of training to test size.
-
-        Returns:
-            Training and test datasets."""
-        rng = np.random.default_rng(seed=model_constants.RANDOM_SEED)
-        num_train = int(np.floor(dataset.shape[0] * split_ratio))
-        idx = np.arange(dataset.shape[0])
-        rng.shuffle(idx)
-        train = dataset.iloc[idx[:num_train]]
-        test = dataset.iloc[idx[num_train:]]
-        return train, test
-
     def evaluate_model(
         self,
         model: model_interface.Model,
-        train: pd.DataFrame,
-        test: pd.DataFrame,
+        train_data: pd.DataFrame,
+        val_data: pd.DataFrame,
+        test_data: pd.DataFrame,
         dataset_info: base_loader.DatasetInfo,
-    ) -> Mapping[str, float]:
+    ) -> Mapping[str, Mapping[str, float]]:
         """Evaluates a trained model.
 
         The results have format
         {
             "train": {
-                "positive_accuracy": float,
-                "negative_accuracy": float,
-                "total_accuracy": float
+                "true_positives": int,
+                "false_positives": int,
+                "false_negatives": int,
+                "accuracy": float
             },
-            "test": {
-                "positive_accuracy": float,
-                "negative_accuracy": float,
-                "total_accuracy": float
-            }
+            "val": {...},
+            "test": {...}
         }
 
         Args:
             model: The model to evaluate.
-            train: The training dataset.
-            test: The testing dataset.
+            train_data: The training dataset.
+            val_data: The validation dataset.
+            test_data: The testing dataset.
             dataset_info: Information about the dataset.
 
         Returns:
             A dictionary containing results as described above."""
-        results = {"train_accuracy": None, "test_accuracy": None}
-        results = {
-            "train": {
-                "positive_accuracy": None,
-                "negative_accuracy": None,
-                "total_accuracy": None,
-            },
-            "test": {
-                "positive_accuracy": None,
-                "negative_accuracy": None,
-                "total_accuracy": None,
-            },
-        }
-        train_pos_mask = (
-            train[dataset_info.label_column] == dataset_info.positive_label
-        )
-        test_pos_mask = (
-            test[dataset_info.label_column] == dataset_info.positive_label
-        )
 
-        results["train"]["total_accuracy"] = self._get_accuracy(
-            model.predict(train), train[dataset_info.label_column]
-        )
-        results["train"]["positive_accuracy"] = self._get_accuracy(
-            model.predict(train[train_pos_mask]),
-            train.loc[train_pos_mask, dataset_info.label_column],
-        )
-        results["train"]["negative_accuracy"] = self._get_accuracy(
-            model.predict(train[~train_pos_mask]),
-            train.loc[~train_pos_mask, dataset_info.label_column],
-        )
+        def _evaluate_on_split(
+            data: pd.DataFrame,
+        ) -> Mapping[str, pd.DataFrame]:
+            pos_mask = (
+                data[dataset_info.label_column] == dataset_info.positive_label
+            )
+            y_pred = model.predict(data)
+            y_true = data[dataset_info.label_column]
 
-        results["test"]["total_accuracy"] = self._get_accuracy(
-            model.predict(test), test[dataset_info.label_column]
-        )
-        results["test"]["positive_accuracy"] = self._get_accuracy(
-            model.predict(test[test_pos_mask]),
-            test.loc[test_pos_mask, dataset_info.label_column],
-        )
-        results["test"]["negative_accuracy"] = self._get_accuracy(
-            model.predict(test[~test_pos_mask]),
-            test.loc[~test_pos_mask, dataset_info.label_column],
-        )
+            results = {}
+            results["accuracy"] = float((y_pred == y_true).mean())
+            results["true_positives"] = int(
+                (y_pred[pos_mask] == y_true[pos_mask]).sum()
+            )
+            results["false_positives"] = int(
+                (y_pred[pos_mask] != y_true[pos_mask]).sum()
+            )
+            results["true_negatives"] = int(
+                (y_pred[~pos_mask] == y_true[~pos_mask]).sum()
+            )
+            results["false_negatives"] = int(
+                (y_pred[~pos_mask] != y_true[~pos_mask]).sum()
+            )
+
+            return results
+
+        results = {}
+        results["train"] = _evaluate_on_split(train_data)
+        results["val"] = _evaluate_on_split(val_data)
+        results["test"] = _evaluate_on_split(test_data)
         return results
 
     def save_results(

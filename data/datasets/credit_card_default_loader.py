@@ -1,10 +1,24 @@
-from typing import Optional
+from typing import Optional, Union, Sequence, Mapping
 import pandas as pd
+import numpy as np
 from data.datasets import base_loader
 from data.datasets import utils
 
 
 DATASET_NAME = "credit_card_default"
+
+_SPLIT_SEED = 12348571  # Random seed to use when creating train/val/test sets
+_TRAIN_SPLIT_RATIO = 0.7
+_VAL_SPLIT_RATIO = 0.15
+_TEST_SPLIT_RATIO = 0.15
+
+_SOURCE_TARGET_COLUMN = "default payment next month"
+_LABEL_COLUMN = "Y"
+_URL = (
+    "https://archive.ics.uci.edu/ml/machine-learning-databases/00350/"
+    "default%20of%20credit%20card%20clients.xls"
+)
+
 _DATASET_INFO = base_loader.DatasetInfo(
     continuous_features=["LIMIT_BAL", "AGE"]
     + [f"PAY_{i}" for i in range(1, 7)]
@@ -12,13 +26,8 @@ _DATASET_INFO = base_loader.DatasetInfo(
     + [f"PAY_AMT{i}" for i in range(1, 7)],
     ordinal_features=[],
     categorical_features=[],
-    label_column="Y",
+    label_column=_LABEL_COLUMN,
     positive_label=0,
-)
-_SOURCE_TARGET_COLUMN = "default payment next month"
-_URL = (
-    "https://archive.ics.uci.edu/ml/machine-learning-databases/00350/"
-    "default%20of%20credit%20card%20clients.xls"
 )
 
 
@@ -72,7 +81,11 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
     def download_data(self) -> pd.DataFrame:
         return pd.read_excel(_URL, header=1)
 
-    def process_data(self, data: pd.DataFrame) -> pd.DataFrame:
+    def process_data(
+        self,
+        data: pd.DataFrame,
+        split: Union[str, Sequence[str]] = ["train", "val", "test"],
+    ) -> Sequence[pd.DataFrame]:
         """Processes the Credit Card Default dataset.
 
         Drops the MARRIAGE and EDUCATION columns. Renames the PAY_0 column to
@@ -82,14 +95,21 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
 
         Args:
             data: The data to process.
+            split: The data split(s) to return.
 
         Returns:
-            A processed DataFrame.
+            The processed data split(s). If only one split is requested, a
+            tuple of length one is returned.
         """
         data = (
             data.set_index("ID")
             .drop(columns=["MARRIAGE", "EDUCATION"])
-            .rename(columns={_SOURCE_TARGET_COLUMN: "Y", "PAY_0": "PAY_1"})
+            .rename(
+                columns={
+                    _SOURCE_TARGET_COLUMN: _LABEL_COLUMN,
+                    "PAY_0": "PAY_1",
+                }
+            )
         )
         if self.only_continuous_vars:
             pay_mapping = {0: [-1, -2]}
@@ -98,4 +118,77 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
                     data[pay_column], pay_mapping
                 )
             data = data.drop(columns=["SEX"])
-        return data
+        data_splits = CreditCardDefaultLoader._split_data(data)
+        if type(split) == str:
+            return tuple([data_splits[split]])
+        return tuple([data_splits[split_name] for split_name in split])
+
+    @staticmethod
+    def _split_data(data: pd.DataFrame) -> Mapping[str, pd.DataFrame]:
+        """Randomly splits a DataFrame into train, validation, and test
+        partitions.
+
+        The splits preserve the distribution of labels from the original
+        dataset."""
+        # split the data by label to ensure equal distribution
+        pos_data = data[
+            data[_DATASET_INFO.label_column] == _DATASET_INFO.positive_label
+        ]
+        neg_data = data[
+            data[_DATASET_INFO.label_column] != _DATASET_INFO.positive_label
+        ]
+
+        # get the indices for each split per-label
+        pos_split_indices = CreditCardDefaultLoader._split_indices(
+            pos_data.shape[0],
+            _TRAIN_SPLIT_RATIO,
+            _VAL_SPLIT_RATIO,
+            _TEST_SPLIT_RATIO,
+        )
+
+        neg_split_indices = CreditCardDefaultLoader._split_indices(
+            neg_data.shape[0],
+            _TRAIN_SPLIT_RATIO,
+            _VAL_SPLIT_RATIO,
+            _TEST_SPLIT_RATIO,
+        )
+
+        # construct the splits from the indices
+        data_splits = {}
+        for split in ["train", "val", "test"]:
+            data_splits[split] = pd.concat(
+                [
+                    pos_data.iloc[pos_split_indices[split]],
+                    neg_data.iloc[neg_split_indices[split]],
+                ]
+            )
+
+        return data_splits
+
+    @staticmethod
+    def _split_indices(
+        num_indices: int,
+        train_ratio: float,
+        val_ratio: float,
+        test_ratio: float,
+    ) -> Mapping[str, np.ndarray]:
+        """Partitions a set of indices given the train and validation ratios.
+
+        Returns a mapping from split name ('train', 'val', 'test') to the set
+        of indices that should appear in that split.
+
+        The dataset is assumed to be 0-indexed in increments of 1."""
+        if train_ratio < 0 or val_ratio < 0 or test_ratio < 0:
+            raise RuntimeError("Dataset split ratios must be non-negative.")
+        if np.abs((train_ratio + val_ratio + test_ratio) - 1) > 1e-5:
+            raise RuntimeError("Dataset split ratios must sum to 1.")
+        rng = np.random.default_rng(seed=_SPLIT_SEED)
+        indices = np.arange(num_indices)
+        rng.shuffle(indices)
+        train_index = int(np.floor(num_indices * train_ratio))
+        val_index = int(np.floor(num_indices * (train_ratio + val_ratio)))
+        return {
+            "train": indices[:train_index],
+            "val": indices[train_index:val_index],
+            "test": indices[val_index:],
+        }
