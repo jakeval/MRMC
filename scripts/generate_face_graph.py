@@ -59,7 +59,7 @@ def main(
     if not os.path.exists(parent_directory):
         os.makedirs(parent_directory)
     dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name)
+        data_loader.DatasetName(dataset_name), split="train"
     )
     adapter = continuous_adapter.StandardizingAdapter(
         label_column=dataset_info.label_column,
