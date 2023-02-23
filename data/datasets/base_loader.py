@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Sequence, Any, Union
+from typing import Sequence, Any, Union, Mapping
 from dataclasses import dataclass
 import abc
 import os
@@ -68,20 +68,17 @@ class DataLoader(abc.ABC):
     def process_data(
         self,
         data: pd.DataFrame,
-        split: Union[str, Sequence[str]] = ["train", "val", "test"],
-    ) -> Sequence[pd.DataFrame]:
-        """Processes the raw data.
+    ) -> Mapping[str, pd.DataFrame]:
+        """Processes and splits the raw data into train/validation/test sets.
 
         Data processing will be different for every dataset. Example operations
         are recategorizing features and dropping rows or columns.
 
         Args:
             data: The data to process.
-            split: The data split(s) to return.
 
         Returns:
-            The processed data split(s). If only one split is requested, a
-            tuple of length one is returned.
+            The processed data splits.
         """
 
     def load_data(
@@ -105,8 +102,10 @@ class DataLoader(abc.ABC):
         else:
             data = self.load_local_data(dataset_filepath)
 
-        data = self.process_data(data, split)
-        return data
+        data_splits = self.process_data(data, split)
+        if type(split) == str:
+            split = [split]
+        return tuple([data_splits[split_name] for split_name in split])
 
     def save_data(self, data: pd.DataFrame, dataset_filepath: str) -> None:
         """Saves the data to local disk as a csv.

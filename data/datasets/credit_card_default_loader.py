@@ -84,9 +84,9 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
     def process_data(
         self,
         data: pd.DataFrame,
-        split: Union[str, Sequence[str]] = ["train", "val", "test"],
-    ) -> Sequence[pd.DataFrame]:
-        """Processes the Credit Card Default dataset.
+    ) -> Mapping[str, pd.DataFrame]:
+        """Processes the Credit Card Default dataset and splits it into
+        train/validation/test sets.
 
         Drops the MARRIAGE and EDUCATION columns. Renames the PAY_0 column to
         PAY_1. if self.only_continuous_vars is True, drops the SEX column and
@@ -95,11 +95,9 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
 
         Args:
             data: The data to process.
-            split: The data split(s) to return.
 
         Returns:
-            The processed data split(s). If only one split is requested, a
-            tuple of length one is returned.
+            The processed data split.
         """
         data = (
             data.set_index("ID")
@@ -118,10 +116,7 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
                     data[pay_column], pay_mapping
                 )
             data = data.drop(columns=["SEX"])
-        data_splits = CreditCardDefaultLoader._split_data(data)
-        if type(split) == str:
-            return tuple([data_splits[split]])
-        return tuple([data_splits[split_name] for split_name in split])
+        return CreditCardDefaultLoader._split_data(data)
 
     @staticmethod
     def _split_data(data: pd.DataFrame) -> Mapping[str, pd.DataFrame]:
