@@ -178,6 +178,7 @@ def run_mrmc(
     dataset_name: str,
     model_type: str,
     cluster_seed: int,
+    split: str,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame, float]:
     """Runs MRMC using the given configurations.
@@ -197,6 +198,7 @@ def run_mrmc(
         dataset_name: The name of the dataset to use.
         model_type: The type of model to use.
         cluster_seed: The seed to use for clustering.
+        split: The dataset split to use.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -210,8 +212,8 @@ def run_mrmc(
     )
 
     # initialize dataset, adapter, model, mrmc, and recourse iterator
-    dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name)
+    train_data, dataset, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name), split=["train", split]
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
@@ -219,7 +221,7 @@ def run_mrmc(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
         random_seed=adapter_seed,
-    ).fit(dataset)
+    ).fit(train_data)
     model = model_loader.load_model(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
@@ -227,7 +229,7 @@ def run_mrmc(
     mrmc = mrmc_method.MRMC(
         k_directions=num_clusters,
         adapter=adapter,
-        dataset=dataset,
+        dataset=train_data,
         alpha=mrmc_method.get_volcano_alpha(
             cutoff=volcano_cutoff,
             degree=volcano_degree,
@@ -282,6 +284,7 @@ def run_dice(
     max_iterations: int,
     dataset_name: str,
     model_type: str,
+    split: str,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], float]:
     """Runs DICE using the given configurations.
@@ -297,6 +300,7 @@ def run_dice(
             for.
         dataset_name: The name of the dataset to use.
         model_type: The type of model to use.
+        split: The dataset split to use.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -309,8 +313,8 @@ def run_dice(
     ).integers(0, 10000, size=3)
 
     # initialize dataset, adapter, model, dice, and recourse iterator
-    dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name)
+    train_data, dataset, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name), split=["train", split]
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
@@ -318,7 +322,7 @@ def run_dice(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
         random_seed=adapter_seed,
-    ).fit(dataset)
+    ).fit(train_data)
     model = model_loader.load_model(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
@@ -326,7 +330,7 @@ def run_dice(
     dice = dice_method.DiCE(
         k_directions=num_paths,
         adapter=adapter,
-        dataset=dataset,
+        dataset=train_data,
         continuous_features=dataset_info.continuous_features,
         desired_confidence=confidence_cutoff,
         model=model,
@@ -370,6 +374,7 @@ def run_face(
     distance_threshold: float,
     graph_filepath: str,
     counterfactual_mode: bool,
+    split: str,
     **_unused_kwargs: Any,
 ) -> Tuple[pd.DataFrame, float]:
     """Runs FACE using the given configurations.
@@ -389,6 +394,7 @@ def run_face(
         graph_filepath: Path to a graph which matches the distance_threshold.
         counterfactual_mode: Whether to use the first or final point in the
             path to create recourse directions.
+        split: The dataset split to use.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -401,8 +407,8 @@ def run_face(
     )
 
     # initialize dataset, adapter, model, face, and recourse iterator
-    dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name)
+    train_data, dataset, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name), split=["train", split]
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
@@ -410,13 +416,13 @@ def run_face(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
         random_seed=adapter_seed,
-    ).fit(dataset)
+    ).fit(train_data)
     model = model_loader.load_model(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
     )
     face = face_method.FACE(
-        dataset=dataset,
+        dataset=train_data,
         adapter=adapter,
         model=model,
         k_directions=num_paths,
@@ -655,8 +661,9 @@ def get_run_configs(
             raise RuntimeError(
                 (
                     "The experiment config should have only the top-level keys"
-                    " called 'run_configs', 'num_runs', 'experiment_name', and"
-                    f" optionally 'random_seed'. Instead it has keys {keys}."
+                    " called 'parameter_ranges', 'num_runs', "
+                    "'experiment_name', recourse_method, and optionally "
+                    f"'random_seed'. Instead it has keys {keys}."
                 )
             )
         return experiment_utils.create_run_configs(
@@ -670,8 +677,8 @@ def get_run_configs(
             raise RuntimeError(
                 (
                     "The batch config should only have top-level keys called "
-                    "'run_configs' and 'experiment_name'. Instead it has keys "
-                    f"{keys}."
+                    "'run_configs', 'experiment_name', and 'recourse_method'. "
+                    f"Instead it has keys {keys}."
                 )
             )
         return config["run_configs"]
