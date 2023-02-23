@@ -102,7 +102,7 @@ class DataLoader(abc.ABC):
         else:
             data = self.load_local_data(dataset_filepath)
 
-        data_splits = self.process_data(data, split)
+        data_splits = self.process_data(data)
         if type(split) == str:
             split = [split]
         return tuple([data_splits[split_name] for split_name in split])
