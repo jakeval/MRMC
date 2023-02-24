@@ -18,6 +18,9 @@ field."""
 # directories for dice_experiment, mrmc_experiment, etc?
 # https://github.com/jakeval/MRMC/issues/53
 
+# TODO(@jakeval): Rename MRMC to StEP.
+# https://github.com/jakeval/MRMC/issues/56
+
 import os
 import sys
 import pathlib
