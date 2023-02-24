@@ -11,12 +11,15 @@ parallel processes is given by --num_processes.
 The recourse method it tests is determined by the --config["recourse_method"]
 field."""
 
-# TODO(@jakeval): Clarify experiment terminology
+# TODO(@jakeval): Clarify experiment terminology.
 # https://github.com/jakeval/MRMC/issues/41
 
 # TODO(@jakeval): Revisit file structure -- do we still need separate
 # directories for dice_experiment, mrmc_experiment, etc?
 # https://github.com/jakeval/MRMC/issues/53
+
+# TODO(@jakeval): Rename MRMC to StEP.
+# https://github.com/jakeval/MRMC/issues/56
 
 import os
 import sys
@@ -47,7 +50,7 @@ import numpy as np
 import pandas as pd
 
 
-# MRMC/experiment_results/mrmc_results
+# Evaluates to `MRMC/experiment_results`.
 _RESULTS_DIR = _MRMC_PATH / "experiment_results"
 
 
@@ -204,12 +207,12 @@ def run_mrmc(
         A list of recourse paths, a dataframe containing cluster info, and the
         number of seconds taken to compute the recourse (not including cluster
         generation)."""
-    # generate random seeds
+    # Generate random seeds.
     poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
         0, 10000, size=2
     )
 
-    # initialize dataset, adapter, model, mrmc, and recourse iterator
+    # Initialize dataset, adapter, model, mrmc, and recourse iterator.
     dataset, dataset_info = data_loader.load_data(
         data_loader.DatasetName(dataset_name)
     )
@@ -246,7 +249,7 @@ def run_mrmc(
         model=model,
     )
 
-    # get the POI
+    # Get the POI.
     poi = utils.random_poi(
         dataset,
         label_column=dataset_info.label_column,
@@ -257,14 +260,14 @@ def run_mrmc(
 
     start_time = time.time()
 
-    # generate the paths
+    # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
 
     elapsed_time = time.time() - start_time
 
-    # retrieve the clusters
+    # Retrieve the clusters.
     cluster_df = pd.DataFrame(
         data=mrmc.clusters.cluster_centers,
         columns=adapter.embedded_column_names(),
@@ -303,12 +306,12 @@ def run_dice(
     Returns:
         A list of recourse paths and the number of seconds taken to compute the
         recourse."""
-    # generate random seeds
+    # Generate random seeds.
     poi_seed, adapter_seed, dice_seed = np.random.default_rng(
         run_seed
     ).integers(0, 10000, size=3)
 
-    # initialize dataset, adapter, model, dice, and recourse iterator
+    # Initialize dataset, adapter, model, dice, and recourse iterator.
     dataset, dataset_info = data_loader.load_data(
         data_loader.DatasetName(dataset_name)
     )
@@ -339,7 +342,7 @@ def run_dice(
         model=model,
     )
 
-    # get the POI
+    # Get the POI.
     poi = utils.random_poi(
         dataset,
         label_column=dataset_info.label_column,
@@ -350,7 +353,7 @@ def run_dice(
 
     start_time = time.time()
 
-    # generate the paths
+    # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
@@ -395,12 +398,12 @@ def run_face(
     Returns:
         A list of recourse paths and the number of seconds taken to compute the
         recourse."""
-    # generate random seeds
+    # Generate random seeds.
     poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
         0, 10000, size=2
     )
 
-    # initialize dataset, adapter, model, face, and recourse iterator
+    # Initialize dataset, adapter, model, face, and recourse iterator.
     dataset, dataset_info = data_loader.load_data(
         data_loader.DatasetName(dataset_name)
     )
@@ -432,7 +435,7 @@ def run_face(
         model=model,
     )
 
-    # get the POI
+    # Get the POI.
     poi = utils.random_poi(
         dataset,
         label_column=dataset_info.label_column,
@@ -443,7 +446,7 @@ def run_face(
 
     start_time = time.time()
 
-    # generate the paths
+    # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
@@ -727,7 +730,7 @@ def main(
             num_processes=num_processes,
             use_slurm=use_slurm,
             recourse_method=recourse_method,
-            random_seed=None,  # not needed for reproducibility.
+            random_seed=None,  # Not needed for reproducibility.
             scratch_dir=scratch_dir,
             verbose=verbose,
         )
