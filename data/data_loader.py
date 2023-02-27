@@ -45,7 +45,7 @@ def load_data(
     elif dataset_name == DatasetName.TOY_DATASET:
         from confidence_checks import toy_data
 
-        return toy_data.get_data()
+        return toy_data.get_data(split)
     else:
         raise NotImplementedError(f"Dataset {dataset_name} isn't supported.")
     return *loader.load_data(split), loader.dataset_info
