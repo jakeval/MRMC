@@ -11,12 +11,15 @@ parallel processes is given by --num_processes.
 The recourse method it tests is determined by the --config["recourse_method"]
 field."""
 
-# TODO(@jakeval): Clarify experiment terminology
+# TODO(@jakeval): Clarify experiment terminology.
 # https://github.com/jakeval/MRMC/issues/41
 
 # TODO(@jakeval): Revisit file structure -- do we still need separate
 # directories for dice_experiment, mrmc_experiment, etc?
 # https://github.com/jakeval/MRMC/issues/53
+
+# TODO(@jakeval): Rename MRMC to StEP.
+# https://github.com/jakeval/MRMC/issues/56
 
 import os
 import sys
@@ -47,7 +50,7 @@ import numpy as np
 import pandas as pd
 
 
-# MRMC/experiment_results/mrmc_results
+# Evaluates to `MRMC/experiment_results`.
 _RESULTS_DIR = _MRMC_PATH / "experiment_results"
 
 
@@ -178,9 +181,8 @@ def run_mrmc(
     dataset_name: str,
     model_type: str,
     cluster_seed: int,
-    split: str,
     **_unused_kwargs: Any,
-) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame, float]:
+) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame, float, float]:
     """Runs MRMC using the given configurations.
 
     Args:
@@ -198,22 +200,21 @@ def run_mrmc(
         dataset_name: The name of the dataset to use.
         model_type: The type of model to use.
         cluster_seed: The seed to use for clustering.
-        split: The dataset split to use.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
     Returns:
-        A list of recourse paths, a dataframe containing cluster info, and the
+        A list of recourse paths, a dataframe containing cluster info, the
         number of seconds taken to compute the recourse (not including cluster
-        generation)."""
-    # generate random seeds
+        generation), and the number of seconds taken for cluster generation."""
+    # Generate random seeds.
     poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
         0, 10000, size=2
     )
 
-    # initialize dataset, adapter, model, mrmc, and recourse iterator
-    train_data, dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name), split=["train", split]
+    # Initialize dataset, adapter, model, mrmc, and recourse iterator.
+    dataset, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name)
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
@@ -221,15 +222,17 @@ def run_mrmc(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
         random_seed=adapter_seed,
-    ).fit(train_data)
+    ).fit(dataset)
     model = model_loader.load_model(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
     )
+
+    cluster_start_time = time.time()
     mrmc = mrmc_method.MRMC(
         k_directions=num_clusters,
         adapter=adapter,
-        dataset=train_data,
+        dataset=dataset,
         alpha=mrmc_method.get_volcano_alpha(
             cutoff=volcano_cutoff,
             degree=volcano_degree,
@@ -241,6 +244,8 @@ def run_mrmc(
         model=model,
         random_seed=cluster_seed,
     )
+    cluster_elapsed_time = time.time() - cluster_start_time
+
     iterator = recourse_iterator.RecourseIterator(
         adapter=adapter,
         recourse_method=mrmc,
@@ -248,7 +253,7 @@ def run_mrmc(
         model=model,
     )
 
-    # get the POI
+    # Get the POI.
     poi = utils.random_poi(
         dataset,
         label_column=dataset_info.label_column,
@@ -257,22 +262,22 @@ def run_mrmc(
         random_seed=poi_seed,
     )
 
-    start_time = time.time()
+    recourse_start_time = time.time()
 
-    # generate the paths
+    # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
 
-    elapsed_time = time.time() - start_time
+    recourse_elapsed_time = time.time() - recourse_start_time
 
-    # retrieve the clusters
+    # Retrieve the clusters.
     cluster_df = pd.DataFrame(
         data=mrmc.clusters.cluster_centers,
         columns=adapter.embedded_column_names(),
     )
 
-    return paths, cluster_df, elapsed_time
+    return paths, cluster_df, recourse_elapsed_time, cluster_elapsed_time
 
 
 def run_dice(
@@ -284,7 +289,6 @@ def run_dice(
     max_iterations: int,
     dataset_name: str,
     model_type: str,
-    split: str,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], float]:
     """Runs DICE using the given configurations.
@@ -300,21 +304,20 @@ def run_dice(
             for.
         dataset_name: The name of the dataset to use.
         model_type: The type of model to use.
-        split: The dataset split to use.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
     Returns:
         A list of recourse paths and the number of seconds taken to compute the
         recourse."""
-    # generate random seeds
+    # Generate random seeds.
     poi_seed, adapter_seed, dice_seed = np.random.default_rng(
         run_seed
     ).integers(0, 10000, size=3)
 
-    # initialize dataset, adapter, model, dice, and recourse iterator
-    train_data, dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name), split=["train", split]
+    # Initialize dataset, adapter, model, dice, and recourse iterator.
+    dataset, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name)
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
@@ -322,7 +325,7 @@ def run_dice(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
         random_seed=adapter_seed,
-    ).fit(train_data)
+    ).fit(dataset)
     model = model_loader.load_model(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
@@ -330,7 +333,7 @@ def run_dice(
     dice = dice_method.DiCE(
         k_directions=num_paths,
         adapter=adapter,
-        dataset=train_data,
+        dataset=dataset,
         continuous_features=dataset_info.continuous_features,
         desired_confidence=confidence_cutoff,
         model=model,
@@ -343,7 +346,7 @@ def run_dice(
         model=model,
     )
 
-    # get the POI
+    # Get the POI.
     poi = utils.random_poi(
         dataset,
         label_column=dataset_info.label_column,
@@ -354,7 +357,7 @@ def run_dice(
 
     start_time = time.time()
 
-    # generate the paths
+    # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
@@ -374,7 +377,6 @@ def run_face(
     distance_threshold: float,
     graph_filepath: str,
     counterfactual_mode: bool,
-    split: str,
     **_unused_kwargs: Any,
 ) -> Tuple[pd.DataFrame, float]:
     """Runs FACE using the given configurations.
@@ -394,21 +396,20 @@ def run_face(
         graph_filepath: Path to a graph which matches the distance_threshold.
         counterfactual_mode: Whether to use the first or final point in the
             path to create recourse directions.
-        split: The dataset split to use.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
     Returns:
         A list of recourse paths and the number of seconds taken to compute the
         recourse."""
-    # generate random seeds
+    # Generate random seeds.
     poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
         0, 10000, size=2
     )
 
-    # initialize dataset, adapter, model, face, and recourse iterator
-    train_data, dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name), split=["train", split]
+    # Initialize dataset, adapter, model, face, and recourse iterator.
+    dataset, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name)
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
@@ -416,13 +417,13 @@ def run_face(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
         random_seed=adapter_seed,
-    ).fit(train_data)
+    ).fit(dataset)
     model = model_loader.load_model(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
     )
     face = face_method.FACE(
-        dataset=train_data,
+        dataset=dataset,
         adapter=adapter,
         model=model,
         k_directions=num_paths,
@@ -438,7 +439,7 @@ def run_face(
         model=model,
     )
 
-    # get the POI
+    # Get the POI.
     poi = utils.random_poi(
         dataset,
         label_column=dataset_info.label_column,
@@ -449,7 +450,7 @@ def run_face(
 
     start_time = time.time()
 
-    # generate the paths
+    # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
@@ -462,6 +463,7 @@ def format_results(
     run_config: Mapping[str, Any],
     elapsed_recourse_seconds: float,
     mrmc_clusters: Optional[pd.DataFrame] = None,
+    mrmc_cluster_seconds: Optional[float] = None,
 ) -> Sequence[pd.DataFrame]:
     """Formats the results as DataFrames ready for analysis.
 
@@ -474,6 +476,8 @@ def format_results(
         elapsed_recourse_seconds: The number of seconds used to compute
             path_dfs.
         mrmc_clusters: An optional dataframe containing cluster information.
+        mrmc_cluster_seconds: An optional float showing how long cluster
+            generation took.
 
 
     Returns:
@@ -498,6 +502,8 @@ def format_results(
             *rest_of_results,
         ) = experiment_utils.format_results(run_config, paths_df)
     experiment_config_df["elapsed_recourse_seconds"] = elapsed_recourse_seconds
+    if mrmc_cluster_seconds is not None:
+        experiment_config_df["elapsed_cluster_seconds"] = mrmc_cluster_seconds
     return experiment_config_df, *rest_of_results
 
 
@@ -598,14 +604,18 @@ def run_batch(
     all_results = None
     for i, run_config in enumerate(run_configs):
         if recourse_method == "mrmc":
-            mrmc_paths, clusters, elapsed_recourse_seconds = run_mrmc(
-                **run_config
-            )
+            (
+                mrmc_paths,
+                clusters,
+                elapsed_recourse_seconds,
+                elapsed_cluster_seconds,
+            ) = run_mrmc(**run_config)
             experiment_config_df, mrmc_paths_df, cluster_df = format_results(
                 mrmc_paths,
                 run_config,
                 elapsed_recourse_seconds,
                 mrmc_clusters=clusters,
+                mrmc_cluster_seconds=elapsed_cluster_seconds,
             )
             run_results = {
                 "experiment_config_df": experiment_config_df,
@@ -661,9 +671,8 @@ def get_run_configs(
             raise RuntimeError(
                 (
                     "The experiment config should have only the top-level keys"
-                    " called 'parameter_ranges', 'num_runs', "
-                    "'experiment_name', recourse_method, and optionally "
-                    f"'random_seed'. Instead it has keys {keys}."
+                    " called 'run_configs', 'num_runs', 'experiment_name', and"
+                    f" optionally 'random_seed'. Instead it has keys {keys}."
                 )
             )
         return experiment_utils.create_run_configs(
@@ -677,8 +686,8 @@ def get_run_configs(
             raise RuntimeError(
                 (
                     "The batch config should only have top-level keys called "
-                    "'run_configs', 'experiment_name', and 'recourse_method'. "
-                    f"Instead it has keys {keys}."
+                    "'run_configs' and 'experiment_name'. Instead it has keys "
+                    f"{keys}."
                 )
             )
         return config["run_configs"]
@@ -734,7 +743,7 @@ def main(
             num_processes=num_processes,
             use_slurm=use_slurm,
             recourse_method=recourse_method,
-            random_seed=None,  # not needed for reproducibility.
+            random_seed=None,  # Not needed for reproducibility.
             scratch_dir=scratch_dir,
             verbose=verbose,
         )
