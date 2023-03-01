@@ -16,7 +16,7 @@
         "rescale_ratio": [
             null
         ],
-        "num_clusters": [
+        "num_paths": [
             1,
             2,
             3,
