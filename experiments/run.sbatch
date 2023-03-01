@@ -24,11 +24,11 @@ else
     max_runs="--max_runs ${4}"
 fi
 
-srun -N 1 -n 1 --exclusive python ./run_experiment.py \
+srun -N 1 -n 1 --exclusive python ./run_recourse_experiment.py \
 --experiment \
 --verbose \
 --config $3 \
---n_procs $n_procs \
+--num_processes $n_procs \
 --slurm \
 --distributed \
 --scratch_dir $2 \
