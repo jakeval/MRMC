@@ -6,7 +6,6 @@ import numba
 from scipy import sparse
 import time
 import json
-import os
 
 from data import recourse_adapter
 from recourse_methods import base_type
