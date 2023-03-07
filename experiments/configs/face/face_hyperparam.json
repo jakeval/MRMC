@@ -1,0 +1,57 @@
+{
+    "experiment_name": "face_hyperparam",
+    "num_runs": 30,
+    "recourse_method": "face",
+    "random_seed": 103932,
+    "parameter_ranges": {
+        "step_size": [
+            0.5,
+            1,
+            2,
+            4
+        ],
+        "confidence_cutoff": [
+            0.6,
+            0.7,
+            0.8,
+            0.9
+        ],
+        "distance_threshold": [
+            0.75,
+            1,
+            1.5,
+            2.5
+        ],
+        "graph_directory": [
+            "recourse_methods/face_graphs"
+        ],
+        "counterfactual_mode": [
+            true
+        ],
+        "noise_ratio": [
+            null
+        ],
+        "rescale_ratio": [
+            null
+        ],
+        "num_paths": [
+            1,
+            2,
+            3,
+            4,
+            5
+        ],
+        "dataset_name": [
+            "credit_card_default"
+        ],
+        "model_type": [
+            "logistic_regression"
+        ],
+        "max_iterations": [
+            50
+        ],
+        "split": [
+            "val"
+        ]
+    }
+}
