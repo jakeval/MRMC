@@ -1,9 +1,13 @@
 from __future__ import annotations
-from typing import Sequence, Any, Optional, Tuple
+from typing import Sequence, Any, Optional, Tuple, Mapping
 import pandas as pd
 import numpy as np
 import numba
 from scipy import sparse
+import time
+import json
+import os
+
 from data import recourse_adapter
 from recourse_methods import base_type
 from models import model_interface
@@ -86,6 +90,7 @@ class FACE(base_type.RecourseMethod):
     def generate_graph(
         self,
         filepath_to_save_to: Optional[str] = None,
+        config: Mapping[str, Any] = None,
     ) -> FACE:
         """Generates and saves an epsilon-graph.
 
@@ -102,14 +107,23 @@ class FACE(base_type.RecourseMethod):
             self.dataset.drop(columns=self.adapter.label_column)
         )
         data.to_numpy()
+        start_time = time.time()
         graph_weights = FACE._get_e_graph_weights(
             data.to_numpy(),
             self.distance_threshold,
             weight_bias=self.weight_bias,
         )
         sparse_graph_weights = sparse.csr_array(graph_weights)
+        elapsed_time = time.time() - start_time
         if filepath_to_save_to is not None:
             sparse.save_npz(filepath_to_save_to, sparse_graph_weights)
+            filepath_without_extension = ".".join(
+                filepath_to_save_to.split(".")[:-1]
+            )
+            config_name = filepath_without_extension + "_config.json"
+            with open(config_name, "w") as f:
+                config["elapsed_seconds"] = elapsed_time
+                json.dump(config, f)
         self.graph = sparse_graph_weights
 
     def fit(self) -> FACE:
