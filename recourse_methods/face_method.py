@@ -6,7 +6,6 @@ import numba
 from scipy import sparse
 import time
 import json
-import os
 
 from data import recourse_adapter
 from recourse_methods import base_type
@@ -384,7 +383,7 @@ class FACE(base_type.RecourseMethod):
         weights[exclude_mask] = 0
 
         # all other values get the appropriate weight for the POI
-        weights[~exclude_mask] = _get_edge_weight.pyfunc(
+        weights[~exclude_mask] = _get_edge_weight(
             distances[~exclude_mask], weight_bias
         )
         return weights
