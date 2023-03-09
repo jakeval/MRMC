@@ -492,21 +492,17 @@ def format_results(
 
     if mrmc_clusters is not None:
         mrmc_clusters["path_id"] = np.arange(len(mrmc_clusters))
-        (
-            experiment_config_df,
-            *rest_of_results,
-        ) = experiment_utils.format_results(
+        experiment_config_df, *result_dfs = experiment_utils.format_results(
             run_config, paths_df, mrmc_clusters
         )
     else:
-        (
-            experiment_config_df,
-            *rest_of_results,
-        ) = experiment_utils.format_results(run_config, paths_df)
+        experiment_config_df, *result_dfs = experiment_utils.format_results(
+            run_config, paths_df
+        )
     experiment_config_df["elapsed_recourse_seconds"] = elapsed_recourse_seconds
     if mrmc_cluster_seconds is not None:
         experiment_config_df["elapsed_cluster_seconds"] = mrmc_cluster_seconds
-    return experiment_config_df, *rest_of_results
+    return experiment_config_df, *result_dfs
 
 
 def merge_results(
@@ -606,18 +602,15 @@ def run_batch(
     all_results = None
     for i, run_config in enumerate(run_configs):
         if recourse_method == "mrmc":
-            (
-                mrmc_paths,
-                clusters,
-                elapsed_recourse_seconds,
-                elapsed_cluster_seconds,
-            ) = run_mrmc(**run_config)
+            mrmc_paths, clusters, recourse_seconds, cluster_seconds = run_mrmc(
+                **run_config
+            )
             experiment_config_df, mrmc_paths_df, cluster_df = format_results(
                 mrmc_paths,
                 run_config,
-                elapsed_recourse_seconds,
+                recourse_seconds,
                 mrmc_clusters=clusters,
-                mrmc_cluster_seconds=elapsed_cluster_seconds,
+                mrmc_cluster_seconds=cluster_seconds,
             )
             run_results = {
                 "experiment_config_df": experiment_config_df,
