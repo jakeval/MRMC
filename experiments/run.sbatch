@@ -1,6 +1,6 @@
 #! /bin/bash
 
-#SBATCH --job-name=mrmc_experiment
+#SBATCH --job-name=face_experiment
 #SBATCH --output=result-%A_%a.out
 #SBATCH --error=result-%A_%a.err
 #SBATCH --time=0-00:07
@@ -13,22 +13,22 @@ export MKL_NUM_THREADS=2
 export OPENBLAS_NUM_THREADS=2
 export OMP_NUM_THREADS=2
 
-source ./../../.env/bin/activate
+source ./../.env/bin/activate
 
-let num_processes=$1-1
+let n_procs=$1-1
 
-if [ -z $3 ]
+if [ -z $4 ]
 then
     max_runs=""
 else
-    max_runs="--max_runs ${3}"
+    max_runs="--max_runs ${4}"
 fi
 
-srun -N 1 -n 1 --exclusive python ./run_mrmc_experiment.py \
+srun -N 1 -n 1 --exclusive python ./run_experiment.py \
 --experiment \
 --verbose \
---config ./config.json \
---num_processes $num_processes \
+--config $3 \
+--n_procs $n_procs \
 --slurm \
 --distributed \
 --scratch_dir $2 \

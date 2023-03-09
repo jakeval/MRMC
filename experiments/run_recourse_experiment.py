@@ -1,20 +1,33 @@
-"""A mainfile for running MRMC experiments.
+"""A mainfile for running recourse experiments.
 
-It executes a batch of MRMC runs. If the --experiment flag is provided, it
+It executes a batch of recourse runs. If the --experiment flag is provided, it
 constructs the batch of run configs from an experiment config by performing
 grid search over the experiment config parameters.
 
 If the --distributed flag is provided, it uses parallel_runner.py to
 split the runs into batches and execute them in parallel. The number of
-parallel processes is given by --num_processes."""
+parallel processes is given by --num_processes.
+
+The recourse method it tests is determined by the --config["recourse_method"]
+field."""
+
+# TODO(@jakeval): Clarify experiment terminology.
+# https://github.com/jakeval/MRMC/issues/41
+
+# TODO(@jakeval): Revisit file structure -- do we still need separate
+# directories for dice_experiment, mrmc_experiment, etc?
+# https://github.com/jakeval/MRMC/issues/53
+
+# TODO(@jakeval): Rename MRMC to StEP.
+# https://github.com/jakeval/MRMC/issues/56
 
 import os
 import sys
 import pathlib
 
 #  Append MRMC/. to the path to fix imports.
-mrmc_path = pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
-sys.path.append(str(mrmc_path))
+_MRMC_PATH = pathlib.Path(os.path.abspath(__file__)).parent.parent
+sys.path.append(str(_MRMC_PATH))
 
 from typing import Optional, Mapping, Sequence, Tuple, Any
 import shutil
@@ -23,13 +36,10 @@ import json
 import argparse
 
 from data import data_loader
-from data.datasets import base_loader
 from data.adapters import continuous_adapter
-from data import recourse_adapter
 from models import model_constants
-from models import model_interface
 from models import model_loader
-from recourse_methods import mrmc_method
+from recourse_methods import mrmc_method, dice_method, face_method
 from core import recourse_iterator
 from core import utils
 from experiments import utils as experiment_utils
@@ -39,10 +49,8 @@ import numpy as np
 import pandas as pd
 
 
-_RESULTS_DIR = (  # MRMC/experiment_results/mrmc_results
-    pathlib.Path(os.path.abspath(__file__)).parent.parent.parent
-    / "experiment_results/mrmc_results"
-)
+# Evaluates to `MRMC/experiment_results`.
+_RESULTS_DIR = _MRMC_PATH / "experiment_results"
 
 
 parser = argparse.ArgumentParser(description="Run an MRMC experiment.")
@@ -159,82 +167,6 @@ def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser):
         )
 
 
-def _get_dataset(
-    dataset_name: str,
-) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
-    """Gets the dataset. Useful for testing."""
-    return data_loader.load_data(data_loader.DatasetName(dataset_name))
-
-
-def _get_recourse_adapter(
-    dataset: pd.DataFrame,
-    dataset_info: base_loader.DatasetInfo,
-    random_seed: Optional[int],
-    noise_ratio: Optional[float],
-    rescale_ratio: Optional[float],
-) -> recourse_adapter.RecourseAdapter:
-    """Gets the recourse adapter. Useful for testing."""
-    return continuous_adapter.StandardizingAdapter(
-        perturb_ratio=noise_ratio,
-        rescale_ratio=rescale_ratio,
-        label_column=dataset_info.label_column,
-        positive_label=dataset_info.positive_label,
-        random_seed=random_seed,
-    ).fit(dataset)
-
-
-def _get_model(model_type: str, dataset_name: str) -> model_interface.Model:
-    """Gets the model. Useful for testing."""
-    return model_loader.load_model(
-        model_type=model_constants.ModelType(model_type),
-        dataset_name=data_loader.DatasetName(dataset_name),
-    )
-
-
-def _get_mrmc(
-    dataset: pd.DataFrame,
-    adapter: recourse_adapter.RecourseAdapter,
-    model: model_interface.Model,
-    num_clusters: int,
-    volcano_cutoff: float,
-    volcano_degree: float,
-    step_size: float,
-    confidence_threshold: float,
-    random_seed: int,
-) -> mrmc_method.MRMC:
-    """Gets the MRMC instance. Useful for testing."""
-    return mrmc_method.MRMC(
-        k_directions=num_clusters,
-        adapter=adapter,
-        dataset=dataset,
-        alpha=mrmc_method.get_volcano_alpha(
-            cutoff=volcano_cutoff,
-            degree=volcano_degree,
-        ),
-        rescale_direction=mrmc_method.get_constant_step_size_rescaler(
-            step_size
-        ),
-        random_seed=random_seed,
-        confidence_threshold=confidence_threshold,
-        model=model,
-    )
-
-
-def _get_recourse_iterator(
-    adapter: recourse_adapter.RecourseAdapter,
-    mrmc: mrmc_method.MRMC,
-    confidence_cutoff: float,
-    model: model_interface.Model,
-) -> recourse_iterator.RecourseIterator:
-    """Gets the recourse iterator. Useful for testing."""
-    return recourse_iterator.RecourseIterator(
-        adapter=adapter,
-        recourse_method=mrmc,
-        certainty_cutoff=confidence_cutoff,
-        model=model,
-    )
-
-
 def run_mrmc(
     run_seed: int,
     step_size: float,
@@ -272,35 +204,49 @@ def run_mrmc(
 
     Returns:
         A list of recourse paths and a dataframe containing cluster info."""
-    # generate random seeds
+    # Generate random seeds.
     poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
         0, 10000, size=2
     )
 
-    # initialize dataset, adapter, model, mrmc, and recourse iterator
-    dataset, dataset_info = _get_dataset(dataset_name)
-    adapter = _get_recourse_adapter(
-        dataset=dataset,
-        dataset_info=dataset_info,
-        random_seed=adapter_seed,
-        noise_ratio=noise_ratio,
-        rescale_ratio=rescale_ratio,
+    # Initialize dataset, adapter, model, mrmc, and recourse iterator.
+    dataset, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name)
     )
-    model = _get_model(model_type, dataset_name)
-    mrmc = _get_mrmc(
-        dataset=dataset,
+    adapter = continuous_adapter.StandardizingAdapter(
+        perturb_ratio=noise_ratio,
+        rescale_ratio=rescale_ratio,
+        label_column=dataset_info.label_column,
+        positive_label=dataset_info.positive_label,
+        random_seed=adapter_seed,
+    ).fit(dataset)
+    model = model_loader.load_model(
+        model_constants.ModelType(model_type),
+        data_loader.DatasetName(dataset_name),
+    )
+    mrmc = mrmc_method.MRMC(
+        k_directions=num_clusters,
         adapter=adapter,
-        model=model,
-        num_clusters=num_clusters,
-        volcano_cutoff=volcano_cutoff,
-        volcano_degree=volcano_degree,
-        step_size=step_size,
+        dataset=dataset,
+        alpha=mrmc_method.get_volcano_alpha(
+            cutoff=volcano_cutoff,
+            degree=volcano_degree,
+        ),
+        rescale_direction=mrmc_method.get_constant_step_size_rescaler(
+            step_size
+        ),
         confidence_threshold=confidence_cutoff,
+        model=model,
         random_seed=cluster_seed,
     )
-    iterator = _get_recourse_iterator(adapter, mrmc, confidence_cutoff, model)
+    iterator = recourse_iterator.RecourseIterator(
+        adapter=adapter,
+        recourse_method=mrmc,
+        certainty_cutoff=confidence_cutoff,
+        model=model,
+    )
 
-    # get the POI
+    # Get the POI.
     poi = utils.random_poi(
         dataset,
         label_column=dataset_info.label_column,
@@ -309,25 +255,196 @@ def run_mrmc(
         random_seed=poi_seed,
     )
 
-    # generate the paths
+    # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
 
-    # retrieve the clusters
-    clusters = mrmc.clusters.cluster_centers
+    # Retrieve the clusters.
     cluster_df = pd.DataFrame(
-        data=clusters,
+        data=mrmc.clusters.cluster_centers,
         columns=adapter.embedded_column_names(),
     )
 
     return paths, cluster_df
 
 
+def run_dice(
+    run_seed: int,
+    confidence_cutoff: Optional[float],
+    noise_ratio: Optional[float],
+    rescale_ratio: Optional[float],
+    num_paths: int,
+    max_iterations: int,
+    dataset_name: str,
+    model_type: str,
+    **_unused_kwargs: Any,
+) -> Sequence[pd.DataFrame]:
+    """Runs DICE using the given configurations.
+
+    Args:
+        run_seed: The seed used in the run. All random numbers are derived from
+            this seed.
+        confidence_cutoff: The target model confidence.
+        noise_ratio: The optional ratio of noise to add.
+        rescale_ratio: The optional ratio by which to rescale the direction.
+        num_paths: The number of paths to generate.
+        max_iterations: The maximum number of iterations to take recourse steps
+            for.
+        dataset_name: The name of the dataset to use.
+        model_type: The type of model to use.
+        _unused_kwargs: An argument used to capture kwargs from run_config that
+            aren't used by this function.
+
+    Returns:
+        A list of recourse paths."""
+    # Generate random seeds.
+    poi_seed, adapter_seed, dice_seed = np.random.default_rng(
+        run_seed
+    ).integers(0, 10000, size=3)
+
+    # Initialize dataset, adapter, model, dice, and recourse iterator.
+    dataset, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name)
+    )
+    adapter = continuous_adapter.StandardizingAdapter(
+        perturb_ratio=noise_ratio,
+        rescale_ratio=rescale_ratio,
+        label_column=dataset_info.label_column,
+        positive_label=dataset_info.positive_label,
+        random_seed=adapter_seed,
+    ).fit(dataset)
+    model = model_loader.load_model(
+        model_constants.ModelType(model_type),
+        data_loader.DatasetName(dataset_name),
+    )
+    dice = dice_method.DiCE(
+        k_directions=num_paths,
+        adapter=adapter,
+        dataset=dataset,
+        continuous_features=dataset_info.continuous_features,
+        desired_confidence=confidence_cutoff,
+        model=model,
+        random_seed=dice_seed,
+    )
+    iterator = recourse_iterator.RecourseIterator(
+        adapter=adapter,
+        recourse_method=dice,
+        certainty_cutoff=confidence_cutoff,
+        model=model,
+    )
+
+    # Get the POI.
+    poi = utils.random_poi(
+        dataset,
+        label_column=dataset_info.label_column,
+        label_value=adapter.negative_label,
+        model=model,
+        random_seed=poi_seed,
+    )
+
+    # Generate the paths.
+    paths = iterator.iterate_k_recourse_paths(
+        poi=poi, max_iterations=max_iterations
+    )
+
+    return paths
+
+
+def run_face(
+    run_seed: int,
+    confidence_cutoff: Optional[float],
+    noise_ratio: Optional[float],
+    rescale_ratio: Optional[float],
+    num_paths: int,
+    max_iterations: int,
+    dataset_name: str,
+    model_type: str,
+    distance_threshold: float,
+    graph_filepath: str,
+    counterfactual_mode: bool,
+    **_unused_kwargs: Any,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Runs FACE using the given configurations.
+
+    Args:
+        run_seed: The seed used in the run. All random numbers are derived from
+            this seed except the clustering, which uses cluster_seed.
+        confidence_cutoff: The target model confidence.
+        noise_ratio: The optional ratio of noise to add.
+        rescale_ratio: The optional ratio by which to rescale the direction.
+        num_paths: The number of recourse paths to generate.
+        max_iterations: The maximum number of iterations to take recourse steps
+            for.
+        dataset_name: The name of the dataset to use.
+        model_type: The type of model to use.
+        distance_threshold: The maximum edge length of the graph.
+        graph_filepath: Path to a graph which matches the distance_threshold.
+        counterfactual_mode: Whether to use the first or final point in the
+            path to create recourse directions.
+        _unused_kwargs: An argument used to capture kwargs from run_config that
+            aren't used by this function.
+
+    Returns:
+        A list of recourse paths and a dataframe containing cluster info."""
+    # Generate random seeds.
+    poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
+        0, 10000, size=2
+    )
+
+    # Initialize dataset, adapter, model, face, and recourse iterator.
+    dataset, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name)
+    )
+    adapter = continuous_adapter.StandardizingAdapter(
+        perturb_ratio=noise_ratio,
+        rescale_ratio=rescale_ratio,
+        label_column=dataset_info.label_column,
+        positive_label=dataset_info.positive_label,
+        random_seed=adapter_seed,
+    ).fit(dataset)
+    model = model_loader.load_model(
+        model_constants.ModelType(model_type),
+        data_loader.DatasetName(dataset_name),
+    )
+    face = face_method.FACE(
+        dataset=dataset,
+        adapter=adapter,
+        model=model,
+        k_directions=num_paths,
+        distance_threshold=distance_threshold,
+        confidence_threshold=confidence_cutoff,
+        graph_filepath=os.path.join(_MRMC_PATH, graph_filepath),
+        counterfactual_mode=counterfactual_mode,
+    )
+    iterator = recourse_iterator.RecourseIterator(
+        adapter=adapter,
+        recourse_method=face,
+        certainty_cutoff=confidence_cutoff,
+        model=model,
+    )
+
+    # Get the POI.
+    poi = utils.random_poi(
+        dataset,
+        label_column=dataset_info.label_column,
+        label_value=adapter.negative_label,
+        random_seed=poi_seed,
+        model=model,
+    )
+
+    # Generate the paths.
+    paths = iterator.iterate_k_recourse_paths(
+        poi=poi, max_iterations=max_iterations
+    )
+
+    return paths
+
+
 def format_results(
-    mrmc_paths: Sequence[pd.DataFrame],
-    clusters_df: pd.DataFrame,
+    path_dfs: Sequence[pd.DataFrame],
     run_config: Mapping[str, Any],
+    mrmc_clusters: Optional[pd.DataFrame] = None,
 ) -> Mapping[str, pd.DataFrame]:
     """Formats the results as DataFrames ready for analysis.
 
@@ -341,21 +458,18 @@ def format_results(
 
     Returns:
         A mapping from dataframe name to formatted dataframe."""
-    clusters_df["path_id"] = np.arange(len(clusters_df))
-    for i, path in enumerate(mrmc_paths):
-        path["step_id"] = np.arange(len(path))
-        path["path_id"] = i
-    mrmc_paths_df = pd.concat(mrmc_paths).reset_index(drop=True)
-    (
-        experiment_config_df,
-        clusters_df,
-        mrmc_paths_df,
-    ) = experiment_utils.format_results(run_config, clusters_df, mrmc_paths_df)
-    return {
-        "experiment_config_df": experiment_config_df,
-        "cluster_df": clusters_df,
-        "mrmc_paths_df": mrmc_paths_df,
-    }
+    for i, path_df in enumerate(path_dfs):
+        path_df["step_id"] = np.arange(len(path_df))
+        path_df["path_id"] = i
+    paths_df = pd.concat(path_dfs).reset_index(drop=True)
+
+    if mrmc_clusters is not None:
+        mrmc_clusters["path_id"] = np.arange(len(mrmc_clusters))
+        return experiment_utils.format_results(
+            run_config, paths_df, mrmc_clusters
+        )
+    else:
+        return experiment_utils.format_results(run_config, paths_df)
 
 
 def merge_results(
@@ -414,7 +528,7 @@ def save_results(
         The directory where the results are saved."""
     if not results_directory:
         results_directory = os.path.join(
-            _RESULTS_DIR, config["experiment_name"]
+            _RESULTS_DIR, config["recourse_method"], config["experiment_name"]
         )
     if os.path.exists(results_directory):
         shutil.rmtree(results_directory)
@@ -431,13 +545,18 @@ def save_results(
     return results_directory
 
 
-def _get_results_dir(results_directory, experiment_name):
-    return results_directory or os.path.join(_RESULTS_DIR, experiment_name)
+def _get_results_dir(
+    results_directory: Optional[str], config: Mapping[str, Any]
+) -> str:
+    return results_directory or os.path.join(
+        _RESULTS_DIR, config["recourse_method"], config["experiment_name"]
+    )
 
 
 # TODO(@jakeval): The `run` naming here is unclear due to Issue 41
 # https://github.com/jakeval/MRMC/issues/41
 def run_batch(
+    recourse_method: str,
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
 ) -> Mapping[str, pd.DataFrame]:
@@ -446,8 +565,34 @@ def run_batch(
     returned."""
     all_results = None
     for i, run_config in enumerate(run_configs):
-        paths, clusters = run_mrmc(**run_config)
-        run_results = format_results(paths, clusters, run_config)
+        if recourse_method == "mrmc":
+            mrmc_paths, clusters = run_mrmc(**run_config)
+            experiment_config_df, mrmc_paths_df, cluster_df = format_results(
+                mrmc_paths, run_config, mrmc_clusters=clusters
+            )
+            run_results = {
+                "experiment_config_df": experiment_config_df,
+                "mrmc_paths_df": mrmc_paths_df,
+                "cluster_df": cluster_df,
+            }
+        elif recourse_method == "dice":
+            dice_paths = run_dice(**run_config)
+            experiment_config_df, dice_paths_df = format_results(
+                dice_paths, run_config
+            )
+            run_results = {
+                "experiment_config_df": experiment_config_df,
+                "dice_paths_df": dice_paths_df,
+            }
+        else:
+            face_paths = run_face(**run_config)
+            experiment_config_df, face_paths_df = format_results(
+                face_paths, run_config
+            )
+            run_results = {
+                "experiment_config_df": experiment_config_df,
+                "face_paths_df": face_paths_df,
+            }
         all_results = merge_results(all_results, run_results)
         if verbose:
             print(f"Finished run {i+1}/{len(run_configs)}")
@@ -461,8 +606,21 @@ def get_run_configs(
     if is_experiment_config:
         keys = set(config.keys())
         if keys != set(
-            ["parameter_ranges", "num_runs", "random_seed", "experiment_name"]
-        ) and keys != set(["parameter_ranges", "num_runs", "experiment_name"]):
+            [
+                "parameter_ranges",
+                "num_runs",
+                "random_seed",
+                "experiment_name",
+                "recourse_method",
+            ]
+        ) and keys != set(
+            [
+                "parameter_ranges",
+                "num_runs",
+                "experiment_name",
+                "recourse_method",
+            ]
+        ):
             raise RuntimeError(
                 (
                     "The experiment config should have only the top-level keys"
@@ -477,7 +635,7 @@ def get_run_configs(
         )
     else:
         keys = set(config.keys())
-        if keys != set(["run_configs", "experiment_name"]):
+        if keys != set(["run_configs", "experiment_name", "recourse_method"]):
             raise RuntimeError(
                 (
                     "The batch config should only have top-level keys called "
@@ -518,6 +676,7 @@ def main(
         do_dry_run(config, is_experiment, max_runs)
         return
     run_configs = get_run_configs(config, is_experiment)
+    recourse_method = config["recourse_method"]
     if verbose:
         print(f"Got configs for {len(run_configs)} runs.")
     if max_runs:
@@ -532,22 +691,21 @@ def main(
             )
         runner = parallel_runner.ParallelRunner(
             experiment_mainfile_path=__file__,
-            final_results_dir=_get_results_dir(
-                results_dir, config["experiment_name"]
-            ),
+            final_results_dir=_get_results_dir(results_dir, config),
             num_processes=num_processes,
             use_slurm=use_slurm,
-            random_seed=None,  # not needed for reproducibility.
+            recourse_method=recourse_method,
+            random_seed=None,  # Not needed for reproducibility.
             scratch_dir=scratch_dir,
             verbose=verbose,
         )
         if verbose:
-            print(f"Start executing {len(run_configs)} mrmc runs.")
+            print(f"Start executing {len(run_configs)} runs.")
         results = runner.execute_runs(run_configs)
     else:
         if verbose:
-            print(f"Start executing {len(run_configs)} mrmc runs.")
-        results = run_batch(run_configs, verbose)
+            print(f"Start executing {len(run_configs)} runs.")
+        results = run_batch(recourse_method, run_configs, verbose)
     results_dir = save_results(results, results_dir, config, only_csv)
     if verbose:
         print(f"Saved results to {results_dir}")
