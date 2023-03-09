@@ -182,7 +182,6 @@ def run_mrmc(
     model_type: str,
     cluster_seed: int,
     split: str,
-    poi_index: Optional[int] = None,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame, float, float]:
     """Runs MRMC using the given configurations.
@@ -203,8 +202,6 @@ def run_mrmc(
         model_type: The type of model to use.
         cluster_seed: The seed to use for clustering.
         split: The dataset split to evaluate on.
-        poi_index: The index of the POI to use. If None, it is randomly chosen
-            using the run_seed.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -213,14 +210,9 @@ def run_mrmc(
         number of seconds taken to compute the recourse (not including cluster
         generation), and the number of seconds taken for cluster generation."""
     # Generate random seeds.
-    if poi_index:
-        adapter_seed = np.random.default_rng(run_seed).integers(
-            0, 10000, size=1
-        )
-    else:
-        poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
-            0, 10000, size=2
-        )
+    poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
+        0, 10000, size=2
+    )
 
     # Initialize dataset, adapter, model, mrmc, and recourse iterator.
     train_data, eval_data, dataset_info = data_loader.load_data(
@@ -264,16 +256,13 @@ def run_mrmc(
     )
 
     # Get the POI.
-    if poi_index:
-        pass
-    else:
-        poi = utils.random_poi(
-            eval_data,
-            label_column=dataset_info.label_column,
-            label_value=adapter.negative_label,
-            model=model,
-            random_seed=poi_seed,
-        )
+    poi = utils.random_poi(
+        eval_data,
+        label_column=dataset_info.label_column,
+        label_value=adapter.negative_label,
+        model=model,
+        random_seed=poi_seed,
+    )
 
     recourse_start_time = time.time()
 
@@ -628,6 +617,9 @@ def _get_results_dir(
 # https://github.com/jakeval/MRMC/issues/41
 def run_batch(
     recourse_method: str,
+    dataset_name: str,
+    model_type: str,
+    split: str,
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
 ) -> Mapping[str, pd.DataFrame]:
@@ -645,7 +637,12 @@ def run_batch(
                 clusters,
                 elapsed_recourse_seconds,
                 elapsed_cluster_seconds,
-            ) = run_mrmc(**run_config)
+            ) = run_mrmc(
+                dataset_name=dataset_name,
+                model_type=model_type,
+                split=split,
+                **run_config,
+            )
             experiment_config_df, mrmc_paths_df, cluster_df = format_results(
                 mrmc_paths,
                 run_config,
@@ -659,7 +656,12 @@ def run_batch(
                 "cluster_df": cluster_df,
             }
         elif recourse_method == "dice":
-            dice_paths, elapsed_recourse_seconds = run_dice(**run_config)
+            dice_paths, elapsed_recourse_seconds = run_dice(
+                dataset_name=dataset_name,
+                model_type=model_type,
+                split=split,
+                **run_config,
+            )
             experiment_config_df, dice_paths_df = format_results(
                 dice_paths, run_config, elapsed_recourse_seconds
             )
@@ -668,7 +670,12 @@ def run_batch(
                 "dice_paths_df": dice_paths_df,
             }
         else:
-            face_paths, elapsed_recourse_seconds = run_face(**run_config)
+            face_paths, elapsed_recourse_seconds = run_face(
+                dataset_name=dataset_name,
+                model_type=model_type,
+                split=split,
+                **run_config,
+            )
             experiment_config_df, face_paths_df = format_results(
                 face_paths, run_config, elapsed_recourse_seconds
             )
@@ -687,67 +694,62 @@ def get_run_configs(
 ) -> Sequence[Mapping[str, Any]]:
     """Returns the run configs from the provided config file."""
     if is_experiment_config:
-        keys = set(config.keys())
-        necessary_keys = set(
-            [
-                "parameter_ranges",
-                "num_runs",
-                "experiment_name",
-                "recourse_method",
-            ]
-        )
-        optional_keys = set(["use_full_eval_set", "random_seed"])
-        allowed_keys = necessary_keys.union(optional_keys)
-        if not ((necessary_keys in keys) and (keys in allowed_keys)):
-            raise RuntimeError(
-                (
-                    "The experiment config should have only the required keys "
-                    f"{necessary_keys} and maybe the optional keys "
-                    f"{optional_keys}. Instead it has keys {keys}."
-                )
-            )
-        if (
-            config["use_full_eval_set"]
-            and (len(config["dataset_name"]) > 1)
-            or (len(config["model_type"]) > 1)
-        ):
-            raise RuntimeError(
-                (
-                    "If testing on the full eval set, only one dataset and one"
-                    " model may be used at a time."
-                )
-            )
-        if config["use_full_eval_set"]:
-            config["poi_index"] = get_poi_indices(
-                config["dataset_name"], config["model_type"]
-            )
+        _validate_experiment_config(config)
         return experiment_utils.create_run_configs(
             parameter_ranges=config["parameter_ranges"],
             num_runs=config["num_runs"],
             random_seed=config.get("random_seed", None),
         )
     else:
-        keys = set(config.keys())
-        if keys != set(["run_configs", "experiment_name", "recourse_method"]):
-            raise RuntimeError(
-                (
-                    "The batch config should only have top-level keys called "
-                    "'run_configs' and 'experiment_name'. Instead it has keys "
-                    f"{keys}."
-                )
-            )
+        _validate_batch_config(config)
         return config["run_configs"]
 
 
-def get_poi_indices(dataset_name, model_type, split):
-    eval_data, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name), split=split
+def _validate_experiment_config(config):
+    keys = set(config.keys())
+    necessary_keys = set(
+        [
+            "parameter_ranges",
+            "num_runs",
+            "experiment_name",
+            "recourse_method",
+            "dataset_name",
+            "model_type",
+            "split",
+        ]
     )
-    model = model_loader.load_model(
-        model_constants.ModelType(model_type),
-        data_loader.DatasetName(dataset_name),
+    optional_keys = set(["random_seed"])
+    allowed_keys = necessary_keys.union(optional_keys)
+    if not (necessary_keys.issubset(keys) and keys.issubset(allowed_keys)):
+        raise RuntimeError(
+            (
+                "The experiment config should have only the required keys "
+                f"{necessary_keys} and maybe the optional keys "
+                f"{optional_keys}. Instead it has keys {keys}."
+            )
+        )
+
+
+def _validate_batch_config(config):
+    keys = set(config.keys())
+    necessary_keys = set(
+        [
+            "run_configs",
+            "experiment_name",
+            "recourse_method",
+            "dataset_name",
+            "model_type",
+            "split",
+        ]
     )
-    return utils.get_poi_indices(eval_data, dataset_info.negative_label, model)
+    if keys != necessary_keys:
+        raise RuntimeError(
+            (
+                "The batch config should only have top-level keys called "
+                f"{necessary_keys}. Instead it has keys "
+                f"{keys}."
+            )
+        )
 
 
 def do_dry_run(
@@ -800,6 +802,9 @@ def main(
             num_processes=num_processes,
             use_slurm=use_slurm,
             recourse_method=recourse_method,
+            dataset_name=config["dataset_name"],
+            model_type=config["model_type"],
+            split=config["split"],
             random_seed=None,  # Not needed for reproducibility.
             scratch_dir=scratch_dir,
             verbose=verbose,
@@ -810,7 +815,14 @@ def main(
     else:
         if verbose:
             print(f"Start executing {len(run_configs)} runs.")
-        results = run_batch(recourse_method, run_configs, verbose)
+        results = run_batch(
+            recourse_method=recourse_method,
+            dataset_name=config["dataset_name"],
+            model_type=config["model_type"],
+            split=config["split"],
+            run_configs=run_configs,
+            verbose=verbose,
+        )
     config["meta_data"] = {
         "total_runtime_seconds": time.time() - start_time,
         "num_processes": num_processes or 1,

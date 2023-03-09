@@ -47,6 +47,9 @@ class ParallelRunner:
         final_results_dir: str,
         num_processes: int,
         recourse_method: str,
+        dataset_name: str,
+        model_type: str,
+        split: str,
         use_slurm: bool = True,
         random_seed: Optional[int] = None,
         scratch_dir: Optional[str] = None,
@@ -70,6 +73,9 @@ class ParallelRunner:
         self.num_processes = num_processes
         self.use_slurm = use_slurm
         self.recourse_method = recourse_method
+        self.dataset_name = dataset_name
+        self.model_type = model_type
+        self.split = split
         if not random_seed:
             random_seed = np.random.randint(0, 100000)
         self.rng = np.random.default_rng(random_seed)
@@ -229,6 +235,9 @@ class ParallelRunner:
             "run_configs": run_configs,
             "experiment_name": "experiment_scratch_work",
             "recourse_method": self.recourse_method,
+            "dataset_name": self.dataset_name,
+            "model_type": self.model_type,
+            "split": self.split,
         }
         process_config_filename = os.path.join(
             process_io_directory, "config.json"
