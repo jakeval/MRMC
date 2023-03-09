@@ -182,6 +182,7 @@ def run_mrmc(
     model_type: str,
     cluster_seed: int,
     split: str,
+    poi_index: Optional[int] = None,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame, float, float]:
     """Runs MRMC using the given configurations.
@@ -202,6 +203,8 @@ def run_mrmc(
         model_type: The type of model to use.
         cluster_seed: The seed to use for clustering.
         split: The dataset split to evaluate on.
+        poi_index: The index of the POI to use. If None, it is randomly chosen
+            using the run_seed.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -210,9 +213,14 @@ def run_mrmc(
         number of seconds taken to compute the recourse (not including cluster
         generation), and the number of seconds taken for cluster generation."""
     # Generate random seeds.
-    poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
-        0, 10000, size=2
-    )
+    if poi_index:
+        adapter_seed = np.random.default_rng(run_seed).integers(
+            0, 10000, size=1
+        )
+    else:
+        poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
+            0, 10000, size=2
+        )
 
     # Initialize dataset, adapter, model, mrmc, and recourse iterator.
     train_data, eval_data, dataset_info = data_loader.load_data(
@@ -256,13 +264,16 @@ def run_mrmc(
     )
 
     # Get the POI.
-    poi = utils.random_poi(
-        eval_data,
-        label_column=dataset_info.label_column,
-        label_value=adapter.negative_label,
-        model=model,
-        random_seed=poi_seed,
-    )
+    if poi_index:
+        pass
+    else:
+        poi = utils.random_poi(
+            eval_data,
+            label_column=dataset_info.label_column,
+            label_value=adapter.negative_label,
+            model=model,
+            random_seed=poi_seed,
+        )
 
     recourse_start_time = time.time()
 
@@ -677,28 +688,38 @@ def get_run_configs(
     """Returns the run configs from the provided config file."""
     if is_experiment_config:
         keys = set(config.keys())
-        if keys != set(
-            [
-                "parameter_ranges",
-                "num_runs",
-                "random_seed",
-                "experiment_name",
-                "recourse_method",
-            ]
-        ) and keys != set(
+        necessary_keys = set(
             [
                 "parameter_ranges",
                 "num_runs",
                 "experiment_name",
                 "recourse_method",
             ]
+        )
+        optional_keys = set(["use_full_eval_set", "random_seed"])
+        allowed_keys = necessary_keys.union(optional_keys)
+        if not ((necessary_keys in keys) and (keys in allowed_keys)):
+            raise RuntimeError(
+                (
+                    "The experiment config should have only the required keys "
+                    f"{necessary_keys} and maybe the optional keys "
+                    f"{optional_keys}. Instead it has keys {keys}."
+                )
+            )
+        if (
+            config["use_full_eval_set"]
+            and (len(config["dataset_name"]) > 1)
+            or (len(config["model_type"]) > 1)
         ):
             raise RuntimeError(
                 (
-                    "The experiment config should have only the top-level keys"
-                    " called 'run_configs', 'num_runs', 'experiment_name', and"
-                    f" optionally 'random_seed'. Instead it has keys {keys}."
+                    "If testing on the full eval set, only one dataset and one"
+                    " model may be used at a time."
                 )
+            )
+        if config["use_full_eval_set"]:
+            config["poi_index"] = get_poi_indices(
+                config["dataset_name"], config["model_type"]
             )
         return experiment_utils.create_run_configs(
             parameter_ranges=config["parameter_ranges"],
@@ -716,6 +737,17 @@ def get_run_configs(
                 )
             )
         return config["run_configs"]
+
+
+def get_poi_indices(dataset_name, model_type, split):
+    eval_data, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name), split=split
+    )
+    model = model_loader.load_model(
+        model_constants.ModelType(model_type),
+        data_loader.DatasetName(dataset_name),
+    )
+    return utils.get_poi_indices(eval_data, dataset_info.negative_label, model)
 
 
 def do_dry_run(
