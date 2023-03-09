@@ -745,6 +745,7 @@ def get_run_configs(
 def get_poi_indices(
     dataset_name: str, model_type: str, split: str
 ) -> Sequence[int]:
+    """Gets the indices of negatively classified data points."""
     dataset, dataset_info = data_loader.load_data(
         dataset_name=data_loader.DatasetName(dataset_name), split=split
     )
