@@ -228,7 +228,7 @@ def run_mrmc(
         data_loader.DatasetName(dataset_name),
     )
 
-    cluster_start_time = time.time()
+    cluster_start_seconds = time.time()
     mrmc = mrmc_method.MRMC(
         k_directions=num_clusters,
         adapter=adapter,
@@ -244,7 +244,7 @@ def run_mrmc(
         model=model,
         random_seed=cluster_seed,
     )
-    cluster_elapsed_time = time.time() - cluster_start_time
+    cluster_elapsed_seconds = time.time() - cluster_start_seconds
 
     iterator = recourse_iterator.RecourseIterator(
         adapter=adapter,
@@ -262,14 +262,14 @@ def run_mrmc(
         random_seed=poi_seed,
     )
 
-    recourse_start_time = time.time()
+    recourse_start_seconds = time.time()
 
     # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
 
-    recourse_elapsed_time = time.time() - recourse_start_time
+    recourse_elapsed_seconds = time.time() - recourse_start_seconds
 
     # Retrieve the clusters.
     cluster_df = pd.DataFrame(
@@ -277,7 +277,7 @@ def run_mrmc(
         columns=adapter.embedded_column_names(),
     )
 
-    return paths, cluster_df, recourse_elapsed_time, cluster_elapsed_time
+    return paths, cluster_df, recourse_elapsed_seconds, cluster_elapsed_seconds
 
 
 def run_dice(
@@ -362,7 +362,9 @@ def run_dice(
         poi=poi, max_iterations=max_iterations
     )
 
-    return paths, time.time() - start_time
+    elapsed_recourse_seconds = time.time() - start_time
+
+    return paths, elapsed_recourse_seconds
 
 
 def run_face(
@@ -454,8 +456,8 @@ def run_face(
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
-
-    return paths, time.time() - start_time
+    elapsed_recourse_seconds = time.time() - start_time
+    return paths, elapsed_recourse_seconds
 
 
 def format_results(
