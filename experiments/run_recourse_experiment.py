@@ -743,7 +743,8 @@ def get_poi_indices(
         dataset_name=data_loader.DatasetName(dataset_name), split=split
     )
     model = model_loader.load_model(
-        model_constants.ModelType(model_type), dataset_name
+        model_constants.ModelType(model_type),
+        data_loader.DatasetName(dataset_name),
     )
     pred_labels = model.predict(dataset)
     poi_indices = dataset[pred_labels == dataset_info.negative_label].index
