@@ -478,8 +478,8 @@ def format_results(
         elapsed_recourse_seconds: The number of seconds used to compute
             path_dfs.
         mrmc_clusters: An optional dataframe containing cluster information.
-        mrmc_cluster_seconds: An optional float showing how long cluster
-            generation took.
+        mrmc_cluster_seconds: An optional float reflecting wall-clock time for
+            MRMC cluster generation.
 
 
     Returns:
