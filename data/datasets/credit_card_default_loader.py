@@ -28,6 +28,7 @@ _DATASET_INFO = base_loader.DatasetInfo(
     categorical_features=[],
     label_column=_LABEL_COLUMN,
     positive_label=0,
+    negative_label=1,
 )
 
 
