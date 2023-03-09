@@ -238,7 +238,7 @@ def run_mrmc(
         data_loader.DatasetName(dataset_name),
     )
 
-    cluster_start_time = time.time()
+    cluster_start_seconds = time.time()
     mrmc = mrmc_method.MRMC(
         k_directions=num_clusters,
         adapter=adapter,
@@ -254,7 +254,7 @@ def run_mrmc(
         model=model,
         random_seed=cluster_seed,
     )
-    cluster_elapsed_time = time.time() - cluster_start_time
+    cluster_elapsed_seconds = time.time() - cluster_start_seconds
 
     iterator = recourse_iterator.RecourseIterator(
         adapter=adapter,
@@ -275,14 +275,14 @@ def run_mrmc(
             random_seed=poi_seed,
         )
 
-    recourse_start_time = time.time()
+    recourse_start_seconds = time.time()
 
     # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
 
-    recourse_elapsed_time = time.time() - recourse_start_time
+    recourse_elapsed_seconds = time.time() - recourse_start_seconds
 
     # Retrieve the clusters.
     cluster_df = pd.DataFrame(
@@ -290,7 +290,7 @@ def run_mrmc(
         columns=adapter.embedded_column_names(),
     )
 
-    return paths, cluster_df, recourse_elapsed_time, cluster_elapsed_time
+    return paths, cluster_df, recourse_elapsed_seconds, cluster_elapsed_seconds
 
 
 def run_dice(
@@ -388,7 +388,9 @@ def run_dice(
         poi=poi, max_iterations=max_iterations
     )
 
-    return paths, time.time() - start_time
+    elapsed_recourse_seconds = time.time() - start_time
+
+    return paths, elapsed_recourse_seconds
 
 
 def run_face(
@@ -512,8 +514,8 @@ def run_face(
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
-
-    return paths, time.time() - start_time
+    elapsed_recourse_seconds = time.time() - start_time
+    return paths, elapsed_recourse_seconds
 
 
 def format_results(
@@ -534,8 +536,8 @@ def format_results(
         elapsed_recourse_seconds: The number of seconds used to compute
             path_dfs.
         mrmc_clusters: An optional dataframe containing cluster information.
-        mrmc_cluster_seconds: An optional float showing how long cluster
-            generation took.
+        mrmc_cluster_seconds: An optional float reflecting wall-clock time for
+            MRMC cluster generation.
 
 
     Returns:
@@ -548,21 +550,17 @@ def format_results(
 
     if mrmc_clusters is not None:
         mrmc_clusters["path_id"] = np.arange(len(mrmc_clusters))
-        (
-            experiment_config_df,
-            *rest_of_results,
-        ) = experiment_utils.format_results(
+        experiment_config_df, *result_dfs = experiment_utils.format_results(
             run_config, paths_df, mrmc_clusters
         )
     else:
-        (
-            experiment_config_df,
-            *rest_of_results,
-        ) = experiment_utils.format_results(run_config, paths_df)
+        experiment_config_df, *result_dfs = experiment_utils.format_results(
+            run_config, paths_df
+        )
     experiment_config_df["elapsed_recourse_seconds"] = elapsed_recourse_seconds
     if mrmc_cluster_seconds is not None:
         experiment_config_df["elapsed_cluster_seconds"] = mrmc_cluster_seconds
-    return experiment_config_df, *rest_of_results
+    return experiment_config_df, *result_dfs
 
 
 def merge_results(
@@ -665,12 +663,7 @@ def run_batch(
     all_results = None
     for i, run_config in enumerate(run_configs):
         if recourse_method == "mrmc":
-            (
-                mrmc_paths,
-                clusters,
-                elapsed_recourse_seconds,
-                elapsed_cluster_seconds,
-            ) = run_mrmc(
+            mrmc_paths, clusters, recourse_seconds, cluster_seconds = run_mrmc(
                 dataset_name=dataset_name,
                 model_type=model_type,
                 split=split,
@@ -679,9 +672,9 @@ def run_batch(
             experiment_config_df, mrmc_paths_df, cluster_df = format_results(
                 mrmc_paths,
                 run_config,
-                elapsed_recourse_seconds,
+                recourse_seconds,
                 mrmc_clusters=clusters,
-                mrmc_cluster_seconds=elapsed_cluster_seconds,
+                mrmc_cluster_seconds=cluster_seconds,
             )
             run_results = {
                 "experiment_config_df": experiment_config_df,
