@@ -705,7 +705,8 @@ def get_run_configs(
         return config["run_configs"]
 
 
-def _validate_experiment_config(config):
+def _validate_experiment_config(config: Mapping[str, Any]):
+    """Validates the top-level keys of an experiment config dictionary."""
     keys = set(config.keys())
     necessary_keys = set(
         [
@@ -730,7 +731,8 @@ def _validate_experiment_config(config):
         )
 
 
-def _validate_batch_config(config):
+def _validate_batch_config(config: Mapping[str, Any]):
+    """Validates the top-level keys of a batch config dictionary."""
     keys = set(config.keys())
     necessary_keys = set(
         [
