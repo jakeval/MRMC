@@ -182,6 +182,7 @@ def run_mrmc(
     model_type: str,
     cluster_seed: int,
     split: str,
+    poi_index: Optional[int] = None,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame, float, float]:
     """Runs MRMC using the given configurations.
@@ -202,6 +203,8 @@ def run_mrmc(
         model_type: The type of model to use.
         cluster_seed: The seed to use for clustering.
         split: The dataset split to evaluate on.
+        poi_index: The DataFrame index of the POI to use from the evaluation
+            set.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -210,9 +213,14 @@ def run_mrmc(
         number of seconds taken to compute the recourse (not including cluster
         generation), and the number of seconds taken for cluster generation."""
     # Generate random seeds.
-    poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
-        0, 10000, size=2
-    )
+    if poi_index:
+        adapter_seed = np.random.default_rng(run_seed).integers(
+            0, 10000, size=1
+        )
+    else:
+        poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
+            0, 10000, size=2
+        )
 
     # Initialize dataset, adapter, model, mrmc, and recourse iterator.
     train_data, eval_data, dataset_info = data_loader.load_data(
@@ -256,13 +264,16 @@ def run_mrmc(
     )
 
     # Get the POI.
-    poi = utils.random_poi(
-        eval_data,
-        label_column=dataset_info.label_column,
-        label_value=adapter.negative_label,
-        model=model,
-        random_seed=poi_seed,
-    )
+    if poi_index:
+        poi = eval_data.loc[poi_index].drop(dataset_info.label_column)
+    else:
+        poi = utils.random_poi(
+            eval_data,
+            label_column=dataset_info.label_column,
+            label_value=adapter.negative_label,
+            model=model,
+            random_seed=poi_seed,
+        )
 
     recourse_start_time = time.time()
 
@@ -292,6 +303,7 @@ def run_dice(
     dataset_name: str,
     model_type: str,
     split: str,
+    poi_index: Optional[int] = None,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], float]:
     """Runs DICE using the given configurations.
@@ -308,6 +320,8 @@ def run_dice(
         dataset_name: The name of the dataset to use.
         model_type: The type of model to use.
         split: The dataset split to evaluate on.
+        poi_index: The DataFrame index of the POI to use from the evaluation
+            set.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -315,9 +329,14 @@ def run_dice(
         A list of recourse paths and the number of seconds taken to compute the
         recourse."""
     # Generate random seeds.
-    poi_seed, adapter_seed, dice_seed = np.random.default_rng(
-        run_seed
-    ).integers(0, 10000, size=3)
+    if poi_index:
+        adapter_seed, dice_seed = np.random.default_rng(run_seed).integers(
+            0, 10000, size=2
+        )
+    else:
+        poi_seed, adapter_seed, dice_seed = np.random.default_rng(
+            run_seed
+        ).integers(0, 10000, size=3)
 
     # Initialize dataset, adapter, model, dice, and recourse iterator.
     train_data, eval_data, dataset_info = data_loader.load_data(
@@ -351,13 +370,16 @@ def run_dice(
     )
 
     # Get the POI.
-    poi = utils.random_poi(
-        eval_data,
-        label_column=dataset_info.label_column,
-        label_value=adapter.negative_label,
-        model=model,
-        random_seed=poi_seed,
-    )
+    if poi_index:
+        poi = eval_data.loc[poi_index].drop(dataset_info.label_column)
+    else:
+        poi = utils.random_poi(
+            eval_data,
+            label_column=dataset_info.label_column,
+            label_value=adapter.negative_label,
+            model=model,
+            random_seed=poi_seed,
+        )
 
     start_time = time.time()
 
@@ -382,6 +404,7 @@ def run_face(
     model_type: str,
     counterfactual_mode: bool,
     split: str,
+    poi_index: Optional[int] = None,
     **_unused_kwargs: Any,
 ) -> Tuple[pd.DataFrame, float]:
     """Runs FACE using the given configurations.
@@ -403,6 +426,8 @@ def run_face(
         counterfactual_mode: Whether to use the first or final point in the
             path to create recourse directions.
         split: The dataset split to evaluate on.
+        poi_index: The DataFrame index of the POI to use from the evaluation
+            set.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -410,9 +435,14 @@ def run_face(
         A list of recourse paths and the number of seconds taken to compute the
         recourse."""
     # Generate random seeds.
-    poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
-        0, 10000, size=2
-    )
+    if poi_index:
+        adapter_seed = np.random.default_rng(run_seed).integers(
+            0, 10000, size=1
+        )
+    else:
+        poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
+            0, 10000, size=2
+        )
 
     # Initialize dataset, adapter, model, face, and recourse iterator.
     train_data, eval_data, dataset_info = data_loader.load_data(
@@ -465,13 +495,16 @@ def run_face(
     )
 
     # Get the POI.
-    poi = utils.random_poi(
-        eval_data,
-        label_column=dataset_info.label_column,
-        label_value=adapter.negative_label,
-        random_seed=poi_seed,
-        model=model,
-    )
+    if poi_index:
+        poi = eval_data.loc[poi_index].drop(dataset_info.label_column)
+    else:
+        poi = utils.random_poi(
+            eval_data,
+            label_column=dataset_info.label_column,
+            label_value=adapter.negative_label,
+            model=model,
+            random_seed=poi_seed,
+        )
 
     start_time = time.time()
 
@@ -695,6 +728,10 @@ def get_run_configs(
     """Returns the run configs from the provided config file."""
     if is_experiment_config:
         _validate_experiment_config(config)
+        if config.get("use_full_eval_set", False):
+            config["parameter_ranges"]["poi_index"] = get_poi_indices(
+                config["dataset_name"], config["model_type"], config["split"]
+            )
         return experiment_utils.create_run_configs(
             parameter_ranges=config["parameter_ranges"],
             num_runs=config["num_runs"],
@@ -703,6 +740,20 @@ def get_run_configs(
     else:
         _validate_batch_config(config)
         return config["run_configs"]
+
+
+def get_poi_indices(
+    dataset_name: str, model_type: str, split: str
+) -> Sequence[int]:
+    dataset, dataset_info = data_loader.load_data(
+        dataset_name=data_loader.DatasetName(dataset_name), split=split
+    )
+    model = model_loader.load_model(
+        model_constants.ModelType(model_type), dataset_name
+    )
+    pred_labels = model.predict(dataset)
+    poi_indices = dataset[pred_labels == dataset_info.negative_label].index
+    return poi_indices.to_list()
 
 
 def _validate_experiment_config(config):
@@ -718,7 +769,7 @@ def _validate_experiment_config(config):
             "split",
         ]
     )
-    optional_keys = set(["random_seed"])
+    optional_keys = set(["random_seed", "use_full_eval_set"])
     allowed_keys = necessary_keys.union(optional_keys)
     if not (necessary_keys.issubset(keys) and keys.issubset(allowed_keys)):
         raise RuntimeError(
