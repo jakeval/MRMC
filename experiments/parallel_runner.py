@@ -35,7 +35,12 @@ class ParallelRunner:
         final_results_dir: The directory to write the final results to.
         scratch_dir: The process-local directory to write temporary resutls to.
         num_processes: The number of processes to execute in parallel.
-        recourse_method: The recourse method to use when executing batches.
+        recourse_method: The recourse method to use when constructing the
+            batch config file.
+        dataset_name: The name of the dataset to use when constructing the
+            batch config file.
+        model_type: The model to use when constructing the batch config file.
+        split: The data split to use when constructing the batch config file.
         use_slurm: Whether to use the SLURM distributed job scheduler.
         rng: The random generator used to distribute runs across processes.
             It does not effect the results, but may effect load balancing.
@@ -61,6 +66,14 @@ class ParallelRunner:
             experiment_mainfile_path: The python mainfile to run in parallel.
             final_results_dir: The directory to write the final results to.
             num_processes: The number of child processes to run in parallel.
+            recourse_method: The recourse method to use when constructing the
+                batch config file.
+            dataset_name: The name of the dataset to use when constructing the
+                batch config file.
+            model_type: The model to use when constructing the batch config
+                file.
+            split: The data split to use when constructing the batch config
+                file.
             use_slurm: Whether to use the SLURM job scheduler. This should be
                 True if you are executing this via the sbatch command.
             random_seed: The random seed to use when assigning runs to
