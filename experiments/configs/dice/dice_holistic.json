@@ -8,9 +8,6 @@
     "model_type": "logistic_regression",
     "split": "val",
     "parameter_ranges": {
-        "step_size": [
-            1
-        ],
         "confidence_cutoff": [
             0.7
         ],
