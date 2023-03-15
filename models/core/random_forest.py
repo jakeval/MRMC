@@ -18,8 +18,8 @@ TRAINING_PARAMS = {
     "n_estimators": [2**7, 2**9, 2**11, 2**13],
     "max_features": [1, None, "sqrt"],
     "random_state": [model_constants.RANDOM_SEED],
-    "min_samples_split": [2, 4, 8, 16],
-    "max_depth": [4, 16, 64, None],
+    "min_samples_split": [2],  # [2, 4, 8, 16],
+    "max_depth": [None],  # [4, 16, 64, None],
 }
 
 
