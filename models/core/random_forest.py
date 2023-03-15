@@ -15,7 +15,7 @@ from models import model_constants, model_interface
 MODEL_FILENAME = "model.pkl"  # The default filename for saved LR models.
 TRAINING_PARAMS = {
     "class_weight": ["balanced"],
-    "n_estimators": [2**7, 2**9, 2**11, 2**13],
+    "n_estimators": [2**7, 2**9, 2**11],
     "max_features": [1, None, "sqrt"],
     "random_state": [model_constants.RANDOM_SEED],
     "min_samples_split": [2],  # [2, 4, 8, 16],
