@@ -6,7 +6,7 @@ sys.path.append(os.path.join(os.getcwd(), ".."))
 
 import argparse
 from models import model_constants
-from models.core import model_trainer, logistic_regression
+from models.core import model_trainer, logistic_regression, random_forest
 from data import data_loader
 
 
@@ -43,6 +43,10 @@ def get_trainer(
         A ModelTrainer class."""
     if model_type == model_constants.ModelType.LOGISTIC_REGRESSION:
         return logistic_regression.LogisticRegression(
+            dataset_name=dataset_name, model_name=model_name
+        )
+    elif model_type == model_constants.ModelType.RANDOM_FOREST:
+        return random_forest.RandomForest(
             dataset_name=dataset_name, model_name=model_name
         )
     else:
