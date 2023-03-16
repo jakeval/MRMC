@@ -67,6 +67,7 @@ class RandomForest(model_trainer.ModelTrainer):
         models = []
         accuracies = []
         runtimes = []
+        params_list = []
 
         for params in model_selection.ParameterGrid(TRAINING_PARAMS):
             start_time = time.time()
@@ -80,11 +81,15 @@ class RandomForest(model_trainer.ModelTrainer):
             models.append(model)
             runtime = time.time() - start_time
             runtimes.append(runtime)
+            params_list.append(params)
 
         for accuracy, runtime in zip(accuracies, runtimes):
             print(f"accuracy: {accuracy:.4f}, runtime: {runtime:.4f}")
 
         best_model = models[np.argmax(accuracies)]
+        print("Selected params:")
+        for key, value in params.items():
+            print(f"{key}: {value}")
         return best_model
 
     def save_model(self, model: model_interface.Model, model_dir: str) -> None:
