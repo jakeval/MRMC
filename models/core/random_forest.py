@@ -17,12 +17,12 @@ from models import model_constants, model_interface
 MODEL_FILENAME = "model.pkl"  # The default filename for saved LR models.
 TRAINING_PARAMS = {
     "class_weight": ["balanced"],
-    "n_estimators": [125, 250, 500, 1000],
-    "max_features": [None, "sqrt"],
+    "n_estimators": [61, 125, 250],
+    "max_features": ["sqrt"],
     "random_state": [model_constants.RANDOM_SEED],
-    "min_samples_split": [0.02],
-    "max_depth": [10, 15, 20],
-    "ccp_alpha": [0.001, 0.005, 0.01],
+    "min_samples_split": [2, 200, 400],
+    "max_depth": [40, 50, 60],
+    "ccp_alpha": [0, 0.0001, 0.001, 0.01],
 }
 
 
@@ -94,6 +94,7 @@ class RandomForest(model_trainer.ModelTrainer):
             y_true = val_data[dataset_info.label_column]
             accuracy = (y_pred == y_true).mean()
             accuracies.append(accuracy)
+
             models.append(model)
             runtime = time.time() - start_time
             runtimes.append(runtime)
@@ -102,9 +103,10 @@ class RandomForest(model_trainer.ModelTrainer):
         for accuracy, runtime in zip(accuracies, runtimes):
             print(f"accuracy: {accuracy:.4f}, runtime: {runtime:.4f}")
 
-        best_model = models[np.argmax(accuracies)]
+        best_index = np.argmax(accuracies)
+        best_model = models[best_index]
         print("Selected params:")
-        for key, value in params.items():
+        for key, value in params_list[best_index].items():
             print(f"{key}: {value}")
         return best_model
 
