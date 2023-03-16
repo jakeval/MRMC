@@ -1,5 +1,5 @@
 import abc
-from typing import Any
+from typing import Any, Mapping, Optional
 import numpy as np
 import pandas as pd
 import dice_ml
@@ -28,6 +28,7 @@ class Model(abc.ABC):
             and continuous embedded data representations."""
 
     adapter: recourse_adapter.RecourseAdapter
+    hyperparams: Mapping[str, Any]
 
     @abc.abstractmethod
     def _predict_pos_proba(
@@ -138,17 +139,23 @@ class SKLearnModel(Model):
     """An implementation of the Model class for SKLearn models."""
 
     def __init__(
-        self, sklearn_model, adapter: recourse_adapter.RecourseAdapter
+        self,
+        sklearn_model,
+        adapter: recourse_adapter.RecourseAdapter,
+        hyperparams: Optional[Mapping[str, Any]] = None,
     ):
         """Creates a new SKLearnModel.
 
         Args:
             sklearn_model: A prediction model from sklearn.
             adapter: The RecourseAdapter used to process data for the sklearn
+                model.
+            hyperparams: Optionally, the hyperparameters used to fit this
                 model."""
-        super().__init__(adapter=adapter)
+        super().__init__(adapter=adapter, hyperparams=hyperparams)
         self.model = sklearn_model
         self.pos_class_index = np.where(self.model.classes_ == 1)[0][0]
+        self.hyperparams = hyperparams
 
     def _predict_pos_proba(
         self, dataset: recourse_adapter.EmbeddedDataFrame

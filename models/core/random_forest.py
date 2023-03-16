@@ -1,8 +1,10 @@
+from typing import Optional
 from sklearn import ensemble, model_selection
 import pandas as pd
 import numpy as np
 import joblib
 import os
+import json
 import time
 from data.datasets import base_loader
 from data import data_loader
@@ -15,11 +17,12 @@ from models import model_constants, model_interface
 MODEL_FILENAME = "model.pkl"  # The default filename for saved LR models.
 TRAINING_PARAMS = {
     "class_weight": ["balanced"],
-    "n_estimators": [2**7, 2**9, 2**11],
-    "max_features": [1, None, "sqrt"],
+    "n_estimators": [125, 250, 500, 1000],
+    "max_features": [None, "sqrt"],
     "random_state": [model_constants.RANDOM_SEED],
-    "min_samples_split": [2],  # [2, 4, 8, 16],
-    "max_depth": [None],  # [4, 16, 64, None],
+    "min_samples_split": [0.02],
+    "max_depth": [10, 15, 20],
+    "ccp_alpha": [0.001, 0.005, 0.01],
 }
 
 
@@ -32,17 +35,21 @@ class RandomForest(model_trainer.ModelTrainer):
         self,
         dataset_name: data_loader.DatasetName,
         model_name: model_constants.ModelName,
+        max_gridsearch_iterations: Optional[int] = None,
     ):
         """Creates a new LogisticRegression class.
 
         Args:
             dataset_name: The name of the dataset to load.
-            model_name: The name of the model to train."""
+            model_name: The name of the model to train.
+            max_gridsearch_iterations: An optional limit on the number of
+                hyperparameter combinations to try during gridsearch."""
         super().__init__(
             model_type=model_constants.ModelType.RANDOM_FOREST,
             dataset_name=dataset_name,
             model_name=model_name,
         )
+        self.max_gridsearch_iterations = max_gridsearch_iterations
 
     def train_model(
         self,
@@ -69,11 +76,20 @@ class RandomForest(model_trainer.ModelTrainer):
         runtimes = []
         params_list = []
 
-        for params in model_selection.ParameterGrid(TRAINING_PARAMS):
+        all_params = list(model_selection.ParameterGrid(TRAINING_PARAMS))
+        if self.max_gridsearch_iterations:
+            max_iterations = self.max_gridsearch_iterations  # for convenience
+            print(f"Running {max_iterations} of {len(all_params)}")
+            all_params = all_params[: self.max_gridsearch_iterations]
+        for i, params in enumerate(all_params):
+            print("run", i)
+            print(params)
             start_time = time.time()
             rf = ensemble.RandomForestClassifier(**params)
             rf.fit(training_data, training_labels)
-            model = model_interface.SKLearnModel(rf, adapter)
+            model = model_interface.SKLearnModel(
+                rf, adapter, hyperparams=params
+            )
             y_pred = model.predict(val_data)
             y_true = val_data[dataset_info.label_column]
             accuracy = (y_pred == y_true).mean()
@@ -102,6 +118,8 @@ class RandomForest(model_trainer.ModelTrainer):
             model_dir: The directory to save the model under."""
         super().save_model(model, model_dir)
         joblib.dump(model, os.path.join(model_dir, MODEL_FILENAME))
+        with open(os.path.join(model_dir, "model_config.json"), "w") as f:
+            json.dump(model.hyperparams, f)
 
     def _load_model(self, model_dir: str) -> model_interface.Model:
         """Loads a trained model from local disk."""
