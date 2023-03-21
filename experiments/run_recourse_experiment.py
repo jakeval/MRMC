@@ -622,6 +622,7 @@ def save_results(
             _RESULTS_DIR,
             config["recourse_method"],
             config["model_type"],
+            config["dataset_name"],
             config["experiment_name"],
         )
     if os.path.exists(results_directory):
