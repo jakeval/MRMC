@@ -48,6 +48,9 @@ parser.add_argument(
 )
 
 
+SAMPLE_RANDOM_SEED = 912384
+
+
 def main(
     dataset_name: str,
     distance_threshold: float,
@@ -66,7 +69,9 @@ def main(
         positive_label=dataset_info.positive_label,
     ).fit(dataset)
     if debug_subsample:
-        dataset = dataset.sample(n=debug_subsample)
+        dataset = dataset.sample(
+            n=debug_subsample, random_state=SAMPLE_RANDOM_SEED
+        )
     face = face_method.FACE(
         dataset=dataset,
         adapter=adapter,
