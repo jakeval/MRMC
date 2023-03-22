@@ -46,9 +46,8 @@ class GiveMeCreditLoader(base_loader.DataLoader):
         """Creates a data loader for the UCI Credit Card Default dataset.
 
         Args:
-            only_continuous_vars: If True, drops the categorical SEX column and
-                             turns the categorical PAY_* columns into
-                             continuous columns.
+            drop_na: If True, drops rows where MonthlyIncome or
+                NumberOfDependents is missing (~17% of the dataset).
         """
         super().__init__(
             dataset_info=_DATASET_INFO,
