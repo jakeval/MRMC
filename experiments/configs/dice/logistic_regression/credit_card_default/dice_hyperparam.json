@@ -2,6 +2,9 @@
     "experiment_name": "dice_hyperparam",
     "num_runs": 30,
     "recourse_method": "dice",
+    "dataset_name": "credit_card_default",
+    "model_type": "logistic_regression",
+    "split": "val",
     "random_seed": 103932,
     "parameter_ranges": {
         "confidence_cutoff": [
@@ -23,17 +26,8 @@
             4,
             5
         ],
-        "dataset_name": [
-            "credit_card_default"
-        ],
-        "model_type": [
-            "logistic_regression"
-        ],
         "max_iterations": [
             50
-        ],
-        "split": [
-            "val"
         ]
     }
 }
