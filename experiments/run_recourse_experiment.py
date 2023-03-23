@@ -54,20 +54,20 @@ import pandas as pd
 _RESULTS_DIR = _MRMC_PATH / "experiment_results"
 
 
-parser = argparse.ArgumentParser(description="Run an MRMC experiment.")
+parser = argparse.ArgumentParser(description="Run a recourse experiment.")
 parser.add_argument(
     "--config",
     type=str,
     help=(
         "The filepath of the config .json to process and execute. Can be a "
-        "batch of run configs or an experiment config is using --experiment."
+        "batch of run configs or an experiment config if using --experiment."
     ),
 )
 parser.add_argument(
     "--experiment",
     action="store_true",
     help=(
-        "Whether generate a batch of run configs from a single experiment "
+        "Whether to generate a batch of run configs from a single experiment "
         "config .json."
     ),
     default=False,
@@ -122,7 +122,7 @@ parser.add_argument(
     action="store_true",
     default=False,
     help=(
-        "If true, use SLURM as as distributed job scheduled. Used only if "
+        "If true, use SLURM as as distributed job scheduler. Used only if "
         "--distributed is set."
     ),
 )
