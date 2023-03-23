@@ -1,21 +1,23 @@
 {
-    "experiment_name": "face_holistic",
-    "num_runs": 1,
+    "experiment_name": "face_hyperparam",
+    "num_runs": 30,
     "recourse_method": "face",
+    "dataset_name": REPLACE ME,
+    "model_type": "logistic_regression",
+    "split": "val",
     "random_seed": 103932,
-    "use_full_eval_set": true,
-    "dataset_name": "credit_card_default",
-    "model_type": "random_forest",
-    "split": "test",
     "parameter_ranges": {
         "confidence_cutoff": [
-            0.7
+            0.6,
+            0.7,
+            0.8,
+            0.9
         ],
         "distance_threshold": [
-            2.5
+            REPLACE ME
         ],
         "graph_directory": [
-            "recourse_methods/face_graphs/credit_card_default"
+            REPLACE ME
         ],
         "counterfactual_mode": [
             true
@@ -27,7 +29,11 @@
             null
         ],
         "num_paths": [
-            3
+            1,
+            2,
+            3,
+            4,
+            5
         ],
         "max_iterations": [
             50

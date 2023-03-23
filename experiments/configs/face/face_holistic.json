@@ -1,15 +1,24 @@
 {
-    "experiment_name": "dice_holistic",
+    "experiment_name": "face_holistic",
     "num_runs": 1,
-    "recourse_method": "dice",
+    "recourse_method": "face",
     "random_seed": 103932,
     "use_full_eval_set": true,
-    "dataset_name": "give_me_credit",
-    "model_type": "logistic_regression",
+    "dataset_name": REPLACE ME,
+    "model_type": REPLACE ME,
     "split": "test",
     "parameter_ranges": {
         "confidence_cutoff": [
             0.7
+        ],
+        "distance_threshold": [
+            REPLACE_ME
+        ],
+        "graph_directory": [
+            REPLACE_ME
+        ],
+        "counterfactual_mode": [
+            true
         ],
         "noise_ratio": [
             null

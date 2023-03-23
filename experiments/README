@@ -1,0 +1,148 @@
+# Experiment Instructions
+
+## Component overview
+
+1. `run_recourse_experiment.py`
+    * This mainfile runs all the recourse experiments.
+    * Its behavior is determined by config.json files.
+    * Experiments are run in sequence on a single process by default.
+    * Experiments can be run in parallel by using `--distributed`.
+    * Experiments can be run distributed in slurm using `--distributed` and `--slurm`.
+    * See [mainfile details](#mainfile-details) for more info.
+2. `MRMC/experiments/configs/*`
+    * Experiment config file templates are stored here.
+    * Each experiment config file template has a 3 versions, one for each of the recourse methods.
+    * To run an experiment, the config file parameters must be filled in as described in the [Editing config files](#editing-config-files) section.
+3. `run.sbatch`
+    * A SLURM sbatch file which takes four arguments. It is usually invoked
+        indirectly through `swarm_launcher.sh`.
+    * Argument one is the number of processes to distribute the experiment across.
+    * Argument two is the directory to write scratch results to.
+    * Argument three is a relative path to the experiment config file.
+    * Argument four determines the maximum number of runs to execute. It is
+        optional.
+4. `swarm_launcher.sh`
+    * This shell script automates launching the run.sbatch job. It takes three arguments.
+    * Argument one is the relative path to the experiment config file.
+    * Argument two is the number of total processes to allocate (should be at least 2).
+    * Argument three is the maximum number of runs to execute. If not passed, it runs the full experiment.
+
+## Running Locally
+
+A typical single-process experiment invocation looks like
+
+`python run_recourse_experiment.py --config ./your/config/here.json --experiment --verbose`
+
+The experiment behavior is determined by the config.json file passed in with
+--config. Experiment configs are stored in 
+`MRMC/experiments/configs/[recourse_method]/[config_name].json` and can be
+passed in as a relative path. For example, to run StEP hyperparameter tuning,
+the command is 
+`python run_recourse_experiment.py --config ./configs/mrmc/mrmc_hyperparam.json --experiment --verbose`.
+
+### Running locally for confidence checking
+
+Often running locally is only used for debugging or confidence checking. In this
+case, the arguments `--dry_run` and `max_runs N` are useful. A full description
+of the arguments is included in [Mainfile details](#mainfile-details)
+
+## Running with --distributed
+
+By default, runs are executed in sequence one after the other. The `--distributed`
+flag will distribute runs across `--num_processes` parallel processes. Note that
+there is a central orchestrator process, so passing in `--num_processes 3` will
+actually result in 4 processes being created (1 controller and 3 children).
+
+## Running on SLURM
+
+The `run.sbatch` and `swarm_launcher.sh` files launch the recourse experiment
+mainfile as a slurm job. They launch the process with both `--slurm` and
+`--distributed` flags (note that `--slurm` is only necessary if using 
+`--distributed`).
+
+For example, to run the StEP hyperparameter tuning with 16 processes, execute
+`./swarm_launcher.sh ./configs/mrmc/mrmc_hyperparam.json 16`.
+
+### SLURM resource allocation
+
+SLURM jobs have a time limit set by changing the `#SBATCH --time` field of
+`run.sbatch`. Jobs will be cancelled if they run over their allotted time. Jobs
+with shorter runtimes or lighter resource requirements will spend less time
+waiting in the run queue.
+
+A typical workflow is:
+1. Execute `python run_recourse_experiment.py --config ./your/config.json --experiment --verbose --dry_run` locally to check how many runs that config file will attempt to execute.
+2. Execute `./swarm_launcher.sh ./your/config.json 2 1` to make sure that a single run can be executed on SLURM without issue.
+3. Increase the number of runs (something like 1 -> 50 -> 100 -> 500), increasing the number of processes as necessary to keep the runtime low (5-30 minutes).
+4. If you can't scale to more processes (sometimes FACE has issues with memory when using too many processes), increase the expected job runtime.
+
+Useful commands:
+* `squeue -u [usernam]` lists your currently running jobs
+* `scancel [job id]` cancels a running job
+* `sacct -j [job id]` lists information about a job
+* `sacct -j [job id] format=Elapsed` lists the runtime of a job
+
+## Editing config files 
+
+The config templates in `MRMC/experiments/configs` should be filled in before running any experiments. The values which must be filled in are called `REPLACE ME`.
+
+The `"dataset_name"` and `"model_type"` parameters must (almost) always be filled in with the appropriate value. `dataset_name` values are `credit_card_default` and `give_me_credit`. `model_type` values are `logistic_regression` and `random_forest`.
+
+The remaining parameters depend on the experiment and are described below.
+
+### Hyperparameter experiment
+
+**MRMC**: No parameters must be filled in since MRMC is only tuned on the credit card default dataset with the logistic regression model.
+
+**DICE**: No parameters must be filled in since DICE is only tuned on the credit card default dataset with the logistic regression model.
+
+**FACE**: FACE should be tuned on all datasets (although the model can be fixed to logistic regression). The most important parameter to tune is `distance_threshold`. Note that graphs of the appropriate distance threshold must first be generated with `scripts/generate_face_graph.py`.
+
+If tuning on `credit_card_default`, then `distance_threshold` should be `[0.75, 1.0, 1.5, 2.5]` and `graph_directory` should be `recourse_methods/face_graphs/credit_card_default`.
+
+If tuning on `give_me_credit`, then `distance_threshold` should be `[0.75, 1.0, 1.5]` and `graph_directory` should be `recourse_methods/face_graphs/give_me_credit`.
+
+### Holistic experiment
+
+**MRMC**: No additional parameters must be filled in.
+
+**DiCE**: No additional parameters must be filled in.
+
+**FACE**: `graph_directory` should be set to `recourse_methods/face_graphs/[DATASET NAME]`. If running on `credit_card_default`, the `distance_threshold` should be `1.5`. If running on `give_me_credit`, the `distance_threshold` should be `1.0`.
+
+
+## Mainfile details
+
+Output of `python run_recourse_experiment.py -h`:
+
+```
+usage: run_recourse_experiment.py [-h] [--config CONFIG] [--experiment] [--verbose]
+                                  [--results_dir RESULTS_DIR] [--max_runs MAX_RUNS] [--dry_run]
+                                  [--distributed] [--num_processes NUM_PROCESSES] [--slurm]
+                                  [--scratch_dir SCRATCH_DIR] [--only_csv]
+
+Run a recourse experiment.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --config CONFIG       The filepath of the config .json to process and execute. Can be a batch of run
+                        configs or an experiment config if using --experiment.
+  --experiment          Whether to generate a batch of run configs from a single experiment config .json.
+  --verbose             Whether to print out execution progress.
+  --results_dir RESULTS_DIR
+                        The directory to save the results to. Defaults to
+                        MRMC/experiment_results/mrmc_results.
+  --max_runs MAX_RUNS   If provided, only runs up to --max_runs total.
+  --dry_run             If true, generate the run configs but don't execute them.
+  --distributed         If true, execute the runs in parallel across -num_processes processes.
+  --num_processes NUM_PROCESSES
+                        The number of runs to execute in parallel. Required if using --distributed,
+                        otherwise ignored.
+  --slurm               If true, use SLURM as as distributed job scheduled. Used only if --distributed is
+                        set.
+  --scratch_dir SCRATCH_DIR
+                        The directory where distributed jobs will write temporary results. Used only if
+                        --distributed is set. Defaults to OS preference.
+  --only_csv            Save the results as .csv files. This means the .json config file won't be saved
+                        alongside the results.
+```

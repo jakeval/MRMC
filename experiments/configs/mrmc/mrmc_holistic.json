@@ -4,8 +4,8 @@
     "recourse_method": "mrmc",
     "random_seed": 103932,
     "use_full_eval_set": true,
-    "dataset_name": "credit_card_default",
-    "model_type": "logistic_regression",
+    "dataset_name": REPLACE ME,
+    "model_type": REPLACE ME,
     "split": "test",
     "parameter_ranges": {
         "step_size": [
