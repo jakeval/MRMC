@@ -153,13 +153,13 @@ class ModelTrainer(abc.ABC):
                 (y_pred[pos_mask] == y_true[pos_mask]).sum()
             )
             results["false_positives"] = int(
-                (y_pred[pos_mask] != y_true[pos_mask]).sum()
+                (y_pred[~pos_mask] != y_true[~pos_mask]).sum()
             )
             results["true_negatives"] = int(
                 (y_pred[~pos_mask] == y_true[~pos_mask]).sum()
             )
             results["false_negatives"] = int(
-                (y_pred[~pos_mask] != y_true[~pos_mask]).sum()
+                (y_pred[pos_mask] != y_true[pos_mask]).sum()
             )
 
             return results
