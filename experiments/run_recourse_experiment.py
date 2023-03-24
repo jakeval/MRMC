@@ -34,6 +34,7 @@ import shutil
 import pathlib
 import json
 import argparse
+import time
 
 from data import data_loader
 from data.adapters import continuous_adapter
@@ -181,7 +182,7 @@ def run_mrmc(
     model_type: str,
     cluster_seed: int,
     **_unused_kwargs: Any,
-) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame]:
+) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame, float, float]:
     """Runs MRMC using the given configurations.
 
     Args:
@@ -203,7 +204,9 @@ def run_mrmc(
             aren't used by this function.
 
     Returns:
-        A list of recourse paths and a dataframe containing cluster info."""
+        A list of recourse paths, a dataframe containing cluster info, the
+        number of seconds taken to compute the recourse (not including cluster
+        generation), and the number of seconds taken for cluster generation."""
     # Generate random seeds.
     poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
         0, 10000, size=2
@@ -224,6 +227,8 @@ def run_mrmc(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
     )
+
+    cluster_start_seconds = time.time()
     mrmc = mrmc_method.MRMC(
         k_directions=num_clusters,
         adapter=adapter,
@@ -239,6 +244,8 @@ def run_mrmc(
         model=model,
         random_seed=cluster_seed,
     )
+    cluster_elapsed_seconds = time.time() - cluster_start_seconds
+
     iterator = recourse_iterator.RecourseIterator(
         adapter=adapter,
         recourse_method=mrmc,
@@ -255,10 +262,14 @@ def run_mrmc(
         random_seed=poi_seed,
     )
 
+    recourse_start_seconds = time.time()
+
     # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
+
+    recourse_elapsed_seconds = time.time() - recourse_start_seconds
 
     # Retrieve the clusters.
     cluster_df = pd.DataFrame(
@@ -266,7 +277,7 @@ def run_mrmc(
         columns=adapter.embedded_column_names(),
     )
 
-    return paths, cluster_df
+    return paths, cluster_df, recourse_elapsed_seconds, cluster_elapsed_seconds
 
 
 def run_dice(
@@ -279,7 +290,7 @@ def run_dice(
     dataset_name: str,
     model_type: str,
     **_unused_kwargs: Any,
-) -> Sequence[pd.DataFrame]:
+) -> Tuple[Sequence[pd.DataFrame], float]:
     """Runs DICE using the given configurations.
 
     Args:
@@ -297,7 +308,8 @@ def run_dice(
             aren't used by this function.
 
     Returns:
-        A list of recourse paths."""
+        A list of recourse paths and the number of seconds taken to compute the
+        recourse."""
     # Generate random seeds.
     poi_seed, adapter_seed, dice_seed = np.random.default_rng(
         run_seed
@@ -343,12 +355,16 @@ def run_dice(
         random_seed=poi_seed,
     )
 
+    start_time = time.time()
+
     # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
 
-    return paths
+    elapsed_recourse_seconds = time.time() - start_time
+
+    return paths, elapsed_recourse_seconds
 
 
 def run_face(
@@ -364,7 +380,7 @@ def run_face(
     graph_filepath: str,
     counterfactual_mode: bool,
     **_unused_kwargs: Any,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> Tuple[pd.DataFrame, float]:
     """Runs FACE using the given configurations.
 
     Args:
@@ -386,7 +402,8 @@ def run_face(
             aren't used by this function.
 
     Returns:
-        A list of recourse paths and a dataframe containing cluster info."""
+        A list of recourse paths and the number of seconds taken to compute the
+        recourse."""
     # Generate random seeds.
     poi_seed, adapter_seed = np.random.default_rng(run_seed).integers(
         0, 10000, size=2
@@ -433,31 +450,41 @@ def run_face(
         model=model,
     )
 
+    start_time = time.time()
+
     # Generate the paths.
     paths = iterator.iterate_k_recourse_paths(
         poi=poi, max_iterations=max_iterations
     )
-
-    return paths
+    elapsed_recourse_seconds = time.time() - start_time
+    return paths, elapsed_recourse_seconds
 
 
 def format_results(
     path_dfs: Sequence[pd.DataFrame],
     run_config: Mapping[str, Any],
+    elapsed_recourse_seconds: float,
     mrmc_clusters: Optional[pd.DataFrame] = None,
-) -> Mapping[str, pd.DataFrame]:
+    mrmc_cluster_seconds: Optional[float] = None,
+) -> Sequence[pd.DataFrame]:
     """Formats the results as DataFrames ready for analysis.
 
     It adds the path_id and step_id keys to the mrmc_paths dataframe. It also
     adds keys from the experiment_utils.format_results() function.
 
     Args:
-        mrmc_paths: The list of path dataframes output by recourse iteration.
-        clusters_df: A dataframe containing cluster information.
+        path_dfs: The list of path dataframes output by recourse iteration.
         run_config: The run config used to generate these results.
+        elapsed_recourse_seconds: The number of seconds used to compute
+            path_dfs.
+        mrmc_clusters: An optional dataframe containing cluster information.
+        mrmc_cluster_seconds: An optional float reflecting wall-clock time for
+            MRMC cluster generation.
+
 
     Returns:
-        A mapping from dataframe name to formatted dataframe."""
+        A sequence of formatted results dataframes. The first dataframe is
+        always the newly created experiment_config_df."""
     for i, path_df in enumerate(path_dfs):
         path_df["step_id"] = np.arange(len(path_df))
         path_df["path_id"] = i
@@ -465,11 +492,17 @@ def format_results(
 
     if mrmc_clusters is not None:
         mrmc_clusters["path_id"] = np.arange(len(mrmc_clusters))
-        return experiment_utils.format_results(
+        experiment_config_df, *result_dfs = experiment_utils.format_results(
             run_config, paths_df, mrmc_clusters
         )
     else:
-        return experiment_utils.format_results(run_config, paths_df)
+        experiment_config_df, *result_dfs = experiment_utils.format_results(
+            run_config, paths_df
+        )
+    experiment_config_df["elapsed_recourse_seconds"] = elapsed_recourse_seconds
+    if mrmc_cluster_seconds is not None:
+        experiment_config_df["elapsed_cluster_seconds"] = mrmc_cluster_seconds
+    return experiment_config_df, *result_dfs
 
 
 def merge_results(
@@ -562,13 +595,22 @@ def run_batch(
 ) -> Mapping[str, pd.DataFrame]:
     """Executes a batch of runs. Each run is parameterized by a run_config.
     The results of each run are concatenated together in DataFrames and
-    returned."""
+    returned.
+
+    Returns:
+        A mapping from result filename to result dataframe."""
     all_results = None
     for i, run_config in enumerate(run_configs):
         if recourse_method == "mrmc":
-            mrmc_paths, clusters = run_mrmc(**run_config)
+            mrmc_paths, clusters, recourse_seconds, cluster_seconds = run_mrmc(
+                **run_config
+            )
             experiment_config_df, mrmc_paths_df, cluster_df = format_results(
-                mrmc_paths, run_config, mrmc_clusters=clusters
+                mrmc_paths,
+                run_config,
+                recourse_seconds,
+                mrmc_clusters=clusters,
+                mrmc_cluster_seconds=cluster_seconds,
             )
             run_results = {
                 "experiment_config_df": experiment_config_df,
@@ -576,18 +618,18 @@ def run_batch(
                 "cluster_df": cluster_df,
             }
         elif recourse_method == "dice":
-            dice_paths = run_dice(**run_config)
+            dice_paths, elapsed_recourse_seconds = run_dice(**run_config)
             experiment_config_df, dice_paths_df = format_results(
-                dice_paths, run_config
+                dice_paths, run_config, elapsed_recourse_seconds
             )
             run_results = {
                 "experiment_config_df": experiment_config_df,
                 "dice_paths_df": dice_paths_df,
             }
         else:
-            face_paths = run_face(**run_config)
+            face_paths, elapsed_recourse_seconds = run_face(**run_config)
             experiment_config_df, face_paths_df = format_results(
-                face_paths, run_config
+                face_paths, run_config, elapsed_recourse_seconds
             )
             run_results = {
                 "experiment_config_df": experiment_config_df,
@@ -672,6 +714,7 @@ def main(
     scratch_dir: Optional[str] = None,
     only_csv: bool = False,
 ):
+    start_time = time.time()
     if dry_run:
         do_dry_run(config, is_experiment, max_runs)
         return
@@ -706,6 +749,10 @@ def main(
         if verbose:
             print(f"Start executing {len(run_configs)} runs.")
         results = run_batch(recourse_method, run_configs, verbose)
+    config["meta_data"] = {
+        "total_runtime_seconds": time.time() - start_time,
+        "num_processes": num_processes or 1,
+    }
     results_dir = save_results(results, results_dir, config, only_csv)
     if verbose:
         print(f"Saved results to {results_dir}")
