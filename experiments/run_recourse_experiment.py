@@ -181,6 +181,7 @@ def run_mrmc(
     dataset_name: str,
     model_type: str,
     cluster_seed: int,
+    split: str,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], pd.DataFrame, float, float]:
     """Runs MRMC using the given configurations.
@@ -200,6 +201,7 @@ def run_mrmc(
         dataset_name: The name of the dataset to use.
         model_type: The type of model to use.
         cluster_seed: The seed to use for clustering.
+        split: The dataset split to evaluate on.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -213,8 +215,8 @@ def run_mrmc(
     )
 
     # Initialize dataset, adapter, model, mrmc, and recourse iterator.
-    dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name)
+    train_data, eval_data, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name), split=["train", split]
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
@@ -222,7 +224,7 @@ def run_mrmc(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
         random_seed=adapter_seed,
-    ).fit(dataset)
+    ).fit(train_data)
     model = model_loader.load_model(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
@@ -232,7 +234,7 @@ def run_mrmc(
     mrmc = mrmc_method.MRMC(
         k_directions=num_clusters,
         adapter=adapter,
-        dataset=dataset,
+        dataset=train_data,
         alpha=mrmc_method.get_volcano_alpha(
             cutoff=volcano_cutoff,
             degree=volcano_degree,
@@ -255,7 +257,7 @@ def run_mrmc(
 
     # Get the POI.
     poi = utils.random_poi(
-        dataset,
+        eval_data,
         label_column=dataset_info.label_column,
         label_value=adapter.negative_label,
         model=model,
@@ -289,6 +291,7 @@ def run_dice(
     max_iterations: int,
     dataset_name: str,
     model_type: str,
+    split: str,
     **_unused_kwargs: Any,
 ) -> Tuple[Sequence[pd.DataFrame], float]:
     """Runs DICE using the given configurations.
@@ -304,6 +307,7 @@ def run_dice(
             for.
         dataset_name: The name of the dataset to use.
         model_type: The type of model to use.
+        split: The dataset split to evaluate on.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -316,8 +320,8 @@ def run_dice(
     ).integers(0, 10000, size=3)
 
     # Initialize dataset, adapter, model, dice, and recourse iterator.
-    dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name)
+    train_data, eval_data, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name), split=["train", split]
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
@@ -325,7 +329,7 @@ def run_dice(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
         random_seed=adapter_seed,
-    ).fit(dataset)
+    ).fit(train_data)
     model = model_loader.load_model(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
@@ -333,7 +337,7 @@ def run_dice(
     dice = dice_method.DiCE(
         k_directions=num_paths,
         adapter=adapter,
-        dataset=dataset,
+        dataset=train_data,
         continuous_features=dataset_info.continuous_features,
         desired_confidence=confidence_cutoff,
         model=model,
@@ -348,7 +352,7 @@ def run_dice(
 
     # Get the POI.
     poi = utils.random_poi(
-        dataset,
+        eval_data,
         label_column=dataset_info.label_column,
         label_value=adapter.negative_label,
         model=model,
@@ -379,6 +383,7 @@ def run_face(
     distance_threshold: float,
     graph_filepath: str,
     counterfactual_mode: bool,
+    split: str,
     **_unused_kwargs: Any,
 ) -> Tuple[pd.DataFrame, float]:
     """Runs FACE using the given configurations.
@@ -398,6 +403,7 @@ def run_face(
         graph_filepath: Path to a graph which matches the distance_threshold.
         counterfactual_mode: Whether to use the first or final point in the
             path to create recourse directions.
+        split: The dataset split to evaluate on.
         _unused_kwargs: An argument used to capture kwargs from run_config that
             aren't used by this function.
 
@@ -410,8 +416,9 @@ def run_face(
     )
 
     # Initialize dataset, adapter, model, face, and recourse iterator.
-    dataset, dataset_info = data_loader.load_data(
-        data_loader.DatasetName(dataset_name)
+    train_data, eval_data, dataset_info = data_loader.load_data(
+        data_loader.DatasetName(dataset_name),
+        split=["train", split],
     )
     adapter = continuous_adapter.StandardizingAdapter(
         perturb_ratio=noise_ratio,
@@ -419,13 +426,13 @@ def run_face(
         label_column=dataset_info.label_column,
         positive_label=dataset_info.positive_label,
         random_seed=adapter_seed,
-    ).fit(dataset)
+    ).fit(train_data)
     model = model_loader.load_model(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
     )
     face = face_method.FACE(
-        dataset=dataset,
+        dataset=train_data,
         adapter=adapter,
         model=model,
         k_directions=num_paths,
@@ -443,7 +450,7 @@ def run_face(
 
     # Get the POI.
     poi = utils.random_poi(
-        dataset,
+        eval_data,
         label_column=dataset_info.label_column,
         label_value=adapter.negative_label,
         random_seed=poi_seed,

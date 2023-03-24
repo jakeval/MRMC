@@ -1,7 +1,11 @@
 import pandas as pd
-from typing import Optional, Mapping, Tuple
+from typing import Optional, Mapping, Tuple, Sequence, Union
 from data.datasets import credit_card_default_loader, base_loader
 import enum
+
+
+# TODO(@jakeval): remove references to toy_data in this file
+# https://github.com/jakeval/MRMC/issues/68
 
 
 class DatasetName(enum.Enum):
@@ -17,21 +21,25 @@ class DatasetName(enum.Enum):
 def load_data(
     dataset_name: DatasetName,
     data_dir: Optional[str] = None,
+    split: Union[str, Sequence[str]] = ["train", "val", "test"],
     loader_kwargs: Optional[Mapping] = None,
-) -> Tuple[pd.DataFrame, base_loader.DatasetInfo]:
+) -> Tuple[Union[pd.DataFrame, base_loader.DatasetInfo], ...]:
     """Returns the DataFrame and DatasetInfo class for the requested dataset.
 
     Args:
         dataset_name: The name to identify the dataset.
         data_dir: If provided, where to load data from (or download data to if
             not found). Defaults to MRMC/raw_data/.
+        split: The dataset split to load. Can be any combination of "train",
+            "val", or "test".
         loader_kwargs: Optional key word arguments for the dataset-specific
             loader. For example, the CreditCardDefaultLoader accepts the
             only_continuous argument.
 
     Returns:
-        A DataFrame containing the requested data and a DatasetInfo class
-        describing the DataFrame columns.
+        A tuple containing the Dataset split(s) requested and a DatasetInfo
+        object containing metadata. The DatasetInfo object is always the last
+        element of the tuple.
     """
     loader_kwargs = loader_kwargs or {}
     if dataset_name == DatasetName.CREDIT_CARD_DEFAULT:
@@ -41,7 +49,7 @@ def load_data(
     elif dataset_name == DatasetName.TOY_DATASET:
         from confidence_checks import toy_data
 
-        return toy_data.get_data()
+        return toy_data.get_data(split)
     else:
         raise NotImplementedError(f"Dataset {dataset_name} isn't supported.")
-    return loader.load_data(), loader.dataset_info
+    return *loader.load_data(split), loader.dataset_info

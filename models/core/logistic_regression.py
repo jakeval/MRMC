@@ -36,19 +36,23 @@ class LogisticRegression(model_trainer.ModelTrainer):
         )
 
     def train_model(
-        self, dataset: pd.DataFrame, dataset_info: base_loader.DatasetInfo
+        self,
+        train_data: pd.DataFrame,
+        val_data: pd.DataFrame,
+        dataset_info: base_loader.DatasetInfo,
     ) -> model_interface.Model:
         """Trains a model on the given training dataset.
 
         Args:
-            dataset: The training dataset to use.
+            train_data: The training dataset to use.
+            val_data: The validation dataset to use.
             dataset_info: Information on the training dataset.
 
         Returns:
             A trained Model."""
-        adapter = self._get_adapter(dataset, dataset_info)
+        adapter = self._get_adapter(train_data, dataset_info)
         lr = linear_model.LogisticRegression(**TRAINING_PARAMS)
-        dataset = adapter.transform(dataset)
+        dataset = adapter.transform(train_data)
         training_data = dataset.drop(dataset_info.label_column, axis=1)
         training_labels = dataset[dataset_info.label_column]
         lr.fit(training_data, training_labels)

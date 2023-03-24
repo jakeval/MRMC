@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Sequence, Any
+from typing import Sequence, Any, Union, Mapping
 from dataclasses import dataclass
 import abc
 import os
@@ -65,8 +65,11 @@ class DataLoader(abc.ABC):
         """
 
     @abc.abstractmethod
-    def process_data(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Processes the raw data.
+    def process_data(
+        self,
+        data: pd.DataFrame,
+    ) -> Mapping[str, pd.DataFrame]:
+        """Processes and splits the raw data into train/validation/test sets.
 
         Data processing will be different for every dataset. Example operations
         are recategorizing features and dropping rows or columns.
@@ -75,17 +78,19 @@ class DataLoader(abc.ABC):
             data: The data to process.
 
         Returns:
-            A processed DataFrame.
+            The processed data splits.
         """
 
-    def load_data(self) -> pd.DataFrame:
+    def load_data(
+        self, split: Union[str, Sequence[str]] = ["train", "val", "test"]
+    ) -> Sequence[pd.DataFrame]:
         """Loads the data from the internet or local disk.
 
         First checks local disk at self.data_dir. If not saved there, downloads
         the data with self.download_data().
 
         Returns:
-            A DataFrame containing the dataset.
+            The Dataset split(s) requested in the order they are requested.
         """
         data_dir = self.data_dir or _DEFAULT_DATA_DIR
         dataset_dir = pathlib.Path(data_dir) / self.dataset_name
@@ -97,8 +102,10 @@ class DataLoader(abc.ABC):
         else:
             data = self.load_local_data(dataset_filepath)
 
-        data = self.process_data(data)
-        return data
+        data_splits = self.process_data(data)
+        if type(split) == str:
+            split = [split]
+        return tuple([data_splits[split_name] for split_name in split])
 
     def save_data(self, data: pd.DataFrame, dataset_filepath: str) -> None:
         """Saves the data to local disk as a csv.
