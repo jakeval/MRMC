@@ -4,6 +4,10 @@ from data.datasets import credit_card_default_loader, base_loader
 import enum
 
 
+# TODO(@jakeval): remove references to toy_data in this file
+# https://github.com/jakeval/MRMC/issues/68
+
+
 class DatasetName(enum.Enum):
     """Enum class for dataset names.
 

@@ -16,8 +16,8 @@
             1.5,
             2.5
         ],
-        "graph_directory": [
-            "recourse_methods/face_graphs"
+        "graph_filepath": [
+            "recourse_methods/face_graphs/graph_2.5.npz"
         ],
         "counterfactual_mode": [
             true
