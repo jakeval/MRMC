@@ -3,6 +3,9 @@ from models import model_interface
 from models.core import logistic_regression, random_forest
 from models import model_constants
 
+# TODO(@jakeval): Remove references to toy_model in this file
+# https://github.com/jakeval/MRMC/issues/68
+
 
 def load_model(
     model_type: model_constants.ModelType,

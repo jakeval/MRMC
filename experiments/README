@@ -96,11 +96,22 @@ The remaining parameters depend on the experiment and are described below.
 
 **DICE**: No parameters must be filled in since DICE is only tuned on the credit card default dataset with the logistic regression model.
 
-**FACE**: FACE should be tuned on all datasets (although the model can be fixed to logistic regression). The most important parameter to tune is `distance_threshold`. Note that graphs of the appropriate distance threshold must first be generated with `scripts/generate_face_graph.py`.
+**FACE**: FACE should be tuned on all datasets (although the model can be fixed to logistic regression). The most important parameter to tune is `graph_filepath`. Note that graphs of the appropriate distance threshold must first be generated with `scripts/generate_face_graph.py`.
 
-If tuning on `credit_card_default`, then `distance_threshold` should be `[0.75, 1.0, 1.5, 2.5]` and `graph_directory` should be `recourse_methods/face_graphs/credit_card_default`.
+If tuning on `credit_card_default`, then `graph_filepath` should be 
+```
+"recourse_methods/face_graphs/credit_card_default/graph_0.75.npz",
+"recourse_methods/face_graphs/credit_card_default/graph_1.0.npz",
+"recourse_methods/face_graphs/credit_card_default/graph_1.5.npz",
+"recourse_methods/face_graphs/credit_card_default/graph_2.5.npz",
+```
 
-If tuning on `give_me_credit`, then `distance_threshold` should be `[0.75, 1.0, 1.5]` and `graph_directory` should be `recourse_methods/face_graphs/give_me_credit`.
+If tuning on `give_me_credit`, then `graph_filepath` should be 
+```
+"recourse_methods/face_graphs/give_me_credit/graph_0.75.npz",
+"recourse_methods/face_graphs/give_me_credit/graph_1.0.npz",
+"recourse_methods/face_graphs/give_me_credit/graph_1.5.npz",
+```
 
 ### Holistic experiment
 

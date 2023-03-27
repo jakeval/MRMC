@@ -13,10 +13,7 @@
             0.8,
             0.9
         ],
-        "distance_threshold": [
-            REPLACE ME
-        ],
-        "graph_directory": [
+        "graph_filepath": [
             REPLACE ME
         ],
         "counterfactual_mode": [
