@@ -175,6 +175,8 @@ class CreditCardDefaultLoader(base_loader.DataLoader):
         The dataset is assumed to be 0-indexed in increments of 1."""
         if train_ratio < 0 or val_ratio < 0 or test_ratio < 0:
             raise RuntimeError("Dataset split ratios must be non-negative.")
+
+        # two-sided bounds check to be sure the ratios sum to one.
         if np.abs((train_ratio + val_ratio + test_ratio) - 1) > 1e-5:
             raise RuntimeError("Dataset split ratios must sum to 1.")
         rng = np.random.default_rng(seed=_SPLIT_SEED)
