@@ -10,13 +10,10 @@
             0.8,
             0.9
         ],
-        "distance_threshold": [
-            0.75,
-            1.0,
-            1.5,
-            2.5
-        ],
         "graph_filepath": [
+            "recourse_methods/face_graphs/graph_2.5.npz",
+            "recourse_methods/face_graphs/graph_1.0.npz",
+            "recourse_methods/face_graphs/graph_1.5.npz",
             "recourse_methods/face_graphs/graph_2.5.npz"
         ],
         "counterfactual_mode": [
