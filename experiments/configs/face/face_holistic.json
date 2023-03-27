@@ -11,10 +11,7 @@
         "confidence_cutoff": [
             0.7
         ],
-        "distance_threshold": [
-            REPLACE_ME
-        ],
-        "graph_directory": [
+        "graph_filepath": [
             REPLACE_ME
         ],
         "counterfactual_mode": [

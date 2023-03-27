@@ -119,8 +119,11 @@ If tuning on `give_me_credit`, then `graph_filepath` should be
 
 **DiCE**: No additional parameters must be filled in.
 
-**FACE**: `graph_directory` should be set to `recourse_methods/face_graphs/[DATASET NAME]`. If running on `credit_card_default`, the `distance_threshold` should be `1.5`. If running on `give_me_credit`, the `distance_threshold` should be `1.0`.
+**FACE**: If running on `credit_card_default`, the `graph_filepath` should be
+`"recourse_methods/face_graphs/credit_card_default/graph_2.5.npz"`.
 
+If running on `give_me_credit`, the `graph_filepath` should be
+`"recourse_methods/face_graphs/give_me_credit/graph_1.0.npz"`
 
 ## Mainfile details
 
