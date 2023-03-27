@@ -399,8 +399,7 @@ def run_face(
     noise_ratio: Optional[float],
     rescale_ratio: Optional[float],
     num_paths: int,
-    distance_threshold: float,
-    graph_directory: str,
+    graph_filepath: str,
     max_iterations: int,
     dataset_name: str,
     model_type: str,
@@ -418,9 +417,10 @@ def run_face(
         noise_ratio: The optional ratio of noise to add.
         rescale_ratio: The optional ratio by which to rescale the direction.
         num_paths: The number of recourse paths to generate.
-        distance_threshold: The maximum edge length of the graph.
-        graph_directory: The path to the directory holding face graphs. The
-            correct graph will be chosen based on the distance_threshold.
+        graph_filepath: The path to the face graph to provide recourse over.
+            The path should be relative to the MRMC directory and typically
+            looks something like
+            'recourse_methods/face_graphs/dataset_name/graph_name.npz'.
         max_iterations: The maximum number of iterations to take recourse steps
             for.
         dataset_name: The name of the dataset to use.
@@ -464,19 +464,13 @@ def run_face(
     )
 
     # Construct the graph filepath
-    full_directory_path = os.path.join(_MRMC_PATH, graph_directory)
-    graph_filepath = os.path.join(
-        full_directory_path, f"graph_{distance_threshold}.npz"
-    )
-    # Load the graph's config so we can retrieve the graph's weight_bias
-    with open(
-        os.path.join(
-            full_directory_path, f"graph_{distance_threshold}_config.json"
-        ),
-        "r",
-    ) as f:
+    graph_filepath = os.path.join(_MRMC_PATH, graph_filepath)
+    # Load the graph's config so we can retrieve the graph's metadata
+    config_filepath = f"{'.'.join(graph_filepath.split('.')[:-1])}_config.json"
+    with open(config_filepath, "r") as f:
         graph_config = json.load(f)
         weight_bias = graph_config["weight_bias"]
+        distance_threshold = graph_config["distance_threshold"]
 
     face = face_method.FACE(
         dataset=train_data,
