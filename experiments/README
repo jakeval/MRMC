@@ -1,5 +1,8 @@
 # Experiment Instructions
 
+## Installing
+Note that numpy must be version `1.23.4`.
+
 ## Component overview
 
 1. `run_recourse_experiment.py`
