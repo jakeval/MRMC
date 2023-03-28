@@ -150,8 +150,7 @@ class TestFACE(unittest.TestCase):
         # The edge weight function is 1/x. This is the identity for 1 and
         # inf for 0, which is good because append_new_point should check for
         # and avoid applying weights to 0-distance edges.
-        # It references pyfunc because it is a numba function.
-        mock_get_edge_weight.pyfunc.side_effect = (
+        mock_get_edge_weight.side_effect = (
             lambda distances, bias: 1 / distances
         )
 
