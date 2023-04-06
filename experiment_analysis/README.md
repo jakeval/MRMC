@@ -23,6 +23,7 @@ Based on https://shreyas269.github.io/posts/2012/08/blog-post-4/.
     * This starts a 1 hour session on a compute node.
 3. In the compute node, run `ssh -R 2222:localhost:2222 swarm.cs.umass.edu -f -N`
 4. In the compute node, activate the virtual environment and run `python -m ipykernel install --user --name venv`
+    * This only needs to be done one time and can be skipped in future analyses.
 5. In the compute node, start the jupyter server with `jupyter notebook --port 2222 --no-browser`
 6. On your local machine, run `ssh -L 2222:localhost:2222 <user>@swarm.cs.umass.edu -f -N`
     * I think `-f` makes it run in the background.
