@@ -135,7 +135,7 @@ After receiving a batch config file with a list of run_configs (or processing an
 
 **parallel_runner.py**:
 
-The `run_recourse_experiment.py` file always executes run_configs in sequence, so it is quite slow. The `parallel_runner.py` will instead take a list of run_configs, partition them into equally-sized randomly shuffled batches, and spawn a new `run_recoruse_experiment.py` process for each of the batches. In short, it takes a single mega-batch of run_configs and splits into many mini-batches. Each mini-batch is executed by a single process as a head process orchestrates retrieving their results. The processes are run in parallel (although internally each process executes its configs in sequence).
+The `run_recourse_experiment.py` file always executes run_configs in sequence, so it is quite slow. The `parallel_runner.py` will instead take a list of run_configs, partition them into equally-sized randomly shuffled batches, and spawn a new `run_recoruse_experiment.py` process for each of the batches. In short, it takes a single mega-batch of run_configs and splits into many mini-batches. Each mini-batch is executed by its own process in parallel. A "head" process orchestrates these child process and retrieves their results when they complete.
 
 As an example of how this works:
 * The user runs `run_recourse_experiment.py --experiment --config config.json --distributed` with an "experiment" config file.
