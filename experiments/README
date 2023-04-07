@@ -85,6 +85,84 @@ Useful commands:
 * `sacct -j [job id]` lists information about a job
 * `sacct -j [job id] format=Elapsed` lists the runtime of a job
 
+## Experiment infrastructure
+The code for running experiments is stored in `experiments/`.
+
+**run_recourse_experiment.py**
+
+This file runs recourse experiments from config files. At a low level, it accepts "batch" config files which contain a list of recourse executions to run. These files are formatted like:
+```
+{
+    "experiment_name": NAME,
+    "recourse_method": METHOD,
+    "dataset_name": DATASET,
+    "split": SPLIT,
+    "model_type": MODEL,
+    "run_configs": [
+        {
+            "run_key_1": VALUE1,
+            "run_key_2": VALUE2,
+            "num_paths": 3  # this is just an example parameter
+        },
+        {
+            "run_key_1": VALUE1,
+            "run_key_2": VALUE2,
+            "num_paths": 3 
+        },
+    ]
+}
+```
+
+Each `run_config` in a batch config file describes the parameters needed to execute a single set of recourse paths for a POI.
+
+In practice, the user will provide "experiment" config files which are automatically processed and turned into a "batch" config file. The process for this is described in [Config files overview](#config-file-conversion) and involves adding some special config parameters (`batch_id`, `run_id`, etc) automatically. These config files look like:
+```
+{
+    "experiment_name": NAME,
+    "recourse_method": METHOD,
+    "dataset_name": DATASET,
+    "split": SPLIT,
+    "model_type": MODEL,
+    "num_runs": NUM_RUNS,
+    "parameter_ranges": {
+        "param1": [VAL1, VAL2, VAL3],
+        "param2": [VAL1, VAL2]
+    }
+}
+```
+
+After receiving a batch config file with a list of run_configs (or processing an experiment config file into a batch config file), each run_config is executed in sequence using the `run_batch()` function. This function defers generating recourse to the `run_mrmc()`, `run_dice()`, and `run_face()` functions.
+
+**parallel_runner.py**:
+
+The `run_recourse_experiment.py` file always executes run_configs in sequence, so it is quite slow. The `parallel_runner.py` will instead take a list of run_configs, partition them into equally-sized randomly shuffled batches, and spawn a new `run_recoruse_experiment.py` process for each of the batches. In short, it takes a single mega-batch of run_configs and splits into many mini-batches. Each mini-batch is executed by a single process as a head process orchestrates retrieving their results. The processes are run in parallel (although internally each process executes its configs in sequence).
+
+As an example of how this works:
+* The user runs `run_recourse_experiment.py --experiment --config config.json --distributed` with an "experiment" config file.
+* The "experiment" config file is turned into a "batch" config file containing a list of run_configs.
+* Control is passed from `run_recourse_experiment.py` to `parallel_runner.py` by calling `parallel_runner.execute_runs(run_configs)`
+* The `parallel_runner` partitions the run_configs into batches
+* The `parallel_runner` creates separate temporary batch config files for each of the partitioned batches and saves them to a partition-dependent scratch directory
+    * This scratch directory is where the child `run_recourse_experiment.py` processes will read and write their input and output.
+* The `parallel_runner` creates child processes for each run_config batch by calling `run_recourse_experiment.py` with the partition-specific batch config file. If running on slurm (using `--slurm`), the processes are created using `srun`.
+* As each process completes, it aggregates and saves their results to a temporary scratch directory.
+* Once all child processes complete, it returns the aggregated results as a DataFrame.
+* Control is returned to the original `run_recourse_experiment.py` instance along with the final results DataFrame and the final results are saved (either to an automatically decided location or to a user-provided location).
+
+### Config file conversion
+
+See `create_run_configs` in `experiments/utils.py` for implementation.
+
+Config files are converted from "experiment" configs to "batch" configs automatically by performing gridsearch over the values provided in `parameter_ranges`. For example, if there are 3 parameters in `parameter_ranges` and each parameter has two possible values, then a "batch" config with 2 * 3 = 6 run_configs will be created -- there is one run_config for each of the possible combinations of parameter values.
+
+After generating these run_configs, copies of each run_config are created based on the `num_runs` parameter. This parameter allows you to run experiments where there are multiple executions with identical parameters differing only in random seed. If `num_runs = 3`, then for each run_config originally created, two more with identical parameters will be created and added to the final list of run_configs. Some special keys are also added:
+
+* `run_id` is unique to each run_config. If there are 3 original run_configs and `num_runs` is 2, then the final result will have 6 run_configs and 6 unique `run_ids`.
+* `batch_id` is shared by all copies of a source run_config. If there are 3 original run_configs and `num_runs` is 2, then the final result will have 6 run_configs and 3 unique `batch_ids`.
+* `run_seed` is unique within each batch but shared across all batches. If there are 3 original run_configs and `num_runs` is 2, then the final result will have 6 run_configs and 2 unique `run_seeds`.
+
+Then what does the `run_seed` actually determine? This depends on the implementation of `run_mrmc()`, `run_dice()`, and `run_face()` in `run_recourse_experiment.py`. In practice, the `run_seed` always determines the `adapter_seed` which is used to perturb directions taken by POIs. Additionally if `use_full_eval_set = False`, then the `run_seed` is also used to randomly select a POI from the eval set.
+
 ## Editing config files 
 
 The config templates in `MRMC/experiments/configs` should be filled in before running any experiments. The values which must be filled in are called `REPLACE ME`.
