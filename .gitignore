@@ -6,3 +6,5 @@ __pycache__
 .vscode
 raw_data
 recourse_methods/face_graphs
+saved_models
+experiment_results
