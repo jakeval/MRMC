@@ -609,6 +609,9 @@ def _get_results_dir(
 # https://github.com/jakeval/MRMC/issues/41
 def run_batch(
     recourse_method: str,
+    dataset_name: str,
+    model_type: str,
+    split: str,
     run_configs: Sequence[Mapping[str, Any]],
     verbose: bool,
 ) -> Mapping[str, pd.DataFrame]:
@@ -622,7 +625,10 @@ def run_batch(
     for i, run_config in enumerate(run_configs):
         if recourse_method == "mrmc":
             mrmc_paths, clusters, recourse_seconds, cluster_seconds = run_mrmc(
-                **run_config
+                dataset_name=dataset_name,
+                model_type=model_type,
+                split=split,
+                **run_config,
             )
             experiment_config_df, mrmc_paths_df, cluster_df = format_results(
                 mrmc_paths,
@@ -637,7 +643,12 @@ def run_batch(
                 "cluster_df": cluster_df,
             }
         elif recourse_method == "dice":
-            dice_paths, elapsed_recourse_seconds = run_dice(**run_config)
+            dice_paths, elapsed_recourse_seconds = run_dice(
+                dataset_name=dataset_name,
+                model_type=model_type,
+                split=split,
+                **run_config,
+            )
             experiment_config_df, dice_paths_df = format_results(
                 dice_paths, run_config, elapsed_recourse_seconds
             )
@@ -646,7 +657,12 @@ def run_batch(
                 "dice_paths_df": dice_paths_df,
             }
         else:
-            face_paths, elapsed_recourse_seconds = run_face(**run_config)
+            face_paths, elapsed_recourse_seconds = run_face(
+                dataset_name=dataset_name,
+                model_type=model_type,
+                split=split,
+                **run_config,
+            )
             experiment_config_df, face_paths_df = format_results(
                 face_paths, run_config, elapsed_recourse_seconds
             )
@@ -665,46 +681,64 @@ def get_run_configs(
 ) -> Sequence[Mapping[str, Any]]:
     """Returns the run configs from the provided config file."""
     if is_experiment_config:
-        keys = set(config.keys())
-        if keys != set(
-            [
-                "parameter_ranges",
-                "num_runs",
-                "random_seed",
-                "experiment_name",
-                "recourse_method",
-            ]
-        ) and keys != set(
-            [
-                "parameter_ranges",
-                "num_runs",
-                "experiment_name",
-                "recourse_method",
-            ]
-        ):
-            raise RuntimeError(
-                (
-                    "The experiment config should have only the top-level keys"
-                    " called 'run_configs', 'num_runs', 'experiment_name', and"
-                    f" optionally 'random_seed'. Instead it has keys {keys}."
-                )
-            )
+        _validate_experiment_config(config)
         return experiment_utils.create_run_configs(
             parameter_ranges=config["parameter_ranges"],
             num_runs=config["num_runs"],
             random_seed=config.get("random_seed", None),
         )
     else:
-        keys = set(config.keys())
-        if keys != set(["run_configs", "experiment_name", "recourse_method"]):
-            raise RuntimeError(
-                (
-                    "The batch config should only have top-level keys called "
-                    "'run_configs' and 'experiment_name'. Instead it has keys "
-                    f"{keys}."
-                )
-            )
+        _validate_batch_config(config)
         return config["run_configs"]
+
+
+def _validate_experiment_config(config: Mapping[str, Any]):
+    """Validates the top-level keys of an experiment config dictionary."""
+    keys = set(config.keys())
+    necessary_keys = set(
+        [
+            "parameter_ranges",
+            "num_runs",
+            "experiment_name",
+            "recourse_method",
+            "dataset_name",
+            "model_type",
+            "split",
+        ]
+    )
+    optional_keys = set(["random_seed"])
+    allowed_keys = necessary_keys.union(optional_keys)
+    if not (necessary_keys.issubset(keys) and keys.issubset(allowed_keys)):
+        raise RuntimeError(
+            (
+                "The experiment config should have only the required keys "
+                f"{necessary_keys} and maybe the optional keys "
+                f"{optional_keys}. Instead it has keys {keys}."
+            )
+        )
+
+
+def _validate_batch_config(config: Mapping[str, Any]):
+    """Validates the top-level keys of a batch config dictionary."""
+    keys = set(config.keys())
+    necessary_keys = set(
+        [
+            "run_configs",
+            "experiment_name",
+            "recourse_method",
+            "dataset_name",
+            "model_type",
+            "split",
+        ]
+    )
+    if keys != necessary_keys:
+        raise RuntimeError(
+            (
+                "The batch config should only have top-level keys called "
+                f"{necessary_keys}. Instead it has keys "
+                f"{keys}."
+            )
+        )
 
 
 def do_dry_run(
@@ -757,6 +791,9 @@ def main(
             num_processes=num_processes,
             use_slurm=use_slurm,
             recourse_method=recourse_method,
+            dataset_name=config["dataset_name"],
+            model_type=config["model_type"],
+            split=config["split"],
             random_seed=None,  # Not needed for reproducibility.
             scratch_dir=scratch_dir,
             verbose=verbose,
@@ -767,7 +804,14 @@ def main(
     else:
         if verbose:
             print(f"Start executing {len(run_configs)} runs.")
-        results = run_batch(recourse_method, run_configs, verbose)
+        results = run_batch(
+            recourse_method=recourse_method,
+            dataset_name=config["dataset_name"],
+            model_type=config["model_type"],
+            split=config["split"],
+            run_configs=run_configs,
+            verbose=verbose,
+        )
     config["meta_data"] = {
         "total_runtime_seconds": time.time() - start_time,
         "num_processes": num_processes or 1,
