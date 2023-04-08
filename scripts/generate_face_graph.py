@@ -76,10 +76,16 @@ def main(
         confidence_threshold=0.6,  # doesn't matter
         weight_bias=weight_bias,
     )
+
+    config = {
+        "dataset": dataset_name,
+        "distance_threshold": distance_threshold,
+        "weight_bias": weight_bias,
+        "sample_size": debug_subsample,
+    }
+
     print("Begin graph generation...")
-    face.generate_graph(
-        filepath_to_save_to=graph_filepath,
-    )
+    face.generate_graph(filepath_to_save_to=graph_filepath, config=config)
     print("Finished!")
 
 
