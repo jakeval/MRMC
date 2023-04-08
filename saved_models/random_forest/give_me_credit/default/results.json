@@ -1,0 +1,23 @@
+{
+    "train": {
+        "accuracy": 0.999951089481793,
+        "true_positives": 38048,
+        "false_positives": 2,
+        "true_negatives": 2841,
+        "false_negatives": 0
+    },
+    "val": {
+        "accuracy": 0.9329033233389604,
+        "true_positives": 36641,
+        "false_positives": 290,
+        "true_negatives": 385,
+        "false_negatives": 2373
+    },
+    "test": {
+        "accuracy": 0.9325505807654514,
+        "true_positives": 36649,
+        "false_positives": 282,
+        "true_negatives": 363,
+        "false_negatives": 2395
+    }
+}

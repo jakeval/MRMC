@@ -613,7 +613,11 @@ def save_results(
         The directory where the results are saved."""
     if not results_directory:
         results_directory = os.path.join(
-            _RESULTS_DIR, config["recourse_method"], config["experiment_name"]
+            _RESULTS_DIR,
+            config["recourse_method"],
+            config["model_type"],
+            config["dataset_name"],
+            config["experiment_name"],
         )
     if os.path.exists(results_directory):
         shutil.rmtree(results_directory)

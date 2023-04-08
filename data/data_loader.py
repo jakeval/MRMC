@@ -1,6 +1,10 @@
 import pandas as pd
 from typing import Optional, Mapping, Tuple, Sequence, Union
-from data.datasets import credit_card_default_loader, base_loader
+from data.datasets import (
+    credit_card_default_loader,
+    base_loader,
+    give_me_credit_loader,
+)
 import enum
 
 
@@ -15,6 +19,7 @@ class DatasetName(enum.Enum):
     """
 
     CREDIT_CARD_DEFAULT = credit_card_default_loader.DATASET_NAME
+    GIVE_ME_CREDIT = give_me_credit_loader.DATASET_NAME
     TOY_DATASET = "toy_data"
 
 
@@ -44,6 +49,10 @@ def load_data(
     loader_kwargs = loader_kwargs or {}
     if dataset_name == DatasetName.CREDIT_CARD_DEFAULT:
         loader = credit_card_default_loader.CreditCardDefaultLoader(
+            data_dir=data_dir, **loader_kwargs
+        )
+    elif dataset_name == DatasetName.GIVE_ME_CREDIT:
+        loader = give_me_credit_loader.GiveMeCreditLoader(
             data_dir=data_dir, **loader_kwargs
         )
     elif dataset_name == DatasetName.TOY_DATASET:
