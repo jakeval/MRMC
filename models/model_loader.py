@@ -1,6 +1,6 @@
 from data import data_loader
 from models import model_interface
-from models.core import logistic_regression
+from models.core import logistic_regression, random_forest
 from models import model_constants
 
 # TODO(@jakeval): Remove references to toy_model in this file
@@ -27,6 +27,9 @@ def load_model(
     if model_type == model_constants.ModelType.LOGISTIC_REGRESSION:
         lr = logistic_regression.LogisticRegression(dataset_name, model_name)
         return lr.load_model()
+    elif model_type == model_constants.ModelType.RANDOM_FOREST:
+        rf_loader = random_forest.RandomForest(dataset_name, model_name)
+        return rf_loader.load_model()
     elif model_type == model_constants.ModelType.TOY_MODEL:
         from confidence_checks import identity_adapter, toy_model, toy_data
 
