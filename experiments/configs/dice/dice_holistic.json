@@ -1,17 +1,15 @@
 {
-    "experiment_name": "dice_hyperparam",
-    "num_runs": 30,
+    "experiment_name": "dice_holistic",
+    "num_runs": 1,
     "recourse_method": "dice",
-    "dataset_name": "credit_card_default",
-    "model_type": "logistic_regression",
-    "split": "val",
     "random_seed": 103932,
+    "use_full_eval_set": true,
+    "dataset_name": REPLACE ME,
+    "model_type": REPLACE ME,
+    "split": "test",
     "parameter_ranges": {
         "confidence_cutoff": [
-            0.6,
-            0.7,
-            0.8,
-            0.9
+            0.7
         ],
         "noise_ratio": [
             null
@@ -20,11 +18,7 @@
             null
         ],
         "num_paths": [
-            1,
-            2,
-            3,
-            4,
-            5
+            3
         ],
         "max_iterations": [
             50
