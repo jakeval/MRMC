@@ -377,11 +377,10 @@ def run_face(
     noise_ratio: Optional[float],
     rescale_ratio: Optional[float],
     num_paths: int,
+    graph_filepath: str,
     max_iterations: int,
     dataset_name: str,
     model_type: str,
-    distance_threshold: float,
-    graph_filepath: str,
     counterfactual_mode: bool,
     split: str,
     **_unused_kwargs: Any,
@@ -395,12 +394,14 @@ def run_face(
         noise_ratio: The optional ratio of noise to add.
         rescale_ratio: The optional ratio by which to rescale the direction.
         num_paths: The number of recourse paths to generate.
+        graph_filepath: The path to the face graph to provide recourse over.
+            The path should be relative to the MRMC directory and typically
+            looks something like
+            'recourse_methods/face_graphs/dataset_name/graph_name.npz'.
         max_iterations: The maximum number of iterations to take recourse steps
             for.
         dataset_name: The name of the dataset to use.
         model_type: The type of model to use.
-        distance_threshold: The maximum edge length of the graph.
-        graph_filepath: Path to a graph which matches the distance_threshold.
         counterfactual_mode: Whether to use the first or final point in the
             path to create recourse directions.
         split: The dataset split to evaluate on.
@@ -431,16 +432,27 @@ def run_face(
         model_constants.ModelType(model_type),
         data_loader.DatasetName(dataset_name),
     )
+
+    # Construct the graph filepath
+    graph_filepath = os.path.join(_MRMC_PATH, graph_filepath)
+    # Load the graph's config so we can retrieve the graph's metadata
+    config_filepath = f"{'.'.join(graph_filepath.split('.')[:-1])}_config.json"
+    with open(config_filepath, "r") as f:
+        graph_config = json.load(f)
+        weight_bias = graph_config["weight_bias"]
+        distance_threshold = graph_config["distance_threshold"]
+
     face = face_method.FACE(
         dataset=train_data,
         adapter=adapter,
         model=model,
         k_directions=num_paths,
         distance_threshold=distance_threshold,
+        weight_bias=weight_bias,
         confidence_threshold=confidence_cutoff,
         graph_filepath=os.path.join(_MRMC_PATH, graph_filepath),
         counterfactual_mode=counterfactual_mode,
-    )
+    ).fit()
     iterator = recourse_iterator.RecourseIterator(
         adapter=adapter,
         recourse_method=face,
