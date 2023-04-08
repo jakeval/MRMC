@@ -30,6 +30,7 @@ class DatasetInfo:
     categorical_features: Sequence[str]
     label_column: str
     positive_label: Any
+    negative_label: Any
 
 
 @dataclass
